@@ -1,0 +1,88 @@
+# 5. Konfigurationsentwurf
+
+```yaml
+http:
+  bind-address: "127.0.0.1"
+  port: 9940
+  metrics-path: "/metrics"
+  health-path: "/health"
+  ready-path: "/ready"
+  worker-threads: 2
+
+collection:
+  server-interval: "5s"
+  world-interval: "10s"
+  region-interval: "5s"
+  entity-interval: "30s"
+  filesystem-interval: "30m"
+  timeout: "10s"
+
+collectors:
+  server: true
+  events: true
+  worlds: true
+  chunks: true
+  entities: true
+  folia-regions: true
+  jvm: true
+  process: true
+  filesystem: true
+  exporter: true
+  gameplay: false
+  plugin-info: false
+  detailed-entity-types: false
+  commands: false
+
+folia:
+  observation-sources:
+    player-regions: true
+    world-spawns: true
+    force-loaded-chunks: true
+    configured-locations: []
+
+  observation-ttl: "60s"
+
+  tps:
+    windows:
+      - "5s"
+      - "15s"
+      - "1m"
+      - "5m"
+      - "15m"
+    statistics:
+      - "min"
+      - "p05"
+      - "p50"
+      - "p95"
+      - "max"
+      - "average"
+    thresholds:
+      - 19.5
+      - 18.0
+      - 15.0
+      - 10.0
+
+  experimental-internal-provider:
+    enabled: false
+
+filesystem:
+  include-world-sizes: true
+  include-server-filesystem: true
+  include-log-size: false
+  include-plugin-size: false
+
+privacy:
+  individual-player-metrics-supported: false
+
+logging:
+  collection-errors: true
+  debug: false
+```
+
+## Konfigurationsregeln
+
+- Ungültige Intervalle verhindern nicht zwingend den Pluginstart; es soll ein
+  verständlicher Konfigurationsfehler ausgegeben werden.
+- Der HTTP-Endpunkt bindet standardmäßig nur lokal.
+- Experimentelle Provider sind standardmäßig aus.
+- Spielermetriken existieren nicht als aktivierbare Option.

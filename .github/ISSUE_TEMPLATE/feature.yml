@@ -1,0 +1,23 @@
+name: Feature request
+description: Neue Metrik oder Funktion vorschlagen
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: Beschreibung
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Vorgeschlagene Metriknamen und Labels
+  - type: checkboxes
+    attributes:
+      label: Datenschutz und Kardinalität
+      options:
+        - label: Die Funktion verwendet keine Spielernamen oder UUIDs als Labels.
+          required: true
+        - label: Die Funktion exportiert keine individuellen Spielerstatistiken.
+          required: true
+        - label: Die Label-Kardinalität ist begrenzt und dokumentiert.
+          required: true
