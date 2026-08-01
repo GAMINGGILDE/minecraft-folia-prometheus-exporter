@@ -24,7 +24,8 @@ Erzeuge das Gradle-Projekt anhand der Spezifikation.
 - GitHub Actions Build
 - Tests für Standardwerte, ungültige Konfigurationen, Plugin-Metadaten und die
   expandierte Pluginversion
-- nach Möglichkeit ein automatisierter Starttest auf Paper und Folia
+- separater automatisierter Starttest auf fest gepinntem Paper 26.1.2 Build 74
+  und Folia 26.1.2 Build 8
 
 ## Verbote
 
@@ -52,5 +53,7 @@ Zusätzlich gilt:
 - Der erzeugte Descriptor enthält `version: '0.1.0-SNAPSHOT'` und keinen
   nicht expandierten Platzhalter.
 - Die Tests für Konfiguration und Plugin-Metadaten sind erfolgreich.
-- Ein Starttest verifiziert `api-version`, sofern geeignete Paper-/Folia-Artefakte
-  automatisierbar verfügbar sind.
+- Ein verpflichtender, vom normalen Build getrennter Starttest verifiziert
+  `api-version` auf den fest gepinnten Paper-/Folia-Artefakten. Er verwendet den
+  offiziellen PaperMC Downloads Service mit identifizierendem User-Agent,
+  verifiziert die SHA-256-Prüfsummen und beendet beide Server kontrolliert.

@@ -26,8 +26,18 @@ muss erfolgreich sein.
 
 ## 7.3 Integrationsprüfungen
 
-- Plugin startet auf Paper der Ziel-API-Linie
-- Plugin startet auf Folia der Ziel-API-Linie
+- Ein separater, verpflichtender GitHub-Actions-Workflow baut das Plugin mit
+  Java 25 und startet es auf Paper `26.1.2` Build `74` sowie Folia `26.1.2`
+  Build `8`.
+- Beide Serverartefakte werden über den offiziellen PaperMC Downloads Service mit
+  einem identifizierenden User-Agent geladen; Buildnummer und SHA-256 sind fest
+  gepinnt.
+- Der Test setzt `eula=true`, kopiert das einzige erzeugte Plugin-JAR nach
+  `plugins/` und startet mit `--nogui`.
+- Nur die eindeutige Meldung `FoliaPrometheusExporter started.` bestätigt die
+  Aktivierung.
+- Plugin-Exceptions, Ladefehler, vorzeitiges Serverende und Timeout führen zum
+  Fehlschlag; danach wird der Server über `stop` kontrolliert beendet.
 - `/metrics` antwortet
 - `/health` und `/ready` funktionieren
 - HTTP-Server stoppt beim Disable
@@ -75,10 +85,20 @@ muss erfolgreich sein.
 - `folia-supported: true` ist gesetzt.
 - `api-version` ist anhand der öffentlichen Paper-API verifiziert; für die
   API-Linie 26.1.2 ist der bestätigte Wert `26.1.2`.
-- Wenn ein geeigneter Testserver automatisierbar verfügbar ist, wird der Descriptor
-  zusätzlich durch einen Starttest auf Paper und nach Möglichkeit Folia geprüft.
+- Der Descriptor wird zusätzlich durch den separaten, verpflichtenden Starttest
+  auf den fest gepinnten Paper- und Folia-Builds geprüft.
 - Die Descriptor-Version ist `0.1.0-SNAPSHOT` und enthält keinen Platzhalter.
 - Tests decken Standardwerte, ungültige Konfigurationen, Plugin-Metadaten und die
   expandierte Pluginversion ab.
 - Es existieren keine Collector, HTTP-Endpunkte, konkreten Metriken,
   Folia-Provider oder vorsorglichen PlatformDetector.
+
+## 7.8 Abnahme Architektur vor Phase 2
+
+- Normaler Build und Server-Smoke-Test sind getrennte GitHub-Actions-Workflows.
+- Der Smoke-Test verwendet keine dynamische Latest-Version.
+- Prometheus-Client, HTTP-Lifecycle, Shading und Relocation sind durch ADR 0011
+  verbindlich festgelegt.
+- Phase 2 führt keinen Folia-Metrikprovider ein.
+- Capability-Erkennung und Paper-Verhalten des späteren Folia-Collectors sind
+  durch ADR 0010 verbindlich festgelegt.

@@ -4,6 +4,10 @@ Die Regeln gelten für beide offiziell unterstützten Plattformen. Das Plugin nu
 auf Paper und Folia ausschließlich Global-, Region-, Entity- und Async-Scheduler.
 Es gibt keinen Fallback auf den klassischen `BukkitScheduler`.
 
+Diese vier Scheduler sind Teil der gemeinsamen öffentlichen Paper-API und werden
+nicht als Folia-Erkennungsmerkmal verwendet. Phase 2 benötigt deshalb weder einen
+Folia-Provider noch eine Plattform- oder Feature-Erkennung.
+
 ## 4.1 Scheduler-Zuordnung
 
 | Aufgabe | Scheduler |
@@ -65,6 +69,11 @@ public interface CollectionScheduler {
 
 Die Abstraktion darf keine klassische Scheduler-Alternative enthalten. In Phase 1
 wird noch keine Collector-Scheduling-Logik implementiert.
+
+Die spätere Capability-Prüfung des isolierten Folia-Metrikproviders bezieht sich
+ausschließlich auf die konkrete öffentliche Folia-API, die seine Messung benötigt.
+Sie prüft weder Servername noch Versionsstring und lädt die Providerklasse auf
+Paper nicht vorzeitig.
 
 ## 4.4 Snapshot-Regel
 

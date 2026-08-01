@@ -8,13 +8,14 @@ wird als genau ein gemeinsames Plugin-JAR ausgeliefert.
 Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Folia-spezifische
 Funktionen werden erst bei tatsächlichem Bedarf in einem isolierten Provider
 implementiert. Phase 1 enthält weder diesen Provider noch eine vorsorgliche
-Plattform- oder Feature-Erkennung.
+Plattform- oder Feature-Erkennung. Dasselbe gilt für Phase 2.
 
 ## Scheduler
 
 Auf Paper und Folia werden ausschließlich Global-, Region-, Entity- und
 Async-Scheduler verwendet. Ein Fallback auf den klassischen `BukkitScheduler` ist
-ausgeschlossen.
+ausgeschlossen. Diese Scheduler stammen aus der gemeinsamen öffentlichen
+Paper-API und sind kein Merkmal zur Folia-Erkennung.
 
 ## Plattformumfang
 
@@ -29,8 +30,9 @@ ausgeschlossen.
 
 Das gemeinsame JAR verwendet die klassische `plugin.yml` mit
 `folia-supported: true`. Für die API-Linie 26.1.2 ist der öffentlich bestätigte
-Wert `api-version: '26.1.2'` zu verwenden und nach Möglichkeit durch einen
-Starttest zu verifizieren.
+Wert `api-version: '26.1.2'` zu verwenden. Der verpflichtende, getrennte
+Server-Smoke-Test verifiziert den Start auf Paper 26.1.2 Build 74 und Folia
+26.1.2 Build 8.
 
 ## Konsequenzen
 
@@ -39,3 +41,8 @@ Starttest zu verifizieren.
   Folia-Provider eingeführt.
 - Tests und Dokumentation berücksichtigen Paper und Folia getrennt.
 - Folia-spezifische Metriken bleiben in einem eigenen Provider isoliert.
+
+Die gepinnten Zielserver und der getrennte CI-Smoke-Test sind in
+[ADR 0009](0009-pinned-server-smoke-tests.md) festgelegt. Die spätere
+Capability-Erkennung und das Verhalten auf Paper regelt
+[ADR 0010](0010-folia-provider-capability-detection.md).

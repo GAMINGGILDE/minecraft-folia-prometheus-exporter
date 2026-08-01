@@ -73,11 +73,14 @@ den klassischen `BukkitScheduler`.
 
 ### `MetricsEndpoint`
 
-- `/metrics`
-- `/health`
-- `/ready`
-- eigener HTTP-Executor
+- `/metrics`, `/health` und `/ready` als Standardpfade
+- offizieller Prometheus-Java-Client-HTTP-Server 1.8.0
+- Standardbindung an `127.0.0.1`; Host, Port, Pfade und Workerzahl aus der
+  Konfiguration
+- offizieller Renderer statt eigener Prometheus-Textserialisierung
+- keine zusätzlichen HTTP-Frameworks
 - keine Minecraft-API-Aufrufe
+- sauberer `close()`-/`stop()`-Aufruf beim Plugin-Disable
 
 ### `RegionObservationRegistry`
 
@@ -91,9 +94,17 @@ den klassischen `BukkitScheduler`.
 
 - wird erst in Phase 6 eingeführt
 - ist vom allgemeinen, gegen `paper-api` kompilierten Code isoliert
+- kompiliert gegen `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`
 - verwendet ausschließlich öffentliche Folia-APIs
 - wird nicht in Phase 1 auf Vorrat angelegt
-- führt seine Plattform- oder Feature-Erkennung erst bei tatsächlichem Bedarf ein
+- wird auch nicht in Phase 2 implementiert
+- aktiviert sich ausschließlich anhand der konkret benötigten öffentlichen
+  Folia-API-Capability
+- wird auf Paper vor der Capability-Prüfung weder referenziert noch geladen
+- verwendet weder Servername noch Versionsstring oder Scheduler-Verfügbarkeit als
+  Plattformmerkmal
+- verwendet insbesondere nicht die interne Klasse
+  `io.papermc.paper.threadedregions.RegionizedServer`
 
 ## 3.4 Collector-Gruppen
 
@@ -118,4 +129,17 @@ GameplayCollector (optional)
 - Snapshot-Alter zeigt veraltete Daten.
 - Ein Collector-Fehler darf den HTTP-Endpunkt nicht stoppen.
 - Ein optionaler plattformspezifischer Provider darf das Plugin nicht am Start hindern.
+- Ein konfigurierter, aber nicht unterstützter Folia-Collector wird nicht gestartet,
+  einmalig verständlich als `unsupported` gemeldet und exportiert keine
+  Folia-Nullwerte.
 - Experimentelle oder interne Provider sind kein Bestandteil von Version 1.
+
+## 3.6 Abhängigkeitsisolation
+
+Der Prometheus Java Client wird ab Phase 2 über seine BOM in Version 1.8.0
+eingebunden. Die Module `prometheus-metrics-core`,
+`prometheus-metrics-instrumentation-jvm` und
+`prometheus-metrics-exporter-httpserver` werden in das gemeinsame Plugin-JAR
+geschattet. `io.prometheus` wird nach
+`de.minecraftgilde.prometheus.internal.prometheus` relocatet. Dadurch bleiben die
+Bibliotheken anderer Plugins vom Exporter isoliert.

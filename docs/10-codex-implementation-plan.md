@@ -18,9 +18,14 @@ Codex soll nicht das gesamte Plugin in einem einzigen Auftrag erzeugen.
 - getrennte Loader- und Validator-Komponenten
 - JUnit 5
 - GitHub-Actions-Build
+- separater verpflichtender GitHub-Actions-Server-Smoke-Test
+- fest gepinnter Paper-Starttest: 26.1.2 Build 74
+- fest gepinnter Folia-Starttest: 26.1.2 Build 8
+- Download über den offiziellen PaperMC Downloads Service mit identifizierendem
+  User-Agent und SHA-256-Prüfung
+- kontrollierter Serverstart, Aktivierungsprüfung und Shutdown
 - Tests für Standardwerte, ungültige Konfigurationen, Plugin-Metadaten und
   expandierte Pluginversion
-- Starttest auf Paper und nach Möglichkeit Folia, sofern in CI automatisierbar
 
 Nicht Bestandteil von Phase 1:
 
@@ -31,19 +36,45 @@ Nicht Bestandteil von Phase 1:
 - vorsorglicher PlatformDetector oder Feature-Detector
 
 Abnahme: `./gradlew clean build`; der erzeugte Descriptor enthält die konkrete
-Version und keinen nicht expandierten Platzhalter.
+Version und keinen nicht expandierten Platzhalter. Der getrennte Smoke-Workflow
+bestätigt die eindeutige Pluginaktivierung auf beiden gepinnten Zielservern und
+beendet sie anschließend kontrolliert.
 
 ## Phase 2 – Metrics Core
 
+- offizieller Prometheus Java Client 1.8.0 über
+  `io.prometheus:prometheus-metrics-bom`
+- Module `prometheus-metrics-core`,
+  `prometheus-metrics-instrumentation-jvm` und
+  `prometheus-metrics-exporter-httpserver`
+- genau ein schattiertes Plugin-JAR
+- Relocation von `io.prometheus` nach
+  `de.minecraftgilde.prometheus.internal.prometheus`
 - Collector-Interface
 - Snapshot-Modell
 - SnapshotRepository
 - CollectorCoordinator
-- HTTP-Endpunkte
-- Health und Readiness
+- HTTP-Server des offiziellen Prometheus-Clients; kein eigener Text-Renderer und
+  kein zusätzliches HTTP-Framework
+- Bindung an konfigurierte Host-, Port-, Pfad- und Workerwerte mit Standardhost
+  `127.0.0.1`
+- Standardpfade `/metrics`, `/health` und `/ready`
+- sauberer HTTP-Shutdown beim Plugin-Disable
+- HTTP-Threads lesen ausschließlich immutable Snapshots und kontrollierten
+  Exporterstatus
 - Exporter-Eigenmetriken
 
-Abnahme: HTTP-Ausgabe ohne Minecraft-Livezugriffe.
+Nicht Bestandteil von Phase 2:
+
+- Folia-Metrikprovider
+- Folia-Plattformerkennung
+- Registrierung der JVM- und Prozessmetriken aus Phase 3
+- zusätzliche Metriken außerhalb der für Phase 2 festgelegten
+  Exporter-Eigenmetriken
+
+Abnahme: HTTP-Ausgabe ohne Minecraft-Livezugriffe; `/metrics`, `/health` und
+`/ready` funktionieren; der HTTP-Server stoppt beim Disable; das einzige
+Plugin-JAR enthält die relocateten Prometheus-Bibliotheken.
 
 ## Phase 3 – JVM und Prozess
 
@@ -79,8 +110,15 @@ Abnahme: HTTP-Ausgabe ohne Minecraft-Livezugriffe.
 
 ## Phase 6 – Folia Regions-TPS
 
-- isolierter Folia-Provider
-- belastbare Plattform- oder Feature-Erkennung über öffentliche APIs
+- isolierter Folia-Provider im eigenen Package
+- `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`
+- Capability-Erkennung ausschließlich über die konkret benötigte öffentliche
+  Folia-API; keine Servernamen oder Versionsstrings
+- keine Verwendung von NMS, internen Klassen oder
+  `io.papermc.paper.threadedregions.RegionizedServer`
+- Providerklasse wird auf Paper vor erfolgreicher Capability-Prüfung nicht geladen
+- aktivierter Folia-Collector auf Paper: einmalige Warnung, Status `unsupported`,
+  kein Start des Collectors, fortgesetzter Pluginstart und keine Folia-Nullwerte
 - RegionObservationRegistry
 - Beobachtungsquellen
 - TPS-Abfrage

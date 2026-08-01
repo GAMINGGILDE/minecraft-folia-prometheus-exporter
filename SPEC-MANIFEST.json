@@ -11,11 +11,64 @@
   "internal_paper_api_v1": false,
   "internal_folia_api_v1": false,
   "individual_player_metrics": false,
-  "implementation_status": "Phase 1 project skeleton implemented; no metrics or HTTP endpoints",
+  "implementation_status": "Phase 1 project skeleton and pinned Paper/Folia server smoke tests implemented; Phase 2 architecture decided; no metrics or HTTP endpoints yet",
+  "server_smoke_tests": {
+    "workflow_separate_from_build": true,
+    "runner": "ubuntu-24.04",
+    "java": 25,
+    "downloads_service": "https://fill.papermc.io/v3",
+    "user_agent": "minecraft-folia-prometheus-exporter-ci/0.1.0 (https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter)",
+    "dynamic_latest": false,
+    "activation_marker": "FoliaPrometheusExporter started.",
+    "paper": {
+      "version": "26.1.2",
+      "build": 74,
+      "sha256": "1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7"
+    },
+    "folia": {
+      "version": "26.1.2",
+      "build": 8,
+      "sha256": "607afd1c3320008e1ffd2eaee6780ace4419d5f8c527b75e79f259be79ebf57b"
+    }
+  },
+  "phase_2_architecture": {
+    "folia_metrics_provider": false,
+    "prometheus_java_client": "1.8.0",
+    "prometheus_bom": "io.prometheus:prometheus-metrics-bom:1.8.0",
+    "prometheus_modules": [
+      "prometheus-metrics-core",
+      "prometheus-metrics-instrumentation-jvm",
+      "prometheus-metrics-exporter-httpserver"
+    ],
+    "http_server": "prometheus-metrics-exporter-httpserver",
+    "additional_http_framework": false,
+    "custom_prometheus_text_renderer": false,
+    "default_bind_address": "127.0.0.1",
+    "http_host_port_paths_and_workers_from_configuration": true,
+    "endpoints": [
+      "/metrics",
+      "/health",
+      "/ready"
+    ],
+    "snapshot_only_http_reads": true,
+    "prometheus_relocation": "de.minecraftgilde.prometheus.internal.prometheus"
+  },
+  "future_folia_provider": {
+    "phase": 6,
+    "compile_only_api": "dev.folia:folia-api:26.1.2.build.8-stable",
+    "isolated_package": true,
+    "capability_detection_only": true,
+    "server_name_or_version_detection": false,
+    "loads_provider_on_paper_before_detection": false,
+    "paper_collector_state": "unsupported",
+    "exports_synthetic_zero_metrics": false
+  },
   "files": [
     ".github/ISSUE_TEMPLATE/feature.yml",
     ".github/pull_request_template.md",
+    ".github/scripts/server-smoke-test.sh",
     ".github/workflows/build.yml",
+    ".github/workflows/server-smoke-test.yml",
     ".gitignore",
     "AGENTS.md",
     "LICENSE",
@@ -40,6 +93,9 @@
     "docs/adr/0006-no-counter-persistence-v1.md",
     "docs/adr/0007-folia-only.md",
     "docs/adr/0008-paper-and-folia.md",
+    "docs/adr/0009-pinned-server-smoke-tests.md",
+    "docs/adr/0010-folia-provider-capability-detection.md",
+    "docs/adr/0011-prometheus-client-and-http-server.md",
     "docs/codex-tasks/01-project-bootstrap.md",
     "docs/codex-tasks/02-metrics-core.md",
     "docs/codex-tasks/03-jvm-process.md",

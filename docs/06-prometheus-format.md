@@ -1,5 +1,12 @@
 # 6. Prometheus-Format und Kardinalität
 
+## 6.0 Implementierung
+
+Formatverhandlung und Serialisierung übernimmt der offizielle Prometheus Java
+Client 1.8.0. Ein eigener Text-Renderer ist ausgeschlossen. Die benötigten
+Clientmodule werden in das Plugin-JAR eingebunden und von `io.prometheus` nach
+`de.minecraftgilde.prometheus.internal.prometheus` relocatet.
+
 ## 6.1 Typen
 
 - Gauge: aktueller Zustand
@@ -49,3 +56,9 @@ Counter-Resets nach Neustarts. Langzeitwerte werden in Prometheus berechnet.
 Collector-Laufzeiten sollen als Histogramme exportiert werden. Regionale
 Tickdauer-Histogramme dürfen nur angeboten werden, wenn die zugrunde liegenden
 regionalen Tickdauern tatsächlich belastbar messbar sind.
+
+## 6.6 Scrape-Datenquelle
+
+Der Renderer und alle HTTP-Handler lesen ausschließlich immutable Snapshots und
+kontrollierten Exporterstatus. Sie führen keine Live-Abfragen gegen Bukkit, Paper,
+Folia oder Minecraft-Daten aus.

@@ -10,7 +10,9 @@ Semantische Versionierung:
 
 ## Release-Artefakte
 
-- schattiertes Plugin-JAR
+- genau ein schattiertes Plugin-JAR; Prometheus-Abhängigkeiten sind enthalten und
+  `io.prometheus` ist nach `de.minecraftgilde.prometheus.internal.prometheus`
+  relocatet
 - Prüfsumme
 - Changelog
 - dokumentierte Zielversionen von Paper und Folia

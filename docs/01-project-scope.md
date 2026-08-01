@@ -103,3 +103,7 @@ Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Folia-spezifisch
 Funktionen werden erst bei tatsächlichem Bedarf in einem isolierten Provider
 implementiert. Phase 1 enthält weder einen solchen Provider noch eine vorsorgliche
 Plattform- oder Feature-Erkennung.
+
+Die unterstützten Zielplattformen werden in einem separaten CI-Smoke-Test gegen
+fest gepinnte Paper- und Folia-Serverbuilds der API-Linie 26.1.2 gestartet. Der
+Test ist vom normalen Build getrennt und verwendet keine dynamische Latest-Auswahl.

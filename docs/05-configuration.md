@@ -84,7 +84,10 @@ logging:
 - Experimentelle oder interne Provider sind in Version 1 nicht konfigurierbar.
 - Spielermetriken existieren nicht als aktivierbare Option.
 - Die genaue Behandlung von `folia-regions: true` auf Paper wird erst zusammen
-  mit dem isolierten Folia-Provider in Phase 6 festgelegt.
+  mit dem isolierten Folia-Provider in Phase 6 implementiert: Der Collector wird
+  nicht gestartet, einmalig als nicht unterstützt protokolliert und intern als
+  `unsupported` markiert. Der Pluginstart läuft weiter und es werden keine
+  Folia-Metriken mit künstlichen Nullwerten exportiert.
 
 ## Konfigurationsmodell
 
@@ -94,3 +97,6 @@ logging:
 - Phase 1 testet Standardwerte und ungültige Konfigurationen.
 - Die Konfiguration startet in Phase 1 weder Collector noch HTTP-Endpunkte und
   erzeugt keine Metriken.
+- Phase 2 übernimmt Bindeadresse, Port, Endpunktpfade und Workerzahl aus der
+  bestehenden HTTP-Konfiguration. Die Standardbindung bleibt `127.0.0.1`; die
+  Standardpfade sind `/metrics`, `/health` und `/ready`.

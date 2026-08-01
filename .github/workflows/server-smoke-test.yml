@@ -1,0 +1,104 @@
+name: Server smoke test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server-smoke-test:
+    name: ${{ matrix.platform }} ${{ matrix.version }} build ${{ matrix.build }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Paper
+            project: paper
+            version: 26.1.2
+            build: 74
+            sha256: 1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7
+          - platform: Folia
+            project: folia
+            version: 26.1.2
+            build: 8
+            sha256: 607afd1c3320008e1ffd2eaee6780ace4419d5f8c527b75e79f259be79ebf57b
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Make scripts executable
+        run: chmod +x gradlew .github/scripts/server-smoke-test.sh
+
+      - name: Build plugin
+        run: ./gradlew clean build
+
+      - name: Prepare server
+        env:
+          PAPERMC_PROJECT: ${{ matrix.project }}
+          PAPERMC_VERSION: ${{ matrix.version }}
+          PAPERMC_BUILD: ${{ matrix.build }}
+          PAPERMC_SHA256: ${{ matrix.sha256 }}
+          PAPERMC_USER_AGENT: "minecraft-folia-prometheus-exporter-ci/0.1.0 (https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter)"
+          SERVER_DIRECTORY: smoke/${{ matrix.project }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$SERVER_DIRECTORY/plugins"
+          metadata_url="https://fill.papermc.io/v3/projects/${PAPERMC_PROJECT}/versions/${PAPERMC_VERSION}/builds"
+          metadata="$(curl --fail --silent --show-error --location \
+            --user-agent "$PAPERMC_USER_AGENT" \
+            "$metadata_url")"
+          download_url="$(jq --exit-status --raw-output \
+            --argjson build "$PAPERMC_BUILD" \
+            'first(.[] | select(.id == $build) | .downloads."server:default".url) // empty' \
+            <<<"$metadata")"
+
+          if [[ -z "$download_url" ]]; then
+            echo "Pinned ${PAPERMC_PROJECT} build ${PAPERMC_BUILD} was not returned by the PaperMC Downloads Service." >&2
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --location \
+            --user-agent "$PAPERMC_USER_AGENT" \
+            --output "$SERVER_DIRECTORY/server.jar" \
+            "$download_url"
+          echo "${PAPERMC_SHA256}  ${SERVER_DIRECTORY}/server.jar" | sha256sum --check --strict
+
+          mapfile -t plugin_jars < <(find build/libs -maxdepth 1 -type f -name '*.jar' -print)
+          if [[ ${#plugin_jars[@]} -ne 1 ]]; then
+            echo "Expected exactly one plugin JAR, found ${#plugin_jars[@]}." >&2
+            printf '%s\n' "${plugin_jars[@]}" >&2
+            exit 1
+          fi
+
+          cp "${plugin_jars[0]}" "$SERVER_DIRECTORY/plugins/FoliaPrometheusExporter.jar"
+          printf 'eula=true\n' > "$SERVER_DIRECTORY/eula.txt"
+
+      - name: Start server and verify plugin activation
+        env:
+          SERVER_DIRECTORY: smoke/${{ matrix.project }}
+        run: .github/scripts/server-smoke-test.sh "$SERVER_DIRECTORY"
+
+      - name: Upload server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-smoke-${{ matrix.project }}-${{ matrix.version }}-${{ matrix.build }}
+          path: smoke/${{ matrix.project }}/server.log
+          if-no-files-found: warn
