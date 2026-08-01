@@ -46,6 +46,11 @@ muss erfolgreich sein.
 - Snapshot-Alter steigt bei Collector-Ausfall
 - keine Spieleridentitäten im Output
 
+Seit Phase 2 ruft der Smoke-Test nach der eindeutigen Aktivierung alle drei
+HTTP-Endpunkte tatsächlich auf, prüft die stabilen Health-/Ready-Antworten und
+erwartet die zentralen Exporter-Eigenmetriken. Nach dem kontrollierten
+Server-Shutdown darf der HTTP-Listener nicht mehr antworten.
+
 ## 7.4 Threading-Prüfungen
 
 - keine Weltzugriffe aus HTTP-Threads
@@ -102,3 +107,25 @@ muss erfolgreich sein.
 - Phase 2 führt keinen Folia-Metrikprovider ein.
 - Capability-Erkennung und Paper-Verhalten des späteren Folia-Collectors sind
   durch ADR 0010 verbindlich festgelegt.
+
+## 7.9 Abnahme Phase 2
+
+- Prometheus Java Client 1.8.0 wird über die BOM eingebunden.
+- Core, JVM-Instrumentierungsmodul und HTTP-Exporter sind im einzigen Shadow-JAR
+  enthalten; JVM- und Prozessmetriken sind noch nicht registriert.
+- `io.prometheus` ist nach
+  `de.minecraftgilde.prometheus.internal.prometheus` relocatet.
+- Der Build prüft Descriptor, Hauptklasse, Relocation, ausgeschlossene
+  Server-APIs, Signaturdateien und genau ein JAR.
+- Collector-Zustandswechsel, Mehrfachstart, idempotenter Stop, doppelte Namen,
+  Start-/Stoppreihenfolge und Fehlerisolation sind durch Unit-Tests abgedeckt.
+- Snapshots kopieren Sammlungen defensiv; atomische Publikation, Alter, Entfernen
+  und paralleles Lesen sind getestet.
+- Registry-Eigenmetriken werden pro Registry nur einmal registriert.
+- `/metrics`, `/health`, `/ready`, `404`, `405`, parallele Requests, Readiness vor
+  und nach Initialisierung, belegte Ports und Portfreigabe nach Shutdown sind
+  durch lokale Integrationstests abgedeckt.
+- Der Plugin-Lifecycle setzt Readiness vor dem Shutdown zurück und räumt auch nach
+  einem nur teilweise erfolgreichen Start auf.
+- HTTP-Handler referenzieren keine Minecraft-Liveobjekte und lesen nur Registry
+  und atomaren Exporterstatus.

@@ -4,6 +4,8 @@ Codex soll nicht das gesamte Plugin in einem einzigen Auftrag erzeugen.
 
 ## Phase 1 – Projektgerüst
 
+Status: abgeschlossen.
+
 - Gradle Wrapper 9.6.1 mit Distribution-Checksumme
 - Gradle Kotlin DSL
 - Java Toolchain 25 und `JavaCompile.options.release = 25`
@@ -42,6 +44,8 @@ beendet sie anschließend kontrolliert.
 
 ## Phase 2 – Metrics Core
 
+Status: abgeschlossen.
+
 - offizieller Prometheus Java Client 1.8.0 über
   `io.prometheus:prometheus-metrics-bom`
 - Module `prometheus-metrics-core`,
@@ -51,11 +55,14 @@ beendet sie anschließend kontrolliert.
 - Relocation von `io.prometheus` nach
   `de.minecraftgilde.prometheus.internal.prometheus`
 - Collector-Interface
+- threadsichere Zustandsmaschine mit isolierter Initialisierung und idempotentem
+  Stop
 - Snapshot-Modell
-- SnapshotRepository
-- CollectorCoordinator
-- HTTP-Server des offiziellen Prometheus-Clients; kein eigener Text-Renderer und
-  kein zusätzliches HTTP-Framework
+- lockfreies `SnapshotRepository` auf Basis einer `AtomicReference`
+- `CollectorCoordinator` mit deterministischem Start, umgekehrtem Stop und
+  Fehlerisolation
+- offizieller Prometheus-`MetricsHandler` auf dem vorgesehenen JDK-HTTP-Server;
+  kein eigener Text-Renderer und kein zusätzliches HTTP-Framework
 - Bindung an konfigurierte Host-, Port-, Pfad- und Workerwerte mit Standardhost
   `127.0.0.1`
 - Standardpfade `/metrics`, `/health` und `/ready`
@@ -63,6 +70,9 @@ beendet sie anschließend kontrolliert.
 - HTTP-Threads lesen ausschließlich immutable Snapshots und kontrollierten
   Exporterstatus
 - Exporter-Eigenmetriken
+- Unit-, Parallelitäts- und HTTP-Integrationstests
+- erweiterter Paper-/Folia-Smoke-Test für alle drei HTTP-Endpunkte und Shutdown
+- automatische Inhaltsprüfung des auslieferbaren JARs
 
 Nicht Bestandteil von Phase 2:
 
@@ -74,7 +84,8 @@ Nicht Bestandteil von Phase 2:
 
 Abnahme: HTTP-Ausgabe ohne Minecraft-Livezugriffe; `/metrics`, `/health` und
 `/ready` funktionieren; der HTTP-Server stoppt beim Disable; das einzige
-Plugin-JAR enthält die relocateten Prometheus-Bibliotheken.
+Plugin-JAR enthält die relocateten Prometheus-Bibliotheken. Diese Abnahme ist mit
+Phase 2 erfüllt.
 
 ## Phase 3 – JVM und Prozess
 

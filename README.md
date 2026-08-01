@@ -3,8 +3,9 @@
 Repository: `minecraft-folia-prometheus-exporter`
 
 FoliaPrometheusExporter ist ein für Paper und Folia entwickelter
-Prometheus-Exporter. Das Plugin stellt umfangreiche Server-, Welt-, Entity-,
-Folia-, JVM-, Prozess- und Exporter-Metriken bereit.
+Prometheus-Exporter. Der implementierte Metrics Core stellt den HTTP-Dienst, die
+Exporter-Eigenüberwachung und die threadsichere Snapshot-/Collector-Grundlage für
+die fachlichen Metriken der folgenden Phasen bereit.
 
 ## Verbindliche Eckdaten
 
@@ -50,9 +51,59 @@ Gradle Wrapper:
 ./gradlew test
 ```
 
-Das Plugin-JAR wird unter `build/libs/` erzeugt.
+Das einzige auslieferbare, schattierte Plugin-JAR wird unter `build/libs/`
+erzeugt. Es enthält den Prometheus Java Client 1.8.0; dessen Klassen sind nach
+`de.minecraftgilde.prometheus.internal.prometheus` relocatet. Der Build prüft den
+Descriptor, die Relocation, ausgeschlossene Server-APIs und Signaturdateien
+automatisch.
+
+## HTTP-Endpunkte
+
+Standardmäßig bindet der Exporter ausschließlich an `127.0.0.1:9940`:
+
+| Endpunkt | Bedeutung |
+|---|---|
+| `GET /metrics` | Prometheus-Exposition durch den offiziellen Java Client |
+| `GET /health` | `200 ok`, solange der HTTP-Dienst fundamental gesund ist |
+| `GET /ready` | `200 ready` erst nach vollständiger Core-Initialisierung, sonst `503` |
+
+Unbekannte Pfade liefern `404`, andere HTTP-Methoden `405`. Host, Port, Pfade
+und Workerzahl lassen sich in `plugins/FoliaPrometheusExporter/config.yml`
+konfigurieren:
+
+```yaml
+http:
+  bind-address: "127.0.0.1"
+  port: 9940
+  metrics-path: "/metrics"
+  health-path: "/health"
+  ready-path: "/ready"
+  worker-threads: 2
+```
+
+Lokale Prüfung bei laufendem Server:
+
+```bash
+curl --fail http://127.0.0.1:9940/health
+curl --fail http://127.0.0.1:9940/ready
+curl --fail http://127.0.0.1:9940/metrics
+```
+
+## Metrics Core
+
+Phase 2 implementiert die Eigenmetriken `minecraft_exporter_build_info`,
+`minecraft_exporter_health`, `minecraft_exporter_ready`,
+`minecraft_exporter_scrapes_total`, `minecraft_exporter_scrape_errors_total`,
+`minecraft_exporter_http_requests_total` und
+`minecraft_exporter_collector_state`.
+
+Collector werden in Registrierungsreihenfolge gestartet, in umgekehrter
+Reihenfolge gestoppt und bei Fehlern voneinander isoliert. Erfasste Daten werden
+als vollständig konstruierte, immutable Snapshots atomar publiziert. HTTP-Threads
+lesen ausschließlich Prometheus-internen Zustand, kontrollierten Exporterstatus
+und später diese Snapshots; sie greifen nie auf Minecraft-Liveobjekte zu.
 
 ## Status
 
-Dieses Repository ist derzeit ein Spezifikations- und Projektgerüst. Die eigentliche
-Pluginimplementierung wird schrittweise anhand der Codex-Aufgaben erstellt.
+Phase 2 „Metrics Core“ ist implementiert. JVM- und Prozessmetriken sind der
+nächste Umfang in Phase 3 und werden noch nicht registriert.

@@ -39,18 +39,25 @@ Ein Scrape darf nur:
 
 ### `ExporterPlugin`
 
-- Plugin-Lifecycle
-- Start und Stop der Komponenten
-- Konfiguration laden
-- Fehler beim Start sauber melden
+- lädt und validiert zuerst die immutable Konfiguration
+- erzeugt Registry, Eigenmetriken und `CollectorCoordinator`
+- startet anschließend den HTTP-Dienst
+- aktiviert Readiness erst nach vollständiger Initialisierung
+- setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
+- räumt auch nur teilweise gestartete Komponenten idempotent auf
 
 ### `CollectorCoordinator`
 
-- Collector registrieren
-- Intervalle planen
-- Collector voneinander isolieren
-- Timeouts und Fehler erfassen
-- Snapshot atomar ersetzen
+- lehnt doppelte stabile Collector-Namen ab
+- startet in Registrierungsreihenfolge und stoppt in umgekehrter Reihenfolge
+- verhindert parallele Mehrfachstarts über den Collector-Lifecycle
+- isoliert Start- und Stopfehler einzelner Collector
+- veröffentlicht eine immutable Sicht auf die aktuellen Zustände
+
+Der allgemeine Lifecycle verwendet die feste Zustandsmenge `disabled`,
+`starting`, `running`, `unsupported`, `failed` und `stopped`. Initialisierung
+erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 2
+registriert noch keinen fachlichen Collector und plant keine Erfassungsintervalle.
 
 ### `CollectionScheduler`
 
@@ -66,21 +73,35 @@ den klassischen `BukkitScheduler`.
 
 ### `SnapshotRepository`
 
-- threadsichere, unveränderliche Snapshots
-- pro Collector separater Zeitstempel
-- atomare Aktualisierung
-- Lesen ohne Blockierung
+- `ImmutableSnapshot<T>` enthält einen eindeutigen `Instant` und eine defensiv
+  kopierte, unveränderliche Werteliste
+- Snapshot-Werttypen müssen selbst immutable sein und dürfen keine
+  Minecraft-Liveobjekte enthalten
+- `SnapshotRepository<T>` veröffentlicht den neuesten vollständigen Snapshot per
+  `AtomicReference`
+- Lesen, Ersetzen und Entfernen erfolgen atomar und ohne große Lockbereiche
+- Erfassungszeitpunkt und Snapshot-Alter sind direkt abfragbar
 
 ### `MetricsEndpoint`
 
 - `/metrics`, `/health` und `/ready` als Standardpfade
-- offizieller Prometheus-Java-Client-HTTP-Server 1.8.0
+- offizieller `MetricsHandler` des Prometheus Java Client 1.8.0 auf dessen
+  vorgesehenem schlanken JDK-`HttpServer`
 - Standardbindung an `127.0.0.1`; Host, Port, Pfade und Workerzahl aus der
   Konfiguration
 - offizieller Renderer statt eigener Prometheus-Textserialisierung
 - keine zusätzlichen HTTP-Frameworks
+- exakt kontrolliertes Routing: unbekannt `404`, andere Methoden `405`
 - keine Minecraft-API-Aufrufe
-- sauberer `close()`-/`stop()`-Aufruf beim Plugin-Disable
+- eigener benannter Daemon-Workerpool und idempotenter Shutdown ohne verbleibenden
+  Listener
+
+`/health` liefert `200`, solange der HTTP-Dienst aktiv und nicht fundamental
+beschädigt ist. Der Zustand einzelner optionaler Collector beeinflusst Health
+nicht. `/ready` liefert nur dann `200`, wenn Registry, Metrics Core und HTTP-Dienst
+aktiv sind und die Plugininitialisierung abgeschlossen wurde; andernfalls `503`.
+Nicht unterstützte oder optionale Collector machen den Exporter später nicht
+automatisch unbereit.
 
 ### `RegionObservationRegistry`
 
@@ -143,3 +164,29 @@ eingebunden. Die Module `prometheus-metrics-core`,
 geschattet. `io.prometheus` wird nach
 `de.minecraftgilde.prometheus.internal.prometheus` relocatet. Dadurch bleiben die
 Bibliotheken anderer Plugins vom Exporter isoliert.
+
+Der Shadow-Build verwendet das fest gepinnte Plugin `com.gradleup.shadow:9.6.1`,
+deaktiviert das ungeschattete Standard-JAR und erzeugt genau ein Artefakt ohne
+Abhängigkeitssignaturen. Eine Buildprüfung kontrolliert Descriptor, Hauptklasse,
+Relocation und den Ausschluss von Paper-, Folia-, Bukkit- und Minecraft-Klassen.
+
+## 3.7 Phase-2-Lifecycle
+
+```text
+onEnable
+  Konfiguration validieren
+  → eigene PrometheusRegistry und Eigenmetriken registrieren
+  → CollectorCoordinator starten
+  → HTTP-Server starten
+  → Initialisierung vollständig / ready = 1
+
+onDisable oder Startfehler
+  ready = 0
+  → HTTP-Server und Workerpool stoppen
+  → gestartete Collector rückwärts stoppen
+  → Registry und Core-Zustand freigeben
+```
+
+Alle Schritte sind gegen wiederholten Aufruf geschützt. Ein Bindefehler, etwa bei
+belegtem Port, stoppt bereits gestartete Collector wieder und lässt keine
+teilweise aktive HTTP-Infrastruktur zurück.

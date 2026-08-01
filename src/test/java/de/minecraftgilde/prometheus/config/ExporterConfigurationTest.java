@@ -69,6 +69,26 @@ class ExporterConfigurationTest {
     }
 
     @Test
+    void rejectsBlankHostAndEveryOutOfRangePort() {
+        ExporterConfiguration blankHost = loader.load(
+            Map.<String, Object>of("http.bind-address", "  ")::get
+        );
+        ExporterConfiguration zeroPort = loader.load(
+            Map.<String, Object>of("http.port", 0)::get
+        );
+        ExporterConfiguration negativePort = loader.load(
+            Map.<String, Object>of("http.port", -1)::get
+        );
+
+        assertThrows(ConfigurationException.class, () -> validator.validate(blankHost));
+        assertThrows(ConfigurationException.class, () -> validator.validate(zeroPort));
+        assertThrows(
+            ConfigurationException.class,
+            () -> validator.validate(negativePort)
+        );
+    }
+
+    @Test
     void individualPlayerMetricsCannotBeEnabled() {
         Map<String, Object> values = Map.of(
             "privacy.individual-player-metrics-supported",

@@ -7,6 +7,10 @@ Client 1.8.0. Ein eigener Text-Renderer ist ausgeschlossen. Die benötigten
 Clientmodule werden in das Plugin-JAR eingebunden und von `io.prometheus` nach
 `de.minecraftgilde.prometheus.internal.prometheus` relocatet.
 
+Der Metrics-Endpunkt verwendet direkt den offiziellen `MetricsHandler` auf dem
+JDK-HTTP-Server. Health-, Ready-, Fehler- und Methodenantworten sind stabile kurze
+UTF-8-Textantworten.
+
 ## 6.1 Typen
 
 - Gauge: aktueller Zustand
@@ -31,6 +35,9 @@ Erlaubte kontrollierte Labels:
 - `threshold`
 - `threshold_seconds`
 - `collector`
+- `state` aus der festen Collector-Zustandsmenge
+- `endpoint` aus `metrics`, `health`, `ready`, `not_found`
+- `status_class` aus `2xx`, `4xx`, `5xx`, `other`
 - `reason` aus fester Liste
 - `type` aus Minecraft-Registry, nur optional
 - `group` aus fester Liste
@@ -62,3 +69,7 @@ regionalen Tickdauern tatsächlich belastbar messbar sind.
 Der Renderer und alle HTTP-Handler lesen ausschließlich immutable Snapshots und
 kontrollierten Exporterstatus. Sie führen keine Live-Abfragen gegen Bukkit, Paper,
 Folia oder Minecraft-Daten aus.
+
+Die HTTP-Eigenmetrik enthält weder den konfigurierten oder angefragten Rohpfad noch
+Methode, Client-IP, vollständige URL oder User-Agent. Fehlerursachen und
+Stacktraces werden protokolliert, aber nie als Label übernommen.

@@ -11,7 +11,7 @@
   "internal_paper_api_v1": false,
   "internal_folia_api_v1": false,
   "individual_player_metrics": false,
-  "implementation_status": "Phase 1 project skeleton and pinned Paper/Folia server smoke tests implemented; Phase 2 architecture decided; no metrics or HTTP endpoints yet",
+  "implementation_status": "Phase 2 Metrics Core implemented with collector lifecycle, immutable snapshots, atomic repository, HTTP endpoints, exporter self-metrics, Shadow JAR verification, and extended pinned Paper/Folia smoke tests",
   "server_smoke_tests": {
     "workflow_separate_from_build": true,
     "runner": "ubuntu-24.04",
@@ -20,6 +20,8 @@
     "user_agent": "minecraft-folia-prometheus-exporter-ci/0.1.0 (https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter)",
     "dynamic_latest": false,
     "activation_marker": "FoliaPrometheusExporter started.",
+    "verifies_http_endpoints": true,
+    "verifies_http_shutdown": true,
     "paper": {
       "version": "26.1.2",
       "build": 74,
@@ -32,6 +34,7 @@
     }
   },
   "phase_2_architecture": {
+    "implemented": true,
     "folia_metrics_provider": false,
     "prometheus_java_client": "1.8.0",
     "prometheus_bom": "io.prometheus:prometheus-metrics-bom:1.8.0",
@@ -40,7 +43,7 @@
       "prometheus-metrics-instrumentation-jvm",
       "prometheus-metrics-exporter-httpserver"
     ],
-    "http_server": "prometheus-metrics-exporter-httpserver",
+    "http_server": "official Prometheus MetricsHandler on the exporter module's JDK HttpServer",
     "additional_http_framework": false,
     "custom_prometheus_text_renderer": false,
     "default_bind_address": "127.0.0.1",
@@ -51,7 +54,40 @@
       "/ready"
     ],
     "snapshot_only_http_reads": true,
-    "prometheus_relocation": "de.minecraftgilde.prometheus.internal.prometheus"
+    "prometheus_relocation": "de.minecraftgilde.prometheus.internal.prometheus",
+    "shadow_plugin": "com.gradleup.shadow:9.6.1",
+    "single_distributable_jar_verified": true,
+    "collector_states": [
+      "disabled",
+      "starting",
+      "running",
+      "unsupported",
+      "failed",
+      "stopped"
+    ],
+    "collector_start_order": "registration order",
+    "collector_stop_order": "reverse registration order for started collectors",
+    "collector_failures_isolated": true,
+    "snapshot_publication": "AtomicReference",
+    "readiness_requires": [
+      "registry",
+      "metrics core",
+      "HTTP server",
+      "completed plugin initialization"
+    ],
+    "http_unknown_path_status": 404,
+    "http_unsupported_method_status": 405,
+    "exporter_metrics": [
+      "minecraft_exporter_build_info",
+      "minecraft_exporter_health",
+      "minecraft_exporter_ready",
+      "minecraft_exporter_scrapes_total",
+      "minecraft_exporter_scrape_errors_total",
+      "minecraft_exporter_http_requests_total",
+      "minecraft_exporter_collector_state"
+    ],
+    "jvm_metrics_registered": false,
+    "process_metrics_registered": false
   },
   "future_folia_provider": {
     "phase": 6,
@@ -111,15 +147,33 @@
     "gradlew.bat",
     "settings.gradle.kts",
     "src/main/java/de/minecraftgilde/prometheus/ExporterPlugin.java",
+    "src/main/java/de/minecraftgilde/prometheus/ExporterLifecycleState.java",
+    "src/main/java/de/minecraftgilde/prometheus/MetricsCore.java",
+    "src/main/java/de/minecraftgilde/prometheus/collector/AbstractCollector.java",
+    "src/main/java/de/minecraftgilde/prometheus/collector/CollectorCoordinator.java",
+    "src/main/java/de/minecraftgilde/prometheus/collector/CollectorState.java",
+    "src/main/java/de/minecraftgilde/prometheus/collector/ManagedCollector.java",
+    "src/main/java/de/minecraftgilde/prometheus/collector/UnsupportedCollectorException.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ConfigurationException.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ConfigurationLoader.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ConfigurationSource.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ConfigurationValidator.java",
     "src/main/java/de/minecraftgilde/prometheus/config/DurationParser.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ExporterConfiguration.java",
+    "src/main/java/de/minecraftgilde/prometheus/http/MetricsHttpServer.java",
+    "src/main/java/de/minecraftgilde/prometheus/metrics/ExporterMetrics.java",
+    "src/main/java/de/minecraftgilde/prometheus/snapshot/ImmutableSnapshot.java",
+    "src/main/java/de/minecraftgilde/prometheus/snapshot/SnapshotRepository.java",
     "src/main/resources/config.yml",
     "src/main/resources/plugin.yml",
+    "src/test/java/de/minecraftgilde/prometheus/ExporterLifecycleStateTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/MetricsCoreTest.java",
     "src/test/java/de/minecraftgilde/prometheus/PluginDescriptorTest.java",
-    "src/test/java/de/minecraftgilde/prometheus/config/ExporterConfigurationTest.java"
+    "src/test/java/de/minecraftgilde/prometheus/collector/AbstractCollectorTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/collector/CollectorCoordinatorTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/config/ExporterConfigurationTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/http/MetricsHttpServerTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/metrics/ExporterMetricsTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/snapshot/SnapshotRepositoryTest.java"
   ]
 }

@@ -232,22 +232,38 @@ Möglichst standardisierte Prometheus-Java-Client-Metriken verwenden:
 
 ## 2.12 Exporter-Eigenüberwachung
 
+In Phase 2 implementiert:
+
+| Metrik | Typ | Labels | Bedeutung |
+|---|---|---|---|
+| `minecraft_exporter_build_info` | Info | `version`, `git_commit`, `provider` | Buildinformation; der gemeinsame Kern verwendet `provider="common"`, ein nicht eingebetteter Commit ist `unknown` |
+| `minecraft_exporter_health` | Gauge | – | `1`, wenn der HTTP-Dienst aktiv und fundamental gesund ist |
+| `minecraft_exporter_ready` | Gauge | – | `1`, wenn Registry, Metrics Core, HTTP-Server und Initialisierung vollständig bereit sind |
+| `minecraft_exporter_scrapes_total` | Counter | – | Versuchte Anfragen an den Metrics-Endpunkt |
+| `minecraft_exporter_scrape_errors_total` | Counter | – | Metrics-Anfragen mit serverseitigem Fehler |
+| `minecraft_exporter_http_requests_total` | Counter | `endpoint`, `status_class` | HTTP-Anfragen mit kontrollierter Endpunkt- und Statusklassifikation |
+| `minecraft_exporter_collector_state` | Gauge | `collector`, `state` | One-Hot-Zustand jedes registrierten internen Collectors |
+
+Erlaubte Werte für `endpoint` sind ausschließlich `metrics`, `health`, `ready`
+und `not_found`. `status_class` ist auf `2xx`, `4xx`, `5xx` und `other`
+beschränkt. `state` verwendet ausschließlich `disabled`, `starting`, `running`,
+`unsupported`, `failed` und `stopped`. Collector-Namen werden bei der internen
+Registrierung validiert; freie Fehlertexte, URLs, Methoden, Clientadressen und
+User-Agents werden nicht als Labels exportiert. Ohne registrierte fachliche
+Collector enthält `minecraft_exporter_collector_state` noch keine Zeitreihe.
+
+Für spätere Phasen katalogisiert, aber in Phase 2 noch nicht registriert:
+
 | Metrik | Typ | Labels |
 |---|---|---|
-| `minecraft_exporter_build_info` | Info | `version`, `git_commit`, `provider` |
 | `minecraft_exporter_uptime_seconds` | Gauge | – |
 | `minecraft_exporter_collection_duration_seconds` | Histogram | `collector` |
 | `minecraft_exporter_collection_errors_total` | Counter | `collector`, `reason` |
 | `minecraft_exporter_scheduler_rejections_total` | Counter | `scheduler` |
 | `minecraft_exporter_snapshot_failures_total` | Counter | `collector` |
 | `minecraft_exporter_snapshot_age_seconds` | Gauge | `collector` |
-| `minecraft_exporter_scrapes_total` | Counter | – |
-| `minecraft_exporter_scrape_errors_total` | Counter | – |
 | `minecraft_exporter_last_scrape_duration_seconds` | Gauge | – |
 | `minecraft_exporter_metrics_exposed` | Gauge | – |
-| `minecraft_exporter_health` | Gauge | – |
-| `minecraft_exporter_ready` | Gauge | – |
-| `minecraft_exporter_collector_health` | Gauge | `collector` |
 
 ## 2.13 Verbotene Metriken
 

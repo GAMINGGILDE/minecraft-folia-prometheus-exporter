@@ -92,6 +92,35 @@ if grep -Eiq "$failure_pattern" "$server_log"; then
   exit 1
 fi
 
+exporter_base_url="http://127.0.0.1:9940"
+health_response="$(curl --fail --silent --show-error --max-time 10 \
+  "$exporter_base_url/health")"
+ready_response="$(curl --fail --silent --show-error --max-time 10 \
+  "$exporter_base_url/ready")"
+metrics_response="$(curl --fail --silent --show-error --max-time 10 \
+  "$exporter_base_url/metrics")"
+
+if [[ "$health_response" != "ok" ]]; then
+  echo "Unexpected /health response: $health_response" >&2
+  exit 1
+fi
+
+if [[ "$ready_response" != "ready" ]]; then
+  echo "Unexpected /ready response: $ready_response" >&2
+  exit 1
+fi
+
+for required_metric in \
+  minecraft_exporter_build_info \
+  minecraft_exporter_ready \
+  minecraft_exporter_scrapes_total; do
+  if ! grep -Fq "$required_metric" <<<"$metrics_response"; then
+    echo "Missing exporter metric: $required_metric" >&2
+    exit 1
+  fi
+done
+
+echo "Exporter HTTP endpoints confirmed."
 echo "Plugin activation confirmed; requesting controlled server shutdown."
 printf 'stop\n' >&3
 
@@ -119,6 +148,11 @@ fi
 if grep -Eiq "$failure_pattern" "$server_log"; then
   echo "Plugin failure was logged before shutdown completed." >&2
   grep -Ein "$failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if curl --silent --max-time 2 "$exporter_base_url/health" >/dev/null 2>&1; then
+  echo "Exporter HTTP server still responds after plugin shutdown." >&2
   exit 1
 fi
 

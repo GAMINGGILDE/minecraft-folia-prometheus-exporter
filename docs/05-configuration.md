@@ -81,6 +81,15 @@ logging:
 - Ungültige Konfigurationswerte verhindern den Pluginstart und werden mit einer
   verständlichen Fehlermeldung protokolliert.
 - Der HTTP-Endpunkt bindet standardmäßig nur lokal.
+- `http.bind-address` darf nicht leer sein und muss beim Start zu einer bindbaren
+  Adresse auflösbar sein.
+- `http.port` muss zwischen `1` und `65535` liegen. Ein belegter Port führt zu
+  einem kontrollierten Startfehler und vollständigem Lifecycle-Cleanup.
+- HTTP-Pfade beginnen mit `/`, enthalten mindestens ein Segment und müssen
+  eindeutig sein.
+- `http.worker-threads` muss positiv sein.
+- Werte mit falschem YAML-Datentyp werden bereits beim Laden mit Pfadangabe
+  abgelehnt.
 - Experimentelle oder interne Provider sind in Version 1 nicht konfigurierbar.
 - Spielermetriken existieren nicht als aktivierbare Option.
 - Die genaue Behandlung von `folia-regions: true` auf Paper wird erst zusammen
@@ -95,8 +104,24 @@ logging:
   finalen Klassen abgebildet.
 - Laden und Validieren sind getrennte Komponenten.
 - Phase 1 testet Standardwerte und ungültige Konfigurationen.
-- Die Konfiguration startet in Phase 1 weder Collector noch HTTP-Endpunkte und
-  erzeugt keine Metriken.
 - Phase 2 übernimmt Bindeadresse, Port, Endpunktpfade und Workerzahl aus der
   bestehenden HTTP-Konfiguration. Die Standardbindung bleibt `127.0.0.1`; die
   Standardpfade sind `/metrics`, `/health` und `/ready`.
+- Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
+  Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
+  und HTTP-Dienst.
+
+## Phase-2-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `http.bind-address` | `127.0.0.1` | lokale Bindeadresse; keine externe Freigabe ohne bewusste Änderung |
+| `http.port` | `9940` | TCP-Port des Exporters |
+| `http.metrics-path` | `/metrics` | offizieller Prometheus-Scrape-Handler |
+| `http.health-path` | `/health` | Liveness-Endpunkt |
+| `http.ready-path` | `/ready` | Readiness-Endpunkt |
+| `http.worker-threads` | `2` | feste Größe des benannten HTTP-Workerpools |
+
+Die Collector- und Erfassungswerte bleiben für die späteren fachlichen Phasen in
+der Konfiguration erhalten, lösen in Phase 2 aber noch keine Minecraft-Erfassung
+oder JVM-/Prozessinstrumentierung aus.

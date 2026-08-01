@@ -16,16 +16,20 @@ weiterhin genau ein auslieferbares Plugin-JAR. Ein eigener Prometheus-Text-Rende
 und zusätzliche HTTP-Frameworks wie Jetty, Undertow, Netty oder Tomcat sind
 ausgeschlossen.
 
-Der HTTP-Server des Prometheus-Clients übernimmt Bindung, Scrape-Protokoll und
-Serialisierung. Host und Port stammen aus der bestehenden Plugin-Konfiguration;
-der Standardhost bleibt `127.0.0.1`. Die bestehenden Pfadwerte werden ebenfalls
-übernommen und haben die Standardwerte `/metrics`, `/health` und `/ready`. Der
-konfigurierte Metrikpfad wird über `HTTPServer.Builder.metricsHandlerPath(...)`
-gesetzt. Ein kontrollierter Default-Handler desselben Servers bedient den
-konfigurierten Health- und Readiness-Pfad und liest nur den Plugin-Lifecycle
-beziehungsweise den Snapshotstatus. Der konfigurierte HTTP-Executor wird über
-`executorService(...)` angebunden. Beim Deaktivieren des Plugins wird der Server
-über seine `close()`-/`stop()`-API geschlossen.
+Der offizielle Prometheus-`MetricsHandler` übernimmt Scrape-Protokoll,
+Content-Negotiation und Serialisierung. Er wird auf dem schlanken JDK-`HttpServer`
+des Exportermoduls betrieben. Diese Konkretisierung erlaubt dem Plugin, vor dem
+offiziellen Handler ausschließlich `GET` zuzulassen, unbekannte Pfade exakt mit
+`404` zu beantworten und alle kontrollierten Endpunkte konsistent zu
+instrumentieren, ohne einen zweiten HTTP-Stack oder eigenen Renderer einzuführen.
+
+Host und Port stammen aus der bestehenden Plugin-Konfiguration; der Standardhost
+bleibt `127.0.0.1`. Die bestehenden Pfadwerte werden ebenfalls übernommen und
+haben die Standardwerte `/metrics`, `/health` und `/ready`. Ein kontrollierter
+Router desselben Listeners bedient Health und Readiness und liest nur atomaren
+Plugin-Lifecycle. Der konfigurierte benannte Daemon-Workerpool wird an den
+JDK-Server gebunden. Beim Deaktivieren des Plugins werden Listener und Executor
+idempotent geschlossen.
 
 ## Snapshot-Grenze
 
@@ -44,3 +48,4 @@ die Registrierung der JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
 - Es gibt keinen zweiten HTTP-Stack im Plugin.
 - Relocation verhindert Klassen- und Versionskonflikte mit anderen Plugins.
 - Der HTTP-Lifecycle ist Bestandteil des Plugin-Lifecycles und wird getestet.
+- Andere Methoden auf bekannten Endpunkten liefern `405`, unbekannte Pfade `404`.

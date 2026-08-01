@@ -23,6 +23,8 @@ folia-supported: true
 api-version für API-Linie 26.1.2: 26.1.2
 Entwicklungsversion: 0.1.0-SNAPSHOT
 JUnit 5: 5.14.4
+Shadow-Plugin: com.gradleup.shadow 9.6.1
+Prometheus Java Client: 1.8.0 über BOM
 Lizenz: MIT
 Interne Paper-/Folia-APIs in Version 1: ausgeschlossen
 Experimentelle oder interne Provider in Version 1: ausgeschlossen
@@ -57,7 +59,7 @@ vorzeitiges Serverende oder Timeout sind Fehler. Nach erfolgreicher Aktivierung
 wird `stop` über die Serverkonsole gesendet und der Prozess kontrolliert beendet.
 Details stehen in ADR 0009.
 
-## 9.3 Festgelegt für Phase 2
+## 9.3 In Phase 2 umgesetzt
 
 - Allgemeine Scheduler-Funktionen verwenden die Global-, Region-, Entity- und
   Async-Scheduler der gemeinsamen öffentlichen Paper-API auf Paper und Folia.
@@ -73,16 +75,30 @@ Details stehen in ADR 0009.
   `de.minecraftgilde.prometheus.internal.prometheus` relocatet.
 - Es gibt weder einen eigenen Prometheus-Text-Renderer noch ein zusätzliches
   HTTP-Framework.
-- Der offizielle Prometheus-HTTP-Server übernimmt den konfigurierten Metrikpfad.
-  Kontrollierte Handler desselben Servers stellen die konfigurierten Health- und
-  Readiness-Pfade bereit. Standardwerte sind `/metrics`, `/health` und `/ready`.
+- Der offizielle Prometheus-`MetricsHandler` übernimmt Scrape-Protokoll,
+  Content-Negotiation und Serialisierung. Er läuft auf dem vom Exportermodul
+  vorgesehenen schlanken JDK-`HttpServer`; ein kontrollierter Router stellt
+  Metrics, Health, Readiness, `404` und `405` auf demselben Listener bereit.
+  Standardwerte sind `/metrics`, `/health` und `/ready`.
 - HTTP-Host, -Port, -Pfade und Workerzahl stammen aus der bestehenden
   Konfiguration. Die Standardbindung ist `127.0.0.1`.
-- Der HTTP-Server wird beim Plugin-Disable über seine `close()`-/`stop()`-API
-  geschlossen.
+- Der HTTP-Server und sein benannter Daemon-Workerpool werden beim Plugin-Disable
+  idempotent geschlossen.
 - HTTP-Threads und Prometheus-Callbacks lesen ausschließlich immutable Snapshots
   und kontrollierten Exporterstatus, niemals Minecraft-Livedaten.
 - Die Registrierung konkreter JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
+- Der Collector-Lifecycle verwendet `disabled`, `starting`, `running`,
+  `unsupported`, `failed` und `stopped`. Startreihenfolge ist deterministisch,
+  Stoppreihenfolge umgekehrt und Fehler sind isoliert.
+- Snapshots bestehen aus Erfassungszeitpunkt und defensiv kopierter immutable
+  Werteliste. Das Repository publiziert per `AtomicReference`.
+- Readiness ist nur aktiv, wenn Registry, Metrics Core, HTTP-Server und
+  Plugininitialisierung vollständig verfügbar sind. Ein optionaler
+  Collectorfehler beeinflusst Health und Readiness nicht automatisch.
+- Implementierte Eigenmetriken sind `build_info`, `health`, `ready`, Scrape- und
+  Scrape-Fehler-Counter, kontrollierte HTTP-Request-Counter und der One-Hot-
+  Collectorzustand unter dem Präfix `minecraft_exporter_`.
+- Der Build erzeugt nur das Shadow-JAR und prüft dessen Inhalt automatisch.
 
 Details stehen in ADR 0011.
 
@@ -133,6 +149,12 @@ Details stehen in ADR 0010.
 - Prometheus-Java-Client-Version, BOM und Module
 - eingebetteter HTTP-Server und Ausschluss zusätzlicher HTTP-Frameworks
 - Shading und Relocation der Prometheus-Abhängigkeiten
+- Shadow-Plugin-Version und automatisierte JAR-Inhaltsprüfung
+- Collector-Zustandsmaschine, Start-/Stoppreihenfolge und Fehlerisolation
+- Snapshot-Darstellung und atomare Repository-Operationen
+- Health- und Readiness-Semantik
+- Phase-2-Eigenmetriken und ihre begrenzten Labelwerte
+- HTTP-Methoden- und Unknown-Path-Semantik
 - klassische `plugin.yml` statt `paper-plugin.yml`
 - fest gepinnte `paper-api`-Koordinate und JUnit-5-Version
 - Fehlerverhalten des Konfigurationsloaders bei ungültigen Werten
