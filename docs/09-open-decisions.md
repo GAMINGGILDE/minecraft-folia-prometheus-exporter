@@ -99,6 +99,11 @@ Details stehen in ADR 0009.
   Scrape-Fehler-Counter, kontrollierte HTTP-Request-Counter und der One-Hot-
   Collectorzustand unter dem Präfix `minecraft_exporter_`.
 - Der Build erzeugt nur das Shadow-JAR und prüft dessen Inhalt automatisch.
+- Der Build bettet `git rev-parse HEAD` über `build-info.properties` ein. Ohne
+  Git-Kontext oder bei ungültigem Ergebnis wird `unknown` verwendet; ein
+  `gitCommit`-Projektparameter kann den Wert kontrolliert vorgeben.
+- Jede `MetricsCore` besitzt eine private Registry und genau eine
+  instanzgebundene `ExporterMetrics`; ein statischer Cache ist nicht erforderlich.
 
 Details stehen in ADR 0011.
 
@@ -155,6 +160,8 @@ Details stehen in ADR 0010.
 - Health- und Readiness-Semantik
 - Phase-2-Eigenmetriken und ihre begrenzten Labelwerte
 - HTTP-Methoden- und Unknown-Path-Semantik
+- Quelle und Fallback des `git_commit`-Buildlabels
+- instanzgebundene Eigenmetriken ohne globalen Registry-Cache
 - klassische `plugin.yml` statt `paper-plugin.yml`
 - fest gepinnte `paper-api`-Koordinate und JUnit-5-Version
 - Fehlerverhalten des Konfigurationsloaders bei ungültigen Werten

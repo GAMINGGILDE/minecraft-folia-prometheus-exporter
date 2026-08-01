@@ -236,7 +236,7 @@ In Phase 2 implementiert:
 
 | Metrik | Typ | Labels | Bedeutung |
 |---|---|---|---|
-| `minecraft_exporter_build_info` | Info | `version`, `git_commit`, `provider` | Buildinformation; der gemeinsame Kern verwendet `provider="common"`, ein nicht eingebetteter Commit ist `unknown` |
+| `minecraft_exporter_build_info` | Info | `version`, `git_commit`, `provider` | Buildinformation; `git_commit` ist der beim Build ermittelte vollständige Hash, außerhalb eines Git-Kontexts `unknown`; der gemeinsame Kern verwendet `provider="common"` |
 | `minecraft_exporter_health` | Gauge | – | `1`, wenn der HTTP-Dienst aktiv und fundamental gesund ist |
 | `minecraft_exporter_ready` | Gauge | – | `1`, wenn Registry, Metrics Core, HTTP-Server und Initialisierung vollständig bereit sind |
 | `minecraft_exporter_scrapes_total` | Counter | – | Versuchte Anfragen an den Metrics-Endpunkt |

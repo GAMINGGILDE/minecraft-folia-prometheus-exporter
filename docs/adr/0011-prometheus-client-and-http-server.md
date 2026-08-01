@@ -41,6 +41,15 @@ Snapshots und kontrollierten Exporterstatus.
 Die JVM-Instrumentierungsbibliothek wird bereits als benötigtes Modul gebündelt;
 die Registrierung der JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
 
+Jede `MetricsCore` besitzt genau eine eigene `PrometheusRegistry` und einen
+einmalig konstruierten, instanzgebundenen `ExporterMetrics`-Satz. Ein statischer
+Registry-Cache ist weder für den Lifecycle noch gegen Duplicate-Registration
+nötig und wird deshalb nicht verwendet.
+
+Das Label `git_commit` der Build-Info stammt aus einer von Gradle expandierten
+`build-info.properties`. Der Build versucht `git rev-parse HEAD`, akzeptiert nur
+einen validierten Hex-Hash und verwendet ohne Git-Kontext `unknown`.
+
 ## Konsequenzen
 
 - Content Negotiation und Prometheus-Serialisierung stammen aus dem offiziellen
@@ -49,3 +58,6 @@ die Registrierung der JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
 - Relocation verhindert Klassen- und Versionskonflikte mit anderen Plugins.
 - Der HTTP-Lifecycle ist Bestandteil des Plugin-Lifecycles und wird getestet.
 - Andere Methoden auf bekannten Endpunkten liefern `405`, unbekannte Pfade `404`.
+- Wiederholte Plugin-Lifecycles teilen weder Registry noch Eigenmetriken.
+- Das auslieferbare JAR trägt den Build-Commit, bleibt aber außerhalb eines
+  Git-Checkouts baubar.

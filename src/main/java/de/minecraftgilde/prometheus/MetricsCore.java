@@ -3,7 +3,6 @@ package de.minecraftgilde.prometheus;
 import de.minecraftgilde.prometheus.collector.CollectorCoordinator;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
 import de.minecraftgilde.prometheus.http.MetricsHttpServer;
-import de.minecraftgilde.prometheus.metrics.ExporterMetrics;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.util.Objects;
@@ -27,7 +26,7 @@ public final class MetricsCore implements AutoCloseable {
         String provider,
         BiConsumer<String, Throwable> collectorFailureListener
     ) {
-        exporterMetrics = ExporterMetrics.register(
+        exporterMetrics = new ExporterMetrics(
             registry,
             Objects.requireNonNull(version, "version"),
             Objects.requireNonNull(gitCommit, "gitCommit"),

@@ -44,9 +44,10 @@ public final class ExporterPlugin extends JavaPlugin {
             configurationValidator.validate(loaded);
             configuration = loaded;
 
+            BuildInformation buildInformation = BuildInformation.load();
             initializingCore = new MetricsCore(
                 getPluginMeta().getVersion(),
-                "unknown",
+                buildInformation.gitCommit(),
                 "common",
                 (collector, failure) -> getLogger().log(
                     Level.WARNING,

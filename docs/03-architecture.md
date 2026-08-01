@@ -40,6 +40,8 @@ Ein Scrape darf nur:
 ### `ExporterPlugin`
 
 - lädt und validiert zuerst die immutable Konfiguration
+- lädt den von Gradle in `build-info.properties` eingebetteten Git-Commit mit
+  `unknown` als robustem Fallback
 - erzeugt Registry, Eigenmetriken und `CollectorCoordinator`
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
@@ -170,12 +172,24 @@ deaktiviert das ungeschattete Standard-JAR und erzeugt genau ein Artefakt ohne
 Abhängigkeitssignaturen. Eine Buildprüfung kontrolliert Descriptor, Hauptklasse,
 Relocation und den Ausschluss von Paper-, Folia-, Bukkit- und Minecraft-Klassen.
 
+Jede `MetricsCore` erzeugt genau eine eigene `PrometheusRegistry` und unmittelbar
+danach genau eine instanzgebundene `ExporterMetrics`. Die Registry wird nicht
+geteilt; daher ist kein statischer Registry- oder `WeakHashMap`-Cache nötig.
+Duplicate-Registration wird strukturell verhindert, weil der paketprivate
+Metrikkonstruktor ausschließlich einmal aus `MetricsCore` aufgerufen wird.
+
+Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
+`build-info.properties`. Bei fehlendem Git-Programm, fehlendem Checkout oder
+ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
+`-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
+
 ## 3.7 Phase-2-Lifecycle
 
 ```text
 onEnable
   Konfiguration validieren
-  → eigene PrometheusRegistry und Eigenmetriken registrieren
+  → Buildinformation laden
+  → eigene PrometheusRegistry und einmalig Eigenmetriken registrieren
   → CollectorCoordinator starten
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1

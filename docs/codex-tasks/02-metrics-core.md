@@ -30,6 +30,9 @@ Prozessmetriken werden aber erst in Phase 3 registriert.
 Umgesetzt sind Build-, Health-, Readiness-, Scrape-, Scrape-Fehler-,
 HTTP-Request- und Collector-State-Metriken aus dem verbindlichen Metrikkatalog.
 Ihre Labels verwenden ausschließlich dokumentierte kontrollierte Werte.
+Der Build-Commit wird über eine expandierte Resource eingespeist und fällt ohne
+Git-Kontext auf `unknown` zurück. Eigenmetriken sind ohne globalen Cache genau an
+die private Registry ihrer `MetricsCore` gebunden.
 
 ## Plattformgrenze
 

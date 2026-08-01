@@ -97,11 +97,21 @@ Phase 2 implementiert die Eigenmetriken `minecraft_exporter_build_info`,
 `minecraft_exporter_http_requests_total` und
 `minecraft_exporter_collector_state`.
 
+`minecraft_exporter_build_info` enthält den beim Build über Git ermittelten
+vollständigen Commit-Hash. Gradle schreibt ihn in `build-info.properties`; fehlt
+Git oder wird außerhalb eines Git-Checkouts gebaut, bleibt der Build mit dem
+kontrollierten Wert `git_commit="unknown"` funktionsfähig. Optional kann der Wert
+reproduzierbar mit `-PgitCommit=<Hash oder unknown>` vorgegeben werden.
+
 Collector werden in Registrierungsreihenfolge gestartet, in umgekehrter
 Reihenfolge gestoppt und bei Fehlern voneinander isoliert. Erfasste Daten werden
 als vollständig konstruierte, immutable Snapshots atomar publiziert. HTTP-Threads
 lesen ausschließlich Prometheus-internen Zustand, kontrollierten Exporterstatus
 und später diese Snapshots; sie greifen nie auf Minecraft-Liveobjekte zu.
+
+Jede `MetricsCore`-Instanz besitzt genau eine private `PrometheusRegistry` und
+genau einen daran gebundenen Eigenmetrik-Satz. Es gibt keinen globalen Registry-
+oder `ExporterMetrics`-Cache.
 
 ## Status
 

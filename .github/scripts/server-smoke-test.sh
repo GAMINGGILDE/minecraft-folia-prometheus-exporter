@@ -120,6 +120,12 @@ for required_metric in \
   fi
 done
 
+if [[ -n "${EXPECTED_GIT_COMMIT:-}" ]] \
+  && ! grep -Fq "git_commit=\"${EXPECTED_GIT_COMMIT}\"" <<<"$metrics_response"; then
+  echo "Exporter build_info does not contain expected Git commit ${EXPECTED_GIT_COMMIT}." >&2
+  exit 1
+fi
+
 echo "Exporter HTTP endpoints confirmed."
 echo "Plugin activation confirmed; requesting controlled server shutdown."
 printf 'stop\n' >&3

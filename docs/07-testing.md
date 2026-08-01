@@ -50,6 +50,8 @@ Seit Phase 2 ruft der Smoke-Test nach der eindeutigen Aktivierung alle drei
 HTTP-Endpunkte tatsächlich auf, prüft die stabilen Health-/Ready-Antworten und
 erwartet die zentralen Exporter-Eigenmetriken. Nach dem kontrollierten
 Server-Shutdown darf der HTTP-Listener nicht mehr antworten.
+In GitHub Actions muss `minecraft_exporter_build_info` außerdem exakt den
+ausgecheckten `${{ github.sha }}` enthalten.
 
 ## 7.4 Threading-Prüfungen
 
@@ -121,7 +123,13 @@ Server-Shutdown darf der HTTP-Listener nicht mehr antworten.
   Start-/Stoppreihenfolge und Fehlerisolation sind durch Unit-Tests abgedeckt.
 - Snapshots kopieren Sammlungen defensiv; atomische Publikation, Alter, Entfernen
   und paralleles Lesen sind getestet.
-- Registry-Eigenmetriken werden pro Registry nur einmal registriert.
+- Jede Metrics-Core-Instanz besitzt eine private Registry und registriert ihren
+  instanzgebundenen Eigenmetrik-Satz genau einmal; ein statischer Cache existiert
+  nicht.
+- Buildinformationstests decken expandierte Commit-Hashes sowie `unknown` bei
+  fehlender, ungültiger oder nicht lesbarer Buildresource ab.
+- Der Build funktioniert auch ohne Git-Kontext und bettet dann kontrolliert
+  `git_commit="unknown"` ein.
 - `/metrics`, `/health`, `/ready`, `404`, `405`, parallele Requests, Readiness vor
   und nach Initialisierung, belegte Ports und Portfreigabe nach Shutdown sind
   durch lokale Integrationstests abgedeckt.

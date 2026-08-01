@@ -1,19 +1,14 @@
-package de.minecraftgilde.prometheus.metrics;
+package de.minecraftgilde.prometheus;
 
 import de.minecraftgilde.prometheus.collector.CollectorState;
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.core.metrics.Gauge;
 import io.prometheus.metrics.core.metrics.Info;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
-import java.util.Map;
 import java.util.Objects;
-import java.util.WeakHashMap;
 
-/** Low-cardinality self-observation metrics owned by the Metrics Core. */
+/** Low-cardinality self-observation metrics owned by one Metrics Core. */
 public final class ExporterMetrics {
-
-    private static final Map<PrometheusRegistry, ExporterMetrics> INSTANCES =
-        new WeakHashMap<>();
 
     private final Gauge ready;
     private final Gauge health;
@@ -22,12 +17,17 @@ public final class ExporterMetrics {
     private final Counter httpRequests;
     private final Gauge collectorState;
 
-    private ExporterMetrics(
+    ExporterMetrics(
         PrometheusRegistry registry,
         String version,
         String gitCommit,
         String provider
     ) {
+        Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(version, "version");
+        Objects.requireNonNull(gitCommit, "gitCommit");
+        Objects.requireNonNull(provider, "provider");
+
         Info buildInfo = Info.builder()
             .name("minecraft_exporter_build_info")
             .help("Build information for the Minecraft Prometheus exporter.")
@@ -68,34 +68,6 @@ public final class ExporterMetrics {
             .help("One-hot lifecycle state for each registered internal collector.")
             .labelNames("collector", "state")
             .register(registry);
-    }
-
-    /**
-     * Registers the self-metrics once per registry and returns the existing owner
-     * on repeated calls.
-     */
-    public static ExporterMetrics register(
-        PrometheusRegistry registry,
-        String version,
-        String gitCommit,
-        String provider
-    ) {
-        Objects.requireNonNull(registry, "registry");
-        Objects.requireNonNull(version, "version");
-        Objects.requireNonNull(gitCommit, "gitCommit");
-        Objects.requireNonNull(provider, "provider");
-
-        synchronized (INSTANCES) {
-            return INSTANCES.computeIfAbsent(
-                registry,
-                ignored -> new ExporterMetrics(
-                    registry,
-                    version,
-                    gitCommit,
-                    provider
-                )
-            );
-        }
     }
 
     public void setReady(boolean value) {

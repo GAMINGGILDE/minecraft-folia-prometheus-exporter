@@ -70,6 +70,8 @@ Status: abgeschlossen.
 - HTTP-Threads lesen ausschließlich immutable Snapshots und kontrollierten
   Exporterstatus
 - Exporter-Eigenmetriken
+- Git-Commit aus einer beim Build expandierten Resource mit `unknown`-Fallback
+- genau ein instanzgebundener Eigenmetrik-Satz je privater Metrics-Core-Registry
 - Unit-, Parallelitäts- und HTTP-Integrationstests
 - erweiterter Paper-/Folia-Smoke-Test für alle drei HTTP-Endpunkte und Shutdown
 - automatische Inhaltsprüfung des auslieferbaren JARs

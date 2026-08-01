@@ -6,10 +6,42 @@ plugins {
     id("com.gradleup.shadow") version "9.6.1"
 }
 
+fun normalizeGitCommit(value: String?): String? {
+    val normalized = value?.trim()?.lowercase()
+    return normalized?.takeIf {
+        it == "unknown" || it.matches(Regex("[0-9a-f]{7,64}"))
+    }
+}
+
+fun detectGitCommit(repositoryRoot: File): String {
+    return runCatching {
+        val process = ProcessBuilder(
+            "git",
+            "-C",
+            repositoryRoot.absolutePath,
+            "rev-parse",
+            "HEAD"
+        )
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream
+            .bufferedReader(Charsets.UTF_8)
+            .use { it.readText() }
+        if (process.waitFor() == 0) {
+            normalizeGitCommit(output) ?: "unknown"
+        } else {
+            "unknown"
+        }
+    }.getOrDefault("unknown")
+}
+
 group = providers.gradleProperty("projectGroup").get()
 version = providers.gradleProperty("projectVersion").get()
 
 val targetJavaVersion = providers.gradleProperty("javaVersion").get().toInt()
+val buildGitCommit = providers.gradleProperty("gitCommit").orNull
+    ?.let(::normalizeGitCommit)
+    ?: detectGitCommit(rootDir)
 
 java {
     toolchain {
@@ -49,9 +81,13 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.processResources {
     val pluginVersion = project.version.toString()
     inputs.property("version", pluginVersion)
+    inputs.property("gitCommit", buildGitCommit)
     filteringCharset = Charsets.UTF_8.name()
     filesMatching("plugin.yml") {
         expand("version" to pluginVersion)
+    }
+    filesMatching("build-info.properties") {
+        expand("gitCommit" to buildGitCommit)
     }
 }
 
@@ -96,6 +132,9 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
             val entries = archive.entries().asSequence().toList()
             val names = entries.map { it.name }.toSet()
             check("plugin.yml" in names) { "plugin.yml is missing from the plugin JAR" }
+            check("build-info.properties" in names) {
+                "build-info.properties is missing from the plugin JAR"
+            }
             check(
                 "de/minecraftgilde/prometheus/ExporterPlugin.class" in names
             ) { "Plugin main class is missing from the plugin JAR" }
@@ -136,6 +175,17 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
             check("version: '$expectedPluginVersion'" in descriptor)
             check("\${" !in descriptor) {
                 "plugin.yml contains an unexpanded placeholder"
+            }
+
+            val buildInfo = archive
+                .getInputStream(archive.getEntry("build-info.properties"))
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
+            check("git-commit=$buildGitCommit" in buildInfo) {
+                "build-info.properties does not contain the resolved Git commit"
+            }
+            check("\${" !in buildInfo) {
+                "build-info.properties contains an unexpanded placeholder"
             }
         }
     }

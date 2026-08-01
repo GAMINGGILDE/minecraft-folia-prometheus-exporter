@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.minecraftgilde.prometheus.ExporterLifecycleState;
+import de.minecraftgilde.prometheus.ExporterMetrics;
+import de.minecraftgilde.prometheus.ExporterMetricsTestSupport;
 import de.minecraftgilde.prometheus.collector.CollectorState;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
-import de.minecraftgilde.prometheus.metrics.ExporterMetrics;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -141,12 +142,7 @@ class MetricsHttpServerTest {
             );
             PrometheusRegistry registry = new PrometheusRegistry();
             ExporterLifecycleState state = readyCoreState();
-            ExporterMetrics metrics = ExporterMetrics.register(
-                registry,
-                "test",
-                "unknown",
-                "common"
-            );
+            ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
 
             assertThrows(
                 IOException.class,
@@ -163,12 +159,7 @@ class MetricsHttpServerTest {
     private static TestServer startServer() throws IOException {
         PrometheusRegistry registry = new PrometheusRegistry();
         ExporterLifecycleState state = readyCoreState();
-        ExporterMetrics metrics = ExporterMetrics.register(
-            registry,
-            "test-version",
-            "unknown",
-            "common"
-        );
+        ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);
         MetricsHttpServer server = MetricsHttpServer.start(
             CONFIGURATION,

@@ -93,6 +93,7 @@ jobs:
       - name: Start server and verify plugin activation
         env:
           SERVER_DIRECTORY: smoke/${{ matrix.project }}
+          EXPECTED_GIT_COMMIT: ${{ github.sha }}
         run: .github/scripts/server-smoke-test.sh "$SERVER_DIRECTORY"
 
       - name: Upload server log
