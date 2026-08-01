@@ -2,7 +2,7 @@
 
 Repository: `minecraft-folia-prometheus-exporter`
 
-FoliaPrometheusExporter ist ein ausschließlich für Folia entwickelter
+FoliaPrometheusExporter ist ein für Paper und Folia entwickelter
 Prometheus-Exporter. Das Plugin stellt umfangreiche Server-, Welt-, Entity-,
 Folia-, JVM-, Prozess- und Exporter-Metriken bereit.
 
@@ -12,8 +12,9 @@ Folia-, JVM-, Prozess- und Exporter-Metriken bereit.
 - Repository: `minecraft-folia-prometheus-exporter`
 - Package: `de.minecraftgilde.prometheus`
 - Java: 25 oder neuer
-- Plattform: ausschließlich Folia
-- Startversion: Folia 26.1.2
+- Plattformen: Paper und Folia
+- Startversion: API-Linie 26.1.2
+- Auslieferung: ein gemeinsames Plugin-JAR
 - Lizenz: MIT
 - Build: Gradle Kotlin DSL
 
@@ -24,9 +25,9 @@ Spielerstatistiken. Spielernamen und UUIDs werden nicht als Labels exportiert.
 
 ## Stabilitätsprinzip
 
-Version 1 verwendet keine internen Folia-Klassen, keine NMS-Abhängigkeiten und
-keinen experimentellen Internal Provider. Metriken ohne belastbare öffentliche API
-werden nicht vorgetäuscht.
+Version 1 verwendet keine internen Paper- oder Folia-Klassen, keine
+NMS-Abhängigkeiten und keinen experimentellen Internal Provider. Metriken ohne
+belastbare öffentliche API werden nicht vorgetäuscht.
 
 ## Dokumentation
 
@@ -38,6 +39,18 @@ werden nicht vorgetäuscht.
 - [Tests und Abnahme](docs/07-testing.md)
 - [Entscheidungen](docs/09-open-decisions.md)
 - [Codex-Plan](docs/10-codex-implementation-plan.md)
+
+## Build und Tests
+
+Voraussetzung ist ein installiertes JDK 25. Der Build verwendet den mitgelieferten
+Gradle Wrapper:
+
+```bash
+./gradlew clean build
+./gradlew test
+```
+
+Das Plugin-JAR wird unter `build/libs/` erzeugt.
 
 ## Status
 

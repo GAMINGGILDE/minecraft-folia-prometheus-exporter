@@ -13,11 +13,13 @@ Semantische Versionierung:
 - schattiertes Plugin-JAR
 - Prüfsumme
 - Changelog
-- dokumentierte Ziel-Folia-Version
-- Liste experimenteller Provider
+- dokumentierte Zielversionen von Paper und Folia
+- dokumentierte plattformspezifische Provider
 
 ## Kompatibilität
 
-Der stabile Kern darf keine direkte Compile-Time-Abhängigkeit auf interne
-Folia-Klassen besitzen. Kompatibilitätsprüfungen erfolgen über öffentliche APIs und
+Der stabile Kern kompiliert gegen die öffentliche `paper-api` und darf keine
+direkte Compile-Time-Abhängigkeit auf interne Paper- oder Folia-Klassen besitzen.
+Folia-spezifische Funktionen werden in einem isolierten Provider gekapselt.
+Kompatibilitätsprüfungen erfolgen ausschließlich über öffentliche APIs und
 Capabilities.

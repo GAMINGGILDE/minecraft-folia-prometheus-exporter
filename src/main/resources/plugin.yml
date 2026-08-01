@@ -1,0 +1,8 @@
+name: FoliaPrometheusExporter
+version: '${version}'
+main: de.minecraftgilde.prometheus.ExporterPlugin
+api-version: '26.1.2'
+folia-supported: true
+description: Prometheus exporter for Paper and Folia without individual player metrics.
+authors:
+  - CFPlusPlus

@@ -4,16 +4,34 @@ Codex soll nicht das gesamte Plugin in einem einzigen Auftrag erzeugen.
 
 ## Phase 1 – Projektgerüst
 
-- Gradle Wrapper
+- Gradle Wrapper 9.6.1 mit Distribution-Checksumme
 - Gradle Kotlin DSL
-- Java Toolchain
-- Plugin-Metadaten
+- Java Toolchain 25 und `JavaCompile.options.release = 25`
+- öffentliche `paper-api` als `compileOnly`
+- genau ein gemeinsames Plugin-JAR
+- klassische `plugin.yml` mit `folia-supported: true`
+- verifiziertes `api-version: '26.1.2'`
+- Entwicklungsversion `0.1.0-SNAPSHOT`
+- Ressourcenexpansion der Projektversion
 - Hauptklasse
-- Konfigurationsmodell
+- immutable Konfigurationsmodelle
+- getrennte Loader- und Validator-Komponenten
 - JUnit 5
 - GitHub-Actions-Build
+- Tests für Standardwerte, ungültige Konfigurationen, Plugin-Metadaten und
+  expandierte Pluginversion
+- Starttest auf Paper und nach Möglichkeit Folia, sofern in CI automatisierbar
 
-Abnahme: `./gradlew clean build`.
+Nicht Bestandteil von Phase 1:
+
+- Collector
+- HTTP-Endpunkte
+- konkrete Metriken
+- Folia-spezifischer Provider
+- vorsorglicher PlatformDetector oder Feature-Detector
+
+Abnahme: `./gradlew clean build`; der erzeugte Descriptor enthält die konkrete
+Version und keinen nicht expandierten Platzhalter.
 
 ## Phase 2 – Metrics Core
 
@@ -61,6 +79,8 @@ Abnahme: HTTP-Ausgabe ohne Minecraft-Livezugriffe.
 
 ## Phase 6 – Folia Regions-TPS
 
+- isolierter Folia-Provider
+- belastbare Plattform- oder Feature-Erkennung über öffentliche APIs
 - RegionObservationRegistry
 - Beobachtungsquellen
 - TPS-Abfrage

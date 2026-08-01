@@ -1,4 +1,8 @@
-# 4. Folia-Threading und Scheduler-Regeln
+# 4. Paper-/Folia-Threading und Scheduler-Regeln
+
+Die Regeln gelten für beide offiziell unterstützten Plattformen. Das Plugin nutzt
+auf Paper und Folia ausschließlich Global-, Region-, Entity- und Async-Scheduler.
+Es gibt keinen Fallback auf den klassischen `BukkitScheduler`.
 
 ## 4.1 Scheduler-Zuordnung
 
@@ -13,7 +17,7 @@
 
 ## 4.2 Verbotene Muster
 
-Nicht als universelle Lösung verwenden:
+Nicht verwenden:
 
 ```java
 Bukkit.getScheduler().runTask(plugin, task);
@@ -59,6 +63,9 @@ public interface CollectionScheduler {
 }
 ```
 
+Die Abstraktion darf keine klassische Scheduler-Alternative enthalten. In Phase 1
+wird noch keine Collector-Scheduling-Logik implementiert.
+
 ## 4.4 Snapshot-Regel
 
 Jeder Scheduler-Task erzeugt nur lokale Werte. Erst nach vollständiger Erfassung wird
@@ -67,6 +74,9 @@ ein unveränderlicher Snapshot veröffentlicht.
 Unvollständige Zwischenstände dürfen nicht sichtbar werden.
 
 ## 4.5 Regionsbeobachtung
+
+Dieser Abschnitt betrifft den späteren isolierten Folia-Provider und ist nicht
+Bestandteil von Phase 1.
 
 Spielerpositionen dürfen intern als temporäre Beobachtungsquelle dienen. Dabei gilt:
 

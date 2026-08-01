@@ -3,7 +3,7 @@
 ## 3.1 Datenfluss
 
 ```text
-Folia/Paper Events und Scheduler
+Paper/Folia Events und Scheduler
              │
              ▼
       CollectorCoordinator
@@ -61,6 +61,9 @@ Abstraktion für:
 - Entity Scheduler
 - Async Scheduler
 
+Diese Scheduler werden auf Paper und Folia verwendet. Es gibt keinen Fallback auf
+den klassischen `BukkitScheduler`.
+
 ### `SnapshotRepository`
 
 - threadsichere, unveränderliche Snapshots
@@ -84,6 +87,14 @@ Abstraktion für:
 - Ablauf alter Beobachtungen
 - Aggregation je Welt
 
+### Folia-spezifischer Provider
+
+- wird erst in Phase 6 eingeführt
+- ist vom allgemeinen, gegen `paper-api` kompilierten Code isoliert
+- verwendet ausschließlich öffentliche Folia-APIs
+- wird nicht in Phase 1 auf Vorrat angelegt
+- führt seine Plattform- oder Feature-Erkennung erst bei tatsächlichem Bedarf ein
+
 ## 3.4 Collector-Gruppen
 
 ```text
@@ -106,4 +117,5 @@ GameplayCollector (optional)
 - Fehler setzen den letzten gültigen Snapshot nicht automatisch auf null.
 - Snapshot-Alter zeigt veraltete Daten.
 - Ein Collector-Fehler darf den HTTP-Endpunkt nicht stoppen.
-- Ein experimenteller Provider darf das Plugin nicht am Start hindern.
+- Ein optionaler plattformspezifischer Provider darf das Plugin nicht am Start hindern.
+- Experimentelle oder interne Provider sind kein Bestandteil von Version 1.

@@ -128,6 +128,10 @@ Standardgruppen:
 
 ## 2.8 Folia
 
+Diese Metrikgruppe ist Folia-spezifisch und wird später über einen isolierten,
+ausschließlich auf öffentlichen APIs basierenden Provider implementiert. Der
+Provider und seine Feature-Erkennung sind nicht Bestandteil von Phase 1.
+
 | Metrik | Typ | Labels | Standard | Status |
 |---|---|---|---:|---|
 | `minecraft_folia_observed_regions` | Gauge | `world` | an | Stabil |

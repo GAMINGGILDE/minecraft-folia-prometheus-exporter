@@ -62,9 +62,6 @@ folia:
       - 15.0
       - 10.0
 
-  experimental-internal-provider:
-    enabled: false
-
 filesystem:
   include-world-sizes: true
   include-server-filesystem: true
@@ -81,8 +78,19 @@ logging:
 
 ## Konfigurationsregeln
 
-- Ungültige Intervalle verhindern nicht zwingend den Pluginstart; es soll ein
-  verständlicher Konfigurationsfehler ausgegeben werden.
+- Ungültige Konfigurationswerte verhindern den Pluginstart und werden mit einer
+  verständlichen Fehlermeldung protokolliert.
 - Der HTTP-Endpunkt bindet standardmäßig nur lokal.
-- Experimentelle Provider sind standardmäßig aus.
+- Experimentelle oder interne Provider sind in Version 1 nicht konfigurierbar.
 - Spielermetriken existieren nicht als aktivierbare Option.
+- Die genaue Behandlung von `folia-regions: true` auf Paper wird erst zusammen
+  mit dem isolierten Folia-Provider in Phase 6 festgelegt.
+
+## Konfigurationsmodell
+
+- Konfigurationswerte werden in immutable Java-Records oder unveränderlichen
+  finalen Klassen abgebildet.
+- Laden und Validieren sind getrennte Komponenten.
+- Phase 1 testet Standardwerte und ungültige Konfigurationen.
+- Die Konfiguration startet in Phase 1 weder Collector noch HTTP-Endpunkte und
+  erzeugt keine Metriken.

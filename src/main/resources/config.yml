@@ -59,9 +59,6 @@ folia:
       - 15.0
       - 10.0
 
-  experimental-internal-provider:
-    enabled: false
-
 filesystem:
   include-world-sizes: true
   include-server-filesystem: true

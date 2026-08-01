@@ -2,17 +2,17 @@
 
 ## 1.1 Ziel
 
-Entwicklung eines langlebigen Prometheus-Exporter-Plugins ausschließlich für Folia. Das Plugin beginnt mit Folia 26.1.2, benötigt Java 25 und soll spätere Folia-Versionen ohne große Umbauten unterstützen.
+Entwicklung eines langlebigen Prometheus-Exporter-Plugins für Paper und Folia. Das Plugin beginnt mit der API-Linie 26.1.2, benötigt Java 25 und soll spätere Paper- und Folia-Versionen ohne große Umbauten unterstützen. Es wird als genau ein gemeinsames Plugin-JAR ausgeliefert.
 
 ## 1.2 Kernanforderungen
 
 - Prometheus-Endpunkt unter `/metrics`
 - optionale Endpunkte `/health` und `/ready`
 - standardmäßig Bindung an `127.0.0.1`
-- Folia-first und threadsicher
+- Paper- und Folia-konform sowie threadsicher
 - Snapshot-basierte Datenerfassung
 - keine Live-Abfragen von Minecraft-Daten während eines Scrapes
-- ausschließlich öffentliche Folia-, Bukkit- und Java-APIs
+- ausschließlich öffentliche Paper-, Folia-, Bukkit- und Java-APIs
 - einzelne Collector getrennt aktivierbar
 - konfigurierbare Erfassungsintervalle
 - kontrollierte Label-Kardinalität
@@ -49,7 +49,9 @@ Entwicklung eines langlebigen Prometheus-Exporter-Plugins ausschließlich für F
 - keine Befehlsargumente
 - keine freien Kick- oder Fehlermeldungen als Label
 - kein vollständiger Ersatz für node_exporter
-- keine NMS- oder internen Folia-Abhängigkeiten
+- keine NMS- oder internen Paper-/Folia-Abhängigkeiten
+- kein experimenteller oder interner Provider in Version 1
+- kein Fallback auf den klassischen BukkitScheduler
 - kein Zugriff auf Minecraft-Weltdaten vom HTTP-Thread
 - keine unbeschränkte Auflistung einzelner Chunks als Zeitreihen
 - keine dynamischen internen Folia-Regions-IDs als langlebige Labels
@@ -59,7 +61,7 @@ Entwicklung eines langlebigen Prometheus-Exporter-Plugins ausschließlich für F
 | Klasse | Bedeutung |
 |---|---|
 | Stabil | Öffentliche API, für Standardbetrieb vorgesehen |
-| Snapshot | Folia-konform gesammelt und zwischengespeichert |
+| Snapshot | Ownership-konform gesammelt und zwischengespeichert |
 | Eventbasiert | Fortlaufend über Events gezählt |
 | Abgeleitet | Aus stabilen Metriken berechnet |
 | Optional | Standardmäßig deaktiviert |
@@ -85,16 +87,19 @@ Group: de.minecraftgilde
 Artifact: minecraft-folia-prometheus-exporter
 Package: de.minecraftgilde.prometheus
 Java: 25+
-Plattform: ausschließlich Folia
+Plattformen: Paper und Folia ab API-Linie 26.1.2
+Auslieferung: ein gemeinsames Plugin-JAR
 Lizenz: MIT
 ```
 
-## 1.8 Nicht unterstützte Plattformen
+## 1.8 Plattformunterstützung
 
-- Paper
-- Spigot
-- CraftBukkit
-- Purpur
-- andere Bukkit-/Paper-Forks
+- Offiziell getestet und unterstützt werden Paper und Folia.
+- Andere Serverimplementierungen und Forks werden nicht aktiv blockiert.
+- Für andere Serverimplementierungen und Forks besteht kein offizieller Supportanspruch.
+- Es werden keine Scheduler-Fallbacks für Spigot oder CraftBukkit entwickelt.
 
-Es werden keine Fallbacks oder Kompatibilitätsschichten für diese Plattformen entwickelt.
+Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Folia-spezifische
+Funktionen werden erst bei tatsächlichem Bedarf in einem isolierten Provider
+implementiert. Phase 1 enthält weder einen solchen Provider noch eine vorsorgliche
+Plattform- oder Feature-Erkennung.

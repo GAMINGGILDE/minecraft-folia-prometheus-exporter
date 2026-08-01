@@ -1,13 +1,17 @@
-# ADR 0007: Ausschließlich Folia
+# ADR 0007: Ausschließlich Folia (abgelöst)
+
+## Status
+
+Abgelöst durch [ADR 0008](0008-paper-and-folia.md).
 
 ## Entscheidung
 
-Das Plugin unterstützt ausschließlich Folia.
+Die ursprüngliche Entscheidung sah ausschließlich Folia vor. Diese Entscheidung
+gilt nicht mehr; Paper und Folia werden ab der API-Linie 26.1.2 offiziell
+unterstützt.
 
 ## Konsequenzen
 
-- keine Paper-, Spigot- oder CraftBukkit-Unterstützung
-- keine klassischen Scheduler-Fallbacks
-- keine globalen Paper-TPS-Metriken
-- Dokumentation und Tests beziehen sich nur auf Folia
-- Forks werden nicht offiziell unterstützt
+- Die historischen Konsequenzen dieses ADR sind nicht mehr verbindlich.
+- Die weiterhin gültigen Verbote zu klassischen Scheduler-Fallbacks und
+  internen APIs sind in ADR 0008 und ADR 0004 festgelegt.
