@@ -145,6 +145,18 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
                     )
                 }
             ) { "Relocated Prometheus runtime classes are missing" }
+            check(
+                listOf(
+                    "JvmMemoryMetrics.class",
+                    "JvmGarbageCollectorMetrics.class",
+                    "JvmThreadsMetrics.class",
+                    "JvmClassLoadingMetrics.class",
+                    "JvmBufferPoolMetrics.class",
+                    "ProcessMetrics.class"
+                ).all { className ->
+                    "de/minecraftgilde/prometheus/internal/prometheus/metrics/instrumentation/jvm/$className" in names
+                }
+            ) { "Relocated JVM/process instrumentation classes are missing" }
             check(names.none { it.startsWith("io/prometheus/") }) {
                 "Unrelocated Prometheus runtime classes are present"
             }

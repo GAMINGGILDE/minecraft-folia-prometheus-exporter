@@ -22,6 +22,8 @@ class ExporterConfigurationTest {
 
         assertEquals(ExporterConfiguration.defaults(), configuration);
         assertDoesNotThrow(() -> validator.validate(configuration));
+        assertTrue(configuration.collectors().jvm());
+        assertTrue(configuration.collectors().process());
         assertThrows(
             UnsupportedOperationException.class,
             () -> configuration.folia().tps().windows().add("30m")
@@ -37,6 +39,8 @@ class ExporterConfigurationTest {
         Map<String, Object> values = new HashMap<>();
         values.put("http.port", 12345);
         values.put("collection.timeout", "250ms");
+        values.put("collectors.jvm", false);
+        values.put("collectors.process", false);
         values.put("collectors.gameplay", true);
         values.put("logging.debug", true);
 
@@ -45,6 +49,8 @@ class ExporterConfigurationTest {
         assertEquals(12345, configuration.http().port());
         assertEquals(Duration.ofMillis(250), configuration.collection().timeout());
         assertFalse(configuration.privacy().individualPlayerMetricsSupported());
+        assertFalse(configuration.collectors().jvm());
+        assertFalse(configuration.collectors().process());
         assertTrue(configuration.collectors().gameplay());
         assertTrue(configuration.logging().debug());
         assertDoesNotThrow(() -> validator.validate(configuration));

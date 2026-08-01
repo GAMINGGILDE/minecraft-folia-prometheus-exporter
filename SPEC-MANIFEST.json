@@ -11,7 +11,7 @@
   "internal_paper_api_v1": false,
   "internal_folia_api_v1": false,
   "individual_player_metrics": false,
-  "implementation_status": "Phase 2 Metrics Core implemented with collector lifecycle, immutable snapshots, atomic repository, HTTP endpoints, exporter self-metrics, build-derived Git metadata, Shadow JAR verification, and extended pinned Paper/Folia smoke tests",
+  "implementation_status": "Phase 3 JVM and process metrics implemented with official Prometheus Java Client 1.8.0 instrumentation registered directly in each MetricsCore private registry; Phase 4 server and world metrics is next",
   "server_smoke_tests": {
     "workflow_separate_from_build": true,
     "runner": "ubuntu-24.04",
@@ -22,6 +22,7 @@
     "activation_marker": "FoliaPrometheusExporter started.",
     "verifies_http_endpoints": true,
     "verifies_embedded_git_commit": true,
+    "verifies_phase_3_metrics": true,
     "verifies_http_shutdown": true,
     "paper": {
       "version": "26.1.2",
@@ -96,6 +97,48 @@
     "jvm_metrics_registered": false,
     "process_metrics_registered": false
   },
+  "phase_3_architecture": {
+    "implemented": true,
+    "registrar": "de.minecraftgilde.prometheus.jvm.JvmMetricsRegistrar",
+    "registry_scope": "one private PrometheusRegistry per MetricsCore",
+    "uses_default_registry": false,
+    "uses_static_registry_state": false,
+    "registration_idempotent_per_registrar": true,
+    "registration_completed_before_readiness": true,
+    "jvm_enabled_by_default": true,
+    "process_enabled_by_default": true,
+    "configuration_keys": [
+      "collectors.jvm",
+      "collectors.process"
+    ],
+    "official_instrumentations": [
+      "JvmMemoryMetrics",
+      "JvmGarbageCollectorMetrics",
+      "JvmThreadsMetrics",
+      "JvmClassLoadingMetrics",
+      "JvmBufferPoolMetrics",
+      "ProcessMetrics"
+    ],
+    "minecraft_live_objects_read": false,
+    "scheduler_required": false,
+    "snapshot_required": false,
+    "background_threads_started": false,
+    "platform_dependent_metrics": [
+      "process_cpu_seconds_total",
+      "process_open_fds",
+      "process_max_fds",
+      "process_virtual_memory_bytes",
+      "process_resident_memory_bytes"
+    ],
+    "unavailable_in_client_1_8_0": [
+      "process_cpu_usage_ratio",
+      "process_uptime_seconds",
+      "system_cpu_usage_ratio",
+      "system_cpu_count",
+      "system_load_average_1m"
+    ],
+    "next_phase": "Phase 4 Server and Worlds"
+  },
   "future_folia_provider": {
     "phase": 6,
     "compile_only_api": "dev.folia:folia-api:26.1.2.build.8-stable",
@@ -139,6 +182,7 @@
     "docs/adr/0009-pinned-server-smoke-tests.md",
     "docs/adr/0010-folia-provider-capability-detection.md",
     "docs/adr/0011-prometheus-client-and-http-server.md",
+    "docs/adr/0012-direct-jvm-process-instrumentation.md",
     "docs/codex-tasks/01-project-bootstrap.md",
     "docs/codex-tasks/02-metrics-core.md",
     "docs/codex-tasks/03-jvm-process.md",
@@ -170,6 +214,7 @@
     "src/main/java/de/minecraftgilde/prometheus/config/DurationParser.java",
     "src/main/java/de/minecraftgilde/prometheus/config/ExporterConfiguration.java",
     "src/main/java/de/minecraftgilde/prometheus/http/MetricsHttpServer.java",
+    "src/main/java/de/minecraftgilde/prometheus/jvm/JvmMetricsRegistrar.java",
     "src/main/java/de/minecraftgilde/prometheus/snapshot/ImmutableSnapshot.java",
     "src/main/java/de/minecraftgilde/prometheus/snapshot/SnapshotRepository.java",
     "src/main/resources/build-info.properties",
@@ -185,6 +230,7 @@
     "src/test/java/de/minecraftgilde/prometheus/collector/CollectorCoordinatorTest.java",
     "src/test/java/de/minecraftgilde/prometheus/config/ExporterConfigurationTest.java",
     "src/test/java/de/minecraftgilde/prometheus/http/MetricsHttpServerTest.java",
+    "src/test/java/de/minecraftgilde/prometheus/jvm/JvmMetricsRegistrarTest.java",
     "src/test/java/de/minecraftgilde/prometheus/snapshot/SnapshotRepositoryTest.java"
   ]
 }

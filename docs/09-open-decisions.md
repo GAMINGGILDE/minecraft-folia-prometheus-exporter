@@ -57,6 +57,8 @@ Der Test setzt `eula=true`, kopiert das einzige erzeugte Plugin-JAR nach
 `FoliaPrometheusExporter started.`. Plugin-Ladefehler, Plugin-Exceptions,
 vorzeitiges Serverende oder Timeout sind Fehler. Nach erfolgreicher Aktivierung
 wird `stop` über die Serverkonsole gesendet und der Prozess kontrolliert beendet.
+Seit Phase 3 prüft der Smoke-Test zusätzlich stabile JVM-/Prozessfamilien samt
+Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -107,7 +109,25 @@ Details stehen in ADR 0009.
 
 Details stehen in ADR 0011.
 
-## 9.4 Festgelegt für den späteren Folia-Provider
+## 9.4 In Phase 3 umgesetzt
+
+- `JvmMemoryMetrics`, `JvmGarbageCollectorMetrics`, `JvmThreadsMetrics`,
+  `JvmClassLoadingMetrics`, `JvmBufferPoolMetrics` und `ProcessMetrics` aus dem
+  Prometheus Java Client 1.8.0 werden direkt in jeder privaten Core-Registry
+  registriert.
+- `JvmMetricsRegistrar` registriert jede konfigurierte Gruppe höchstens einmal
+  und verwendet weder Default-Registry noch statische Registry-Zustände.
+- `collectors.jvm` und `collectors.process` bleiben unabhängige, standardmäßig
+  aktive Schalter.
+- Die Instrumentierungen lesen keine Minecraft-Liveobjekte und benötigen weder
+  Snapshot noch Scheduler oder eigene Hintergrundthreads.
+- Betriebssystem- und MXBean-abhängige Prozesssamples dürfen fehlen.
+- Die in 1.8.0 nicht angebotenen CPU-Usage-, Prozess-Uptime- und
+  `system_*`-Metriken werden nicht nachgebaut oder umbenannt.
+
+Details stehen in ADR 0012.
+
+## 9.5 Festgelegt für den späteren Folia-Provider
 
 - Der Provider wird erst in Phase 6 in einem isolierten Package implementiert.
 - Seine Compile-API ist
@@ -130,7 +150,7 @@ Details stehen in ADR 0011.
 
 Details stehen in ADR 0010.
 
-## 9.5 Noch offen
+## 9.6 Noch offen
 
 - endgültige Collector-Standardintervalle
 - genaue Strategie zur Regionsbeobachtung über öffentliche APIs
@@ -140,7 +160,7 @@ Details stehen in ADR 0010.
 - gewünschte Standard-Buckets für Histogramme
 - Release- und Changelog-Format
 
-## 9.6 Nicht mehr offen
+## 9.7 Nicht mehr offen
 
 - Automatisierbarkeit eines verpflichtenden Paper- und Folia-Starttests
 - feste Paper- und Folia-Serverbuilds für den Smoke-Test
@@ -162,6 +182,8 @@ Details stehen in ADR 0010.
 - HTTP-Methoden- und Unknown-Path-Semantik
 - Quelle und Fallback des `git_commit`-Buildlabels
 - instanzgebundene Eigenmetriken ohne globalen Registry-Cache
+- direkte JVM-/Prozessregistrierung ohne globale Registry oder Snapshot-Collector
+- exakte offizielle JVM-/Prozessnamen und 1.8.0-Verfügbarkeitsgrenzen
 - klassische `plugin.yml` statt `paper-plugin.yml`
 - fest gepinnte `paper-api`-Koordinate und JUnit-5-Version
 - Fehlerverhalten des Konfigurationsloaders bei ungültigen Werten

@@ -9,6 +9,7 @@ import de.minecraftgilde.prometheus.ExporterMetrics;
 import de.minecraftgilde.prometheus.ExporterMetricsTestSupport;
 import de.minecraftgilde.prometheus.collector.CollectorState;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
+import de.minecraftgilde.prometheus.jvm.JvmMetricsRegistrar;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -88,6 +89,12 @@ class MetricsHttpServerTest {
             assertTrue(
                 metrics.body().contains("minecraft_exporter_collector_state")
             );
+            assertTrue(metrics.body().contains("jvm_memory_used_bytes"));
+            assertTrue(metrics.body().contains("jvm_gc_collection_seconds_count"));
+            assertTrue(metrics.body().contains("jvm_threads_current"));
+            assertTrue(metrics.body().contains("jvm_classes_currently_loaded"));
+            assertTrue(metrics.body().contains("jvm_buffer_pool_used_bytes"));
+            assertTrue(metrics.body().contains("process_cpu_seconds_total"));
         }
     }
 
@@ -158,6 +165,7 @@ class MetricsHttpServerTest {
 
     private static TestServer startServer() throws IOException {
         PrometheusRegistry registry = new PrometheusRegistry();
+        new JvmMetricsRegistrar(registry, true, true).register();
         ExporterLifecycleState state = readyCoreState();
         ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);

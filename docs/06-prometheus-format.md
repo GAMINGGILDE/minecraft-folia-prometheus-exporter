@@ -66,9 +66,11 @@ regionalen Tickdauern tatsächlich belastbar messbar sind.
 
 ## 6.6 Scrape-Datenquelle
 
-Der Renderer und alle HTTP-Handler lesen ausschließlich immutable Snapshots und
-kontrollierten Exporterstatus. Sie führen keine Live-Abfragen gegen Bukkit, Paper,
-Folia oder Minecraft-Daten aus.
+Der Renderer und alle HTTP-Handler lesen immutable Minecraft-Snapshots,
+kontrollierten Exporterstatus und die Registry-Callbacks der offiziellen
+JVM-/Prozessinstrumentierung. Diese Callbacks lesen ausschließlich JDK- und
+Betriebssystemdaten. Es gibt keine Live-Abfragen gegen Bukkit, Paper, Folia oder
+Minecraft-Daten.
 
 Die HTTP-Eigenmetrik enthält weder den konfigurierten oder angefragten Rohpfad noch
 Methode, Client-IP, vollständige URL oder User-Agent. Fehlerursachen und

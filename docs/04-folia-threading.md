@@ -5,10 +5,12 @@ auf Paper und Folia ausschließlich Global-, Region-, Entity- und Async-Schedule
 Es gibt keinen Fallback auf den klassischen `BukkitScheduler`.
 
 Diese vier Scheduler sind Teil der gemeinsamen öffentlichen Paper-API und werden
-nicht als Folia-Erkennungsmerkmal verwendet. Phase 2 benötigt deshalb weder einen
+nicht als Folia-Erkennungsmerkmal verwendet. Phase 3 benötigt deshalb weder einen
 Folia-Provider noch eine Plattform- oder Feature-Erkennung.
 
-Phase 2 führt noch keine periodischen Minecraft-Erfassungen aus. Daher existiert
+Phase 3 führt noch keine periodischen Minecraft-Erfassungen aus. Die offiziellen
+JVM-/Prozesscallbacks lesen ausschließlich JDK- und Betriebssystemdaten direkt
+über die private Prometheus-Registry. Daher existiert
 noch keine konkrete Scheduler-Implementierung und insbesondere auch kein
 vorsorglicher Fallback. Die folgenden Zuordnungen werden erst von den fachlichen
 Collector-Phasen umgesetzt.
@@ -72,8 +74,9 @@ public interface CollectionScheduler {
 }
 ```
 
-Die Abstraktion darf keine klassische Scheduler-Alternative enthalten. In Phase 1
-wird noch keine Collector-Scheduling-Logik implementiert.
+Die Abstraktion darf keine klassische Scheduler-Alternative enthalten. Bis
+einschließlich Phase 3 wird noch keine Minecraft-Collector-Scheduling-Logik
+implementiert.
 
 Die spätere Capability-Prüfung des isolierten Folia-Metrikproviders bezieht sich
 ausschließlich auf die konkrete öffentliche Folia-API, die seine Messung benötigt.
@@ -106,7 +109,10 @@ Handler dürfen ausschließlich:
 
 Im Metrics Core existiert keine Referenz von einem HTTP-Handler auf Bukkit-,
 Paper-, Folia- oder Minecraft-Objekte. Parallele Scrapes werden vom offiziellen
-Prometheus-Handler und threadsicheren Client-Metriken verarbeitet.
+Prometheus-Handler und threadsicheren Client-Metriken verarbeitet. Direkte
+Callbacks der JVM-/Prozessinstrumentierung sind zulässig, weil sie ausschließlich
+JDK- und Betriebssystemdaten lesen und keine Ownership-Regel von Paper oder Folia
+berühren.
 
 ## 4.6 Regionsbeobachtung
 

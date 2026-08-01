@@ -49,6 +49,8 @@ public final class ExporterPlugin extends JavaPlugin {
                 getPluginMeta().getVersion(),
                 buildInformation.gitCommit(),
                 "common",
+                loaded.collectors().jvm(),
+                loaded.collectors().process(),
                 (collector, failure) -> getLogger().log(
                     Level.WARNING,
                     "Collector '" + collector + "' failed; other collectors remain active.",

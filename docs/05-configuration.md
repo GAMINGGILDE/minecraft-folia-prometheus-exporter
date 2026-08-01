@@ -107,6 +107,9 @@ logging:
 - Phase 2 übernimmt Bindeadresse, Port, Endpunktpfade und Workerzahl aus der
   bestehenden HTTP-Konfiguration. Die Standardbindung bleibt `127.0.0.1`; die
   Standardpfade sind `/metrics`, `/health` und `/ready`.
+- Phase 3 verwendet die bereits vorgesehenen unabhängigen Schalter
+  `collectors.jvm` und `collectors.process`. Beide sind standardmäßig aktiv und
+  werden vor dem HTTP-Start ausgewertet.
 - Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
   Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
   und HTTP-Dienst.
@@ -122,6 +125,19 @@ logging:
 | `http.ready-path` | `/ready` | Readiness-Endpunkt |
 | `http.worker-threads` | `2` | feste Größe des benannten HTTP-Workerpools |
 
-Die Collector- und Erfassungswerte bleiben für die späteren fachlichen Phasen in
-der Konfiguration erhalten, lösen in Phase 2 aber noch keine Minecraft-Erfassung
-oder JVM-/Prozessinstrumentierung aus.
+## Phase-3-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `collectors.jvm` | `true` | registriert Speicher-, GC-, Thread-, Klassen- und Buffer-Pool-Instrumentierung |
+| `collectors.process` | `true` | registriert die offizielle Prozessinstrumentierung |
+
+Die Schalter wirken unabhängig. Sind beide deaktiviert, enthält die private
+Registry weiterhin die Exporter-Eigenmetriken, aber keine `jvm_*`- oder
+`process_*`-Familien. Eine einzelne Schaltung je JVM-Metrik ist nicht vorgesehen.
+Das Instrumentierungsmodul 1.8.0 bietet keine `system_*`-Gruppe; daher existiert
+kein irreführender `collectors.system`-Schalter.
+
+Die übrigen Collector- und Erfassungswerte bleiben für die späteren fachlichen
+Phasen in der Konfiguration erhalten und lösen in Phase 3 noch keine
+Minecraft-Erfassung aus.

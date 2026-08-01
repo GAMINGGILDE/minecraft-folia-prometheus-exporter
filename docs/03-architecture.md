@@ -24,6 +24,22 @@ Collector Collector Collector
        MetricsEndpoint
 ```
 
+Die JVM- und Prozessinstrumentierungen aus Phase 3 bilden einen getrennten,
+serverunabhängigen Datenpfad:
+
+```text
+JDK Management APIs und betriebssystemspezifische Prozessdaten
+                         │
+                         ▼
+               JvmMetricsRegistrar
+                         │
+                         ▼
+       private PrometheusRegistry des MetricsCore
+                         │
+                         ▼
+                  MetricsEndpoint
+```
+
 ## 3.2 Kernregel
 
 Der HTTP-Endpunkt darf niemals live auf Bukkit-, Paper- oder Folia-Welten,
@@ -31,9 +47,14 @@ Chunks, Entities oder Spieler zugreifen.
 
 Ein Scrape darf nur:
 
-1. vorhandene Snapshots lesen,
-2. Prometheus-Text serialisieren,
-3. HTTP-Status und Header schreiben.
+1. vorhandene Minecraft-Snapshots lesen,
+2. offizielle Prometheus-Callbacks für reine JVM-/Prozessdaten ausführen,
+3. Prometheus-Text serialisieren,
+4. HTTP-Status und Header schreiben.
+
+Die Ausnahme in Punkt 2 betrifft ausschließlich die offizielle
+JVM-Instrumentierung. Sie liest keine Bukkit-, Paper-, Folia- oder
+Minecraft-Liveobjekte.
 
 ## 3.3 Hauptkomponenten
 
@@ -42,7 +63,8 @@ Ein Scrape darf nur:
 - lädt und validiert zuerst die immutable Konfiguration
 - lädt den von Gradle in `build-info.properties` eingebetteten Git-Commit mit
   `unknown` als robustem Fallback
-- erzeugt Registry, Eigenmetriken und `CollectorCoordinator`
+- erzeugt Registry, JVM-/Prozessregistrar, Eigenmetriken und
+  `CollectorCoordinator`
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
 - setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
@@ -58,8 +80,30 @@ Ein Scrape darf nur:
 
 Der allgemeine Lifecycle verwendet die feste Zustandsmenge `disabled`,
 `starting`, `running`, `unsupported`, `failed` und `stopped`. Initialisierung
-erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 2
-registriert noch keinen fachlichen Collector und plant keine Erfassungsintervalle.
+erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 3
+registriert weiterhin keinen Minecraft-Collector und plant keine
+Erfassungsintervalle.
+
+### `JvmMetricsRegistrar`
+
+- verwendet ausschließlich die private `PrometheusRegistry` seines
+  `MetricsCore`
+- registriert `JvmMemoryMetrics`, `JvmGarbageCollectorMetrics`,
+  `JvmThreadsMetrics`, `JvmClassLoadingMetrics`, `JvmBufferPoolMetrics` und
+  `ProcessMetrics` aus dem offiziellen Prometheus Java Client 1.8.0
+- registriert jede konfigurierte Instrumentierung pro Instanz höchstens einmal
+- verwendet weder die globale Default-Registry noch statische Registry-Zustände
+- berücksichtigt die unabhängigen Schalter `collectors.jvm` und
+  `collectors.process`
+- benötigt keine Minecraft-API, keinen Scheduler, keine Snapshot-Publikation und
+  keinen eigenen HTTP-Server
+
+Die Instrumentierungen sind Registry-Callbacks und lesen beim Scrape nur
+JDK-/Prozessdaten. Das Snapshot-Modell bleibt für Minecraft-Livezustand
+verbindlich, würde hier aber lediglich zusätzliche veraltete Kopien erzeugen.
+Die verwendeten Instrumentierungen besitzen keine Start-, Stop- oder
+Unregister-Operation und starten keine eigenen Hintergrundthreads. Beim
+Core-Shutdown entfernt `PrometheusRegistry.clear()` ihre Callbacks.
 
 ### `CollectionScheduler`
 
@@ -145,6 +189,11 @@ ExporterCollector
 GameplayCollector (optional)
 ```
 
+`JvmCollector` und `ProcessCollector` sind logische Metrikgruppen, keine
+`ManagedCollector`: In Phase 3 werden sie durch `JvmMetricsRegistrar` direkt an
+die Registry gebunden. Alle Minecraft-bezogenen Gruppen folgen weiterhin dem
+Collector-/Snapshot-Lifecycle.
+
 ## 3.5 Fehlerisolation
 
 - Jeder Collector hat eigenen Fehlerzähler.
@@ -173,23 +222,26 @@ Abhängigkeitssignaturen. Eine Buildprüfung kontrolliert Descriptor, Hauptklass
 Relocation und den Ausschluss von Paper-, Folia-, Bukkit- und Minecraft-Klassen.
 
 Jede `MetricsCore` erzeugt genau eine eigene `PrometheusRegistry` und unmittelbar
-danach genau eine instanzgebundene `ExporterMetrics`. Die Registry wird nicht
-geteilt; daher ist kein statischer Registry- oder `WeakHashMap`-Cache nötig.
-Duplicate-Registration wird strukturell verhindert, weil der paketprivate
-Metrikkonstruktor ausschließlich einmal aus `MetricsCore` aufgerufen wird.
+danach genau einen instanzgebundenen `JvmMetricsRegistrar` und eine
+`ExporterMetrics`. Die Registry wird nicht geteilt; daher ist kein statischer
+Registry- oder `WeakHashMap`-Cache nötig. Duplicate-Registration wird
+strukturell verhindert, weil `MetricsCore` den Registrar genau einmal erzeugt
+und dessen idempotente `register()`-Methode jede Gruppe höchstens einmal bindet.
 
 Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 `build-info.properties`. Bei fehlendem Git-Programm, fehlendem Checkout oder
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-2-Lifecycle
+## 3.7 Phase-3-Lifecycle
 
 ```text
 onEnable
   Konfiguration validieren
   → Buildinformation laden
-  → eigene PrometheusRegistry und einmalig Eigenmetriken registrieren
+  → eigene PrometheusRegistry erzeugen
+  → konfigurierte offizielle JVM-/Prozessinstrumentierungen einmalig registrieren
+  → Eigenmetriken einmalig registrieren
   → CollectorCoordinator starten
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1
@@ -203,4 +255,9 @@ onDisable oder Startfehler
 
 Alle Schritte sind gegen wiederholten Aufruf geschützt. Ein Bindefehler, etwa bei
 belegtem Port, stoppt bereits gestartete Collector wieder und lässt keine
-teilweise aktive HTTP-Infrastruktur zurück.
+teilweise aktive HTTP-Infrastruktur zurück. Ein Fehler bei der
+JVM-/Prozessregistrierung propagiert aus der Core-Konstruktion und verhindert den
+Pluginstart kontrolliert; zu diesem Zeitpunkt existieren weder HTTP-Listener noch
+Collector- oder Scheduler-Threads. Der Registrar leert bei einem
+Registrierungsfehler die noch nicht freigegebene private Registry und wiederholt
+den fehlgeschlagenen Registrierungsversuch nicht.

@@ -40,6 +40,8 @@ Snapshots und kontrollierten Exporterstatus.
 
 Die JVM-Instrumentierungsbibliothek wird bereits als benötigtes Modul gebündelt;
 die Registrierung der JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
+Phase 3 erfüllt diese Vorgabe durch die direkte, instanzgebundene Registrierung
+aus [ADR 0012](0012-direct-jvm-process-instrumentation.md).
 
 Jede `MetricsCore` besitzt genau eine eigene `PrometheusRegistry` und einen
 einmalig konstruierten, instanzgebundenen `ExporterMetrics`-Satz. Ein statischer

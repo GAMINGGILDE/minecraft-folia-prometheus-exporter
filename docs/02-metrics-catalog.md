@@ -185,36 +185,106 @@ Auch hier niemals Spieleridentitäten exportieren.
 
 ## 2.10 JVM und Prozess
 
-Möglichst standardisierte Prometheus-Java-Client-Metriken verwenden:
+Phase 3 registriert ausschließlich offizielle Instrumentierungen aus
+`prometheus-metrics-instrumentation-jvm:1.8.0`. Die Tabellen verwenden die vom
+Client tatsächlich exportierten Namen; offizielle Namen werden nicht an frühere
+Katalogentwürfe angepasst.
 
-- `jvm_memory_used_bytes`
-- `jvm_memory_committed_bytes`
-- `jvm_memory_max_bytes`
-- `jvm_memory_init_bytes`
-- `jvm_memory_pool_used_bytes`
-- `jvm_memory_pool_committed_bytes`
-- `jvm_memory_pool_max_bytes`
-- `jvm_gc_collection_seconds_count`
-- `jvm_gc_collection_seconds_sum`
-- `jvm_threads_live_threads`
-- `jvm_threads_daemon_threads`
-- `jvm_threads_peak_threads`
-- `jvm_threads_started_threads_total`
-- `jvm_threads_deadlocked_threads`
-- `jvm_classes_loaded_classes`
-- `jvm_classes_loaded_classes_total`
-- `jvm_classes_unloaded_classes_total`
-- `jvm_buffer_pool_used_bytes`
-- `jvm_buffer_pool_capacity_bytes`
-- `jvm_buffer_pool_used_buffers`
+### JVM-Speicher
+
+Quelle: `JvmMemoryMetrics`. Alle Metriken sind Gauges.
+
+| Metrik | Labels | Status |
+|---|---|---|
+| `jvm_memory_objects_pending_finalization` | – | Stabil |
+| `jvm_memory_used_bytes` | `area` | Stabil |
+| `jvm_memory_committed_bytes` | `area` | Stabil |
+| `jvm_memory_max_bytes` | `area` | Stabil |
+| `jvm_memory_init_bytes` | `area` | Stabil |
+| `jvm_memory_pool_used_bytes` | `pool` | Stabil |
+| `jvm_memory_pool_committed_bytes` | `pool` | Stabil |
+| `jvm_memory_pool_max_bytes` | `pool` | Stabil |
+| `jvm_memory_pool_init_bytes` | `pool` | Stabil |
+| `jvm_memory_pool_collection_used_bytes` | `pool` | JVM-abhängig |
+| `jvm_memory_pool_collection_committed_bytes` | `pool` | JVM-abhängig |
+| `jvm_memory_pool_collection_max_bytes` | `pool` | JVM-abhängig |
+| `jvm_memory_pool_collection_init_bytes` | `pool` | JVM-abhängig |
+
+### Garbage Collection
+
+Quelle: `JvmGarbageCollectorMetrics`. Die Summary-Familie
+`jvm_gc_collection_seconds` wird im Prometheus-Textformat als folgende Samples
+mit dem Label `gc` ausgegeben:
+
+| Metrik | Typ | Status |
+|---|---|---|
+| `jvm_gc_collection_seconds_count` | Summary count | Stabil |
+| `jvm_gc_collection_seconds_sum` | Summary sum | Stabil |
+
+### Threads
+
+Quelle: `JvmThreadsMetrics`.
+
+| Metrik | Typ | Labels | Status |
+|---|---|---|---|
+| `jvm_threads_current` | Gauge | – | Stabil |
+| `jvm_threads_daemon` | Gauge | – | Stabil |
+| `jvm_threads_peak` | Gauge | – | Stabil |
+| `jvm_threads_started_total` | Counter | – | Stabil |
+| `jvm_threads_deadlocked` | Gauge | – | Stabil |
+| `jvm_threads_deadlocked_monitor` | Gauge | – | Stabil |
+| `jvm_threads_state` | Gauge | `state` | Stabil |
+
+Die früher vorgesehenen Namen `jvm_threads_live_threads`,
+`jvm_threads_daemon_threads`, `jvm_threads_peak_threads`,
+`jvm_threads_started_threads_total` und `jvm_threads_deadlocked_threads` werden
+nicht exportiert, weil Client 1.8.0 die obigen offiziellen Namen verwendet.
+
+### Klassen
+
+Quelle: `JvmClassLoadingMetrics`.
+
+| Metrik | Typ | Status |
+|---|---|---|
+| `jvm_classes_currently_loaded` | Gauge | Stabil |
+| `jvm_classes_loaded_total` | Counter | Stabil |
+| `jvm_classes_unloaded_total` | Counter | Stabil |
+
+Diese Namen ersetzen die früher katalogisierten Varianten
+`jvm_classes_loaded_classes`, `jvm_classes_loaded_classes_total` und
+`jvm_classes_unloaded_classes_total`.
+
+### Buffer Pools
+
+Quelle: `JvmBufferPoolMetrics`; alle Metriken sind Gauges mit Label `pool`.
+
+| Metrik | Status |
+|---|---|
+| `jvm_buffer_pool_used_bytes` | Stabil |
+| `jvm_buffer_pool_capacity_bytes` | Stabil |
+| `jvm_buffer_pool_used_buffers` | Stabil |
+
+### Prozess
+
+Quelle: `ProcessMetrics`.
+
+| Metrik | Typ | Status |
+|---|---|---|
+| `process_cpu_seconds_total` | Counter | MXBean-abhängig |
+| `process_start_time_seconds` | Gauge | Stabil |
+| `process_open_fds` | Gauge | Betriebssystem-/MXBean-abhängig |
+| `process_max_fds` | Gauge | Betriebssystem-/MXBean-abhängig |
+| `process_virtual_memory_bytes` | Gauge | nur bei lesbarem Linux-`/proc/self/status` |
+| `process_resident_memory_bytes` | Gauge | nur bei lesbarem Linux-`/proc/self/status` |
+
+### In Client 1.8.0 nicht verfügbar
+
+Das JVM-Instrumentierungsmodul bietet keine offiziellen Instrumentierungen für
+die folgenden früher vorgesehenen Metriken. Phase 3 baut sie deshalb nicht frei
+nach:
+
 - `process_cpu_usage_ratio`
-- `process_cpu_seconds_total`
-- `process_start_time_seconds`
 - `process_uptime_seconds`
-- `process_open_fds`
-- `process_max_fds`
-- `process_resident_memory_bytes`
-- `process_virtual_memory_bytes`
 - `system_cpu_usage_ratio`
 - `system_cpu_count`
 - `system_load_average_1m`

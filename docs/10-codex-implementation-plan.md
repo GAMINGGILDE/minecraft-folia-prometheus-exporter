@@ -91,14 +91,25 @@ Phase 2 erfüllt.
 
 ## Phase 3 – JVM und Prozess
 
-- standardisierte JVM-Metriken
-- GC
-- Threads
-- Klassen
-- Buffer Pools
-- CPU
-- Prozessstart
-- Dateideskriptoren
+Status: abgeschlossen.
+
+- offizielle Prometheus-Java-Client-1.8.0-Instrumentierungen für JVM-Speicher,
+  GC, Threads, Klassen und Buffer Pools
+- offizielle Prozessinstrumentierung für CPU-Zeit und Prozessstart
+- betriebssystem-/MXBean-abhängige Dateideskriptoren
+- Linux-abhängiger residenter und virtueller Speicher
+- direkte, idempotente Registrierung in der privaten Registry jedes Metrics Core
+- unabhängige, standardmäßig aktive Schalter `collectors.jvm` und
+  `collectors.process`
+- keine Minecraft-Liveobjekte, Scheduler oder Snapshots für JDK-Laufzeitdaten
+- keine Nachimplementierung der in Client 1.8.0 fehlenden CPU-Usage-,
+  Prozess-Uptime- oder `system_*`-Metriken
+- Unit-, HTTP-, Shadow-JAR- und gepinnte Paper-/Folia-Smoke-Prüfungen
+- Architekturentscheidung in ADR 0012
+
+Abnahme: Phase 3 ist abgeschlossen. Die standardisierten JVM-/Prozessmetriken
+werden vom bestehenden `/metrics`-Endpunkt ausgegeben. Phase 4 „Server und
+Welten“ ist der nächste Umfang.
 
 ## Phase 4 – Server und Welten
 

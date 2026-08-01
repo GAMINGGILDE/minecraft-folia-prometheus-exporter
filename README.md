@@ -3,9 +3,10 @@
 Repository: `minecraft-folia-prometheus-exporter`
 
 FoliaPrometheusExporter ist ein für Paper und Folia entwickelter
-Prometheus-Exporter. Der implementierte Metrics Core stellt den HTTP-Dienst, die
-Exporter-Eigenüberwachung und die threadsichere Snapshot-/Collector-Grundlage für
-die fachlichen Metriken der folgenden Phasen bereit.
+Prometheus-Exporter. Der Metrics Core stellt den HTTP-Dienst, die
+Exporter-Eigenüberwachung, standardisierte JVM-/Prozessmetriken und die
+threadsichere Snapshot-/Collector-Grundlage für die fachlichen Metriken der
+folgenden Phasen bereit.
 
 ## Verbindliche Eckdaten
 
@@ -79,6 +80,10 @@ http:
   health-path: "/health"
   ready-path: "/ready"
   worker-threads: 2
+
+collectors:
+  jvm: true
+  process: true
 ```
 
 Lokale Prüfung bei laufendem Server:
@@ -89,7 +94,7 @@ curl --fail http://127.0.0.1:9940/ready
 curl --fail http://127.0.0.1:9940/metrics
 ```
 
-## Metrics Core
+## Metrics Core und Laufzeitmetriken
 
 Phase 2 implementiert die Eigenmetriken `minecraft_exporter_build_info`,
 `minecraft_exporter_health`, `minecraft_exporter_ready`,
@@ -113,7 +118,26 @@ Jede `MetricsCore`-Instanz besitzt genau eine private `PrometheusRegistry` und
 genau einen daran gebundenen Eigenmetrik-Satz. Es gibt keinen globalen Registry-
 oder `ExporterMetrics`-Cache.
 
+Phase 3 registriert die offiziellen Instrumentierungen `JvmMemoryMetrics`,
+`JvmGarbageCollectorMetrics`, `JvmThreadsMetrics`, `JvmClassLoadingMetrics`,
+`JvmBufferPoolMetrics` und `ProcessMetrics` aus dem Prometheus Java Client 1.8.0
+direkt in derselben privaten Registry. Die Gruppen sind mit `collectors.jvm` und
+`collectors.process` unabhängig schaltbar und standardmäßig aktiv. Sie lesen nur
+JDK-/Betriebssystemdaten, keine Minecraft-Liveobjekte, und benötigen weder Paper-
+noch Folia-Scheduler.
+
+Zu den stabilen Familien gehören `jvm_memory_used_bytes`,
+`jvm_gc_collection_seconds_count`/`_sum`, `jvm_threads_current`,
+`jvm_classes_currently_loaded`, `jvm_buffer_pool_used_bytes`,
+`process_cpu_seconds_total` und `process_start_time_seconds`. Dateideskriptoren
+sind von den Fähigkeiten des Betriebssystem-MXBeans abhängig;
+`process_resident_memory_bytes` und `process_virtual_memory_bytes` werden von
+Client 1.8.0 nur bei lesbarem Linux-`/proc/self/status` registriert. Das Modul
+bietet in dieser Version keine offiziellen `system_*`-Metriken, keine
+CPU-Usage-Ratios und keine Prozess-Uptime-Metrik. Diese Werte werden nicht
+nachgebaut oder umbenannt.
+
 ## Status
 
-Phase 2 „Metrics Core“ ist implementiert. JVM- und Prozessmetriken sind der
-nächste Umfang in Phase 3 und werden noch nicht registriert.
+Phase 3 „JVM- und Prozessmetriken“ ist implementiert. Phase 4 „Server und Welten“
+ist der nächste Umfang.

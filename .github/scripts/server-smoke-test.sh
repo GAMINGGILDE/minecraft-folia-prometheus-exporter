@@ -113,9 +113,26 @@ fi
 for required_metric in \
   minecraft_exporter_build_info \
   minecraft_exporter_ready \
-  minecraft_exporter_scrapes_total; do
+  minecraft_exporter_scrapes_total \
+  jvm_memory_used_bytes \
+  jvm_threads_current \
+  jvm_classes_currently_loaded \
+  process_start_time_seconds; do
   if ! grep -Fq "$required_metric" <<<"$metrics_response"; then
     echo "Missing exporter metric: $required_metric" >&2
+    exit 1
+  fi
+done
+
+for phase_three_metric in \
+  jvm_memory_used_bytes \
+  jvm_threads_current \
+  jvm_classes_currently_loaded \
+  process_start_time_seconds; do
+  if ! grep -Eq "^# HELP ${phase_three_metric} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${phase_three_metric} (counter|gauge|summary)$" <<<"$metrics_response" \
+    || ! grep -Eq "^${phase_three_metric}(\\{|[[:space:]])" <<<"$metrics_response"; then
+    echo "Invalid or incomplete Prometheus family: $phase_three_metric" >&2
     exit 1
   fi
 done

@@ -23,6 +23,9 @@ muss erfolgreich sein.
 - Kick-/Login-Grundklassifikation
 - Snapshot-Austausch
 - Ablauf von Regionsbeobachtungen
+- Registrierung repräsentativer JVM-/Prozessfamilien in der privaten Registry
+- idempotente Registrierung und getrennte JVM-/Prozessschaltung
+- zwei unabhängige Metrics Cores ohne Duplicate-Registration
 
 ## 7.3 Integrationsprüfungen
 
@@ -52,6 +55,12 @@ erwartet die zentralen Exporter-Eigenmetriken. Nach dem kontrollierten
 Server-Shutdown darf der HTTP-Listener nicht mehr antworten.
 In GitHub Actions muss `minecraft_exporter_build_info` außerdem exakt den
 ausgecheckten `${{ github.sha }}` enthalten.
+
+Seit Phase 3 validiert derselbe gepinnte Smoke-Test zusätzlich die stabilen
+Familien `jvm_memory_used_bytes`, `jvm_threads_current`,
+`jvm_classes_currently_loaded` und `process_start_time_seconds` einschließlich
+`HELP`-, `TYPE`- und Sample-Zeilen. Betriebssystemabhängige Familien wie
+`process_open_fds` sind bewusst keine plattformübergreifende Assertion.
 
 ## 7.4 Threading-Prüfungen
 
@@ -137,3 +146,28 @@ ausgecheckten `${{ github.sha }}` enthalten.
   einem nur teilweise erfolgreichen Start auf.
 - HTTP-Handler referenzieren keine Minecraft-Liveobjekte und lesen nur Registry
   und atomaren Exporterstatus.
+
+## 7.10 Abnahme Phase 3
+
+- Die offiziellen Instrumentierungen `JvmMemoryMetrics`,
+  `JvmGarbageCollectorMetrics`, `JvmThreadsMetrics`, `JvmClassLoadingMetrics`,
+  `JvmBufferPoolMetrics` und `ProcessMetrics` des Clients 1.8.0 hängen direkt an
+  der privaten Registry jeder `MetricsCore`-Instanz.
+- Die Registrierung ist vor Readiness abgeschlossen, idempotent und verwendet
+  weder Default-Registry noch globale oder statische Registry-Zustände.
+- `collectors.jvm` und `collectors.process` sind unabhängig schaltbar und
+  standardmäßig aktiv.
+- Unit-Tests decken Speicher, GC, Threads, Klassen, Buffer Pools und Prozess ab;
+  der reale lokale `/metrics`-Test prüft die Prometheus-Textnamen einschließlich
+  Counter-/Summary-Suffixen.
+- Zwei unabhängige Core-Instanzen registrieren ohne Duplicate-Registration.
+- Der Shadow-JAR-Test prüft die sechs benötigten relocateten
+  Instrumentierungsklassen und weiterhin das Fehlen unrelocateter
+  `io/prometheus/...`-Klassen.
+- Der Paper-/Folia-Smoke-Test bleibt auf Paper 26.1.2 Build 74 und Folia 26.1.2
+  Build 8 gepinnt und prüft vier stabile Phase-3-Familien.
+- Betriebssystem- oder MXBean-abhängige Prozesssamples dürfen fehlen. Die in
+  Client 1.8.0 nicht angebotenen CPU-Usage-, Prozess-Uptime- und
+  `system_*`-Metriken werden nicht nachgebaut.
+- Es existieren weiterhin keine Server-, Spieler-, Welt-, Event-, Entity- oder
+  Folia-Regionsmetriken.

@@ -4,6 +4,11 @@
 
 Prometheus-Scrapes greifen ausschließlich auf gecachte, unveränderliche Snapshots zu.
 
+Für die ausschließlich JDK-/Betriebssystemdaten lesende offizielle JVM- und
+Prozessinstrumentierung gilt ab Phase 3 die eng begrenzte Ausnahme aus
+[ADR 0012](0012-direct-jvm-process-instrumentation.md). Minecraft-Daten bleiben
+ohne Ausnahme snapshotbasiert.
+
 Phase 2 konkretisiert dies durch `ImmutableSnapshot<T>` mit einem eindeutigen
 `Instant` und einer defensiv kopierten, unveränderlichen Werteliste. Der Werttyp
 muss selbst immutable sein und darf keine Bukkit-, Paper-, Folia- oder

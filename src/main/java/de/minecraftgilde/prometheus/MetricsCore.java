@@ -3,6 +3,7 @@ package de.minecraftgilde.prometheus;
 import de.minecraftgilde.prometheus.collector.CollectorCoordinator;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
 import de.minecraftgilde.prometheus.http.MetricsHttpServer;
+import de.minecraftgilde.prometheus.jvm.JvmMetricsRegistrar;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.util.Objects;
@@ -16,6 +17,7 @@ public final class MetricsCore implements AutoCloseable {
     private final ExporterLifecycleState lifecycleState =
         new ExporterLifecycleState();
     private final ExporterMetrics exporterMetrics;
+    private final JvmMetricsRegistrar jvmMetricsRegistrar;
     private final CollectorCoordinator collectorCoordinator;
     private final AtomicBoolean closed = new AtomicBoolean();
     private MetricsHttpServer httpServer;
@@ -26,6 +28,30 @@ public final class MetricsCore implements AutoCloseable {
         String provider,
         BiConsumer<String, Throwable> collectorFailureListener
     ) {
+        this(
+            version,
+            gitCommit,
+            provider,
+            true,
+            true,
+            collectorFailureListener
+        );
+    }
+
+    public MetricsCore(
+        String version,
+        String gitCommit,
+        String provider,
+        boolean jvmMetricsEnabled,
+        boolean processMetricsEnabled,
+        BiConsumer<String, Throwable> collectorFailureListener
+    ) {
+        jvmMetricsRegistrar = new JvmMetricsRegistrar(
+            registry,
+            jvmMetricsEnabled,
+            processMetricsEnabled
+        );
+        jvmMetricsRegistrar.register();
         exporterMetrics = new ExporterMetrics(
             registry,
             Objects.requireNonNull(version, "version"),
