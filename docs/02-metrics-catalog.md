@@ -344,7 +344,9 @@ regulären Dateien innerhalb des jeweiligen Weltpfads. Symbolischen Links wird
 nicht gefolgt. Nicht lesbare oder während des Laufs verschwindende Einträge
 werden übersprungen; schlägt die Berechnung der Welt als Ganzes fehl, bleibt der
 letzte gültige Wert erhalten. Allgemeine Dateisystem-, Log- und Pluginpfadgrößen
-sind nicht Bestandteil von Phase 4.
+sind nicht Bestandteil von Phase 4. Normalisierte Weltpfade sind rein intern und
+werden niemals als Prometheus-Label oder als zusätzliche öffentliche Metrik
+exportiert.
 
 ## 2.12 Exporter-Eigenüberwachung
 

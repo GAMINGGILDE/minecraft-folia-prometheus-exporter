@@ -14,8 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Best-effort recursive regular-file sum without following symbolic links. */
-public final class WorldSizeCalculator {
+public final class WorldSizeCalculator implements WorldSizeCalculation {
 
+    @Override
     public Result calculate(Path worldDirectory) throws IOException {
         Path root = Objects.requireNonNull(worldDirectory, "worldDirectory")
             .toAbsolutePath()

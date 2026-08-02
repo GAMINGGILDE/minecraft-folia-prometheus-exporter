@@ -134,7 +134,9 @@ Details stehen in ADR 0012.
 
 - `server`, `worlds`, `chunks` und `world-sizes` sind getrennte verwaltete
   Collector mit den bestehenden Standardintervallen `5s`, `10s`, `10s` und
-  `30m`; für alle gilt standardmäßig `collection.timeout: 10s`.
+  `30m`. Server, Welten und Chunks verwenden standardmäßig
+  `collection.timeout: 10s`; ausschließlich `world-sizes` verwendet den eigenen
+  `collection.filesystem-timeout: 15m`.
 - Periodische Erfassungen beginnen auf dem Global Region Scheduler. Globale
   Server- und Weltwerte werden dort gelesen, Spielmodi jeweils auf dem Entity
   Scheduler und Weltverzeichnisse ausschließlich auf dem Async Scheduler.
@@ -151,7 +153,15 @@ Details stehen in ADR 0012.
   `World#getChunkCount()` und erzeugt keine Chunkobjekte.
 - Weltgrößen sind die rekursive Summe regulärer Dateien innerhalb des
   Weltverzeichnisses. Symlinks werden nicht verfolgt, Dateifehler isoliert und
-  parallele Scans derselben Welt verhindert.
+  parallele Scans desselben Pfads verhindert. Eine nach Weltname sortierte
+  interne Queue begrenzt die gleichzeitig aktiven Scans über
+  `filesystem.world-size-scan-concurrency` auf `1` bis `8`; der Standard `1`
+  scannt sequenziell. Höhere Werte können schneller sein, erhöhen aber die
+  konkurrierende I/O-Last.
+- Timeout und Stop verwerfen wartende Weltgrößenscans und verspätete Ergebnisse.
+  Bereits laufende Java-Dateisystemoperationen sind nicht garantiert physisch
+  unterbrechbar, geben Slot und Pfad aber bei ihrer Rückkehr frei und können
+  keinen Snapshot mehr publizieren. Weltpfade werden nie als Labels exportiert.
 - Phase-4-Metriken werden als Prometheus-`MultiCollector` an die private Registry
   gebunden. Eine Gruppe liest pro Scrape genau einen immutable Snapshot;
   entladene Welten hinterlassen keine veralteten Labelreihen.

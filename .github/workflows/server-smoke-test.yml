@@ -89,6 +89,16 @@ jobs:
 
           cp "${plugin_jars[0]}" "$SERVER_DIRECTORY/plugins/FoliaPrometheusExporter.jar"
           printf 'eula=true\n' > "$SERVER_DIRECTORY/eula.txt"
+          mkdir -p "$SERVER_DIRECTORY/plugins/FoliaPrometheusExporter"
+          printf '%s\n' \
+            'collection:' \
+            '  filesystem-interval: "5s"' \
+            '  filesystem-timeout: "2m"' \
+            '' \
+            'filesystem:' \
+            '  include-world-sizes: true' \
+            '  world-size-scan-concurrency: 1' \
+            > "$SERVER_DIRECTORY/plugins/FoliaPrometheusExporter/config.yml"
 
       - name: Start server and verify plugin activation
         env:

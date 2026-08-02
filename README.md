@@ -94,9 +94,11 @@ collection:
   world-interval: "10s"
   filesystem-interval: "30m"
   timeout: "10s"
+  filesystem-timeout: "15m"
 
 filesystem:
   include-world-sizes: true
+  world-size-scan-concurrency: 1
 ```
 
 Lokale Prüfung bei laufendem Server:
@@ -167,8 +169,19 @@ Chunkzähler der Welt und materialisiert keine Chunkobjekte.
 
 `minecraft_world_size_bytes` wird asynchron als Summe der regulären Dateien
 unterhalb des Weltverzeichnisses berechnet. Symbolischen Links wird nicht
-gefolgt. Laufende Berechnungen überlappen nicht; bei Timeout oder Einzelfehlern
-bleibt der letzte gültige Wert erhalten. Die Metrik benötigt sowohl
+gefolgt. Für den vollständigen Scanlauf gilt wegen großer Weltverzeichnisse der
+eigene Standard-Timeout `collection.filesystem-timeout: "15m"`; der allgemeine
+`collection.timeout` bleibt den schnellen Server-, Welt- und Chunk-Snapshots
+vorbehalten. Weltverzeichnisse werden standardmäßig sequenziell gescannt.
+`filesystem.world-size-scan-concurrency` begrenzt die gleichzeitig aktiven
+Dateisystemscans auf einen Wert zwischen `1` und `8`. Höhere Werte können die
+Erfassung beschleunigen, erzeugen aber mehr konkurrierende I/O-Last.
+
+Bei Timeout oder Einzelfehlern bleibt der letzte gültige Wert erhalten. Ein
+bereits laufender Java-Dateisystemaufruf lässt sich nicht zuverlässig physisch
+unterbrechen; wartende Scans werden dennoch verworfen und verspätete Ergebnisse
+nicht publiziert. Weltpfade werden niemals als Prometheus-Labels exportiert. Die
+Metrik benötigt sowohl
 `collectors.filesystem: true` als auch `filesystem.include-world-sizes: true`.
 Die optional katalogisierten Metriken für Full Time, Autosave, allgemeine
 Dateisystemkapazität, Logs und Pluginverzeichnisse gehören nicht zu Phase 4.

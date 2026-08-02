@@ -6,6 +6,7 @@ import de.minecraftgilde.prometheus.snapshot.ImmutableSnapshot;
 import de.minecraftgilde.prometheus.snapshot.SnapshotRepository;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeoutException;
@@ -65,11 +66,12 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
 
     @Override
     protected void stopCollector() {
-        acceptingResults.set(false);
         synchronized (runLock) {
+            acceptingResults.set(false);
             CaptureRun run = activeRun.getAndSet(null);
             if (run != null) {
                 run.cancelTimeout();
+                run.invalidate();
             }
             CollectionTask task = periodicTask;
             periodicTask = null;
@@ -102,7 +104,14 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
     }
 
     private void timeOut(CaptureRun run) {
-        if (activeRun.compareAndSet(run, null)) {
+        boolean timedOut = false;
+        synchronized (runLock) {
+            if (activeRun.compareAndSet(run, null)) {
+                run.invalidate();
+                timedOut = true;
+            }
+        }
+        if (timedOut) {
             failureListener.accept(
                 name(),
                 new TimeoutException(
@@ -114,22 +123,31 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
 
     private void finishSuccess(CaptureRun run, List<T> values) {
         Objects.requireNonNull(values, "values");
-        if (
-            acceptingResults.get()
-                && activeRun.compareAndSet(run, null)
-        ) {
+        synchronized (runLock) {
+            if (
+                !acceptingResults.get()
+                    || !activeRun.compareAndSet(run, null)
+            ) {
+                return;
+            }
             run.cancelTimeout();
+            run.invalidate();
             repository.publish(new ImmutableSnapshot<>(clock.instant(), values));
         }
     }
 
     private void finishFailure(CaptureRun run, Throwable failure) {
         Objects.requireNonNull(failure, "failure");
-        if (activeRun.compareAndSet(run, null)) {
-            run.cancelTimeout();
-            if (acceptingResults.get()) {
-                failureListener.accept(name(), failure);
+        boolean reportFailure = false;
+        synchronized (runLock) {
+            if (activeRun.compareAndSet(run, null)) {
+                run.cancelTimeout();
+                run.invalidate();
+                reportFailure = acceptingResults.get();
             }
+        }
+        if (reportFailure) {
+            failureListener.accept(name(), failure);
         }
     }
 
@@ -150,16 +168,74 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
         public void failure(Throwable failure) {
             finishFailure(run, failure);
         }
+
+        @Override
+        public boolean isActive() {
+            return run.isActive();
+        }
+
+        @Override
+        public void whenInactive(Runnable listener) {
+            run.whenInactive(listener);
+        }
     }
 
     private final class CaptureRun {
 
+        private final Object listenerLock = new Object();
+        private final List<Runnable> inactiveListeners = new ArrayList<>();
+        private boolean active = true;
         private volatile CollectionTask timeoutTask;
 
         private void cancelTimeout() {
             CollectionTask task = timeoutTask;
             if (task != null) {
                 task.cancel();
+            }
+        }
+
+        private boolean isActive() {
+            synchronized (listenerLock) {
+                return active;
+            }
+        }
+
+        private void whenInactive(Runnable listener) {
+            Objects.requireNonNull(listener, "listener");
+            boolean runImmediately;
+            synchronized (listenerLock) {
+                runImmediately = !active;
+                if (active) {
+                    inactiveListeners.add(listener);
+                }
+            }
+            if (runImmediately) {
+                runInactiveListener(listener);
+            }
+        }
+
+        private void invalidate() {
+            List<Runnable> listeners;
+            synchronized (listenerLock) {
+                if (!active) {
+                    return;
+                }
+                active = false;
+                listeners = List.copyOf(inactiveListeners);
+                inactiveListeners.clear();
+            }
+            listeners.forEach(this::runInactiveListener);
+        }
+
+        private void runInactiveListener(Runnable listener) {
+            try {
+                listener.run();
+            } catch (RuntimeException cleanupFailure) {
+                try {
+                    failureListener.accept(name(), cleanupFailure);
+                } catch (RuntimeException ignored) {
+                    // Cleanup listeners must not compromise collector lifecycle.
+                }
             }
         }
     }

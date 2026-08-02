@@ -122,7 +122,11 @@ den klassischen `BukkitScheduler`.
 `PaperCollectionScheduler` ist die gemeinsame konkrete Implementierung. Phase 4
 plant die periodischen Erfassungsstarts über den Global Region Scheduler,
 einzelne Spielmoduslesungen über den jeweiligen Entity Scheduler und
-Dateisystemarbeit sowie Timeout-Wächter über den Async Scheduler. Der Region
+Dateisystemarbeit sowie Timeout-Wächter über den Async Scheduler. Der
+Weltgrößen-Capture stellt nur bis zu
+`filesystem.world-size-scan-concurrency` Async-Tasks gleichzeitig bereit; die
+interne FIFO-Warteschlange ist nach Weltname sortiert und startet standardmäßig
+genau einen Scan. Der Region
 Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil die
 öffentliche API aggregierte Welt- und Chunkzahlen ohne Positionszugriff anbietet.
 
@@ -132,6 +136,9 @@ Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil di
 - lässt pro Collector höchstens einen Erfassungslauf gleichzeitig zu
 - beendet die Annahme nach dem konfigurierten Timeout und ignoriert verspätete
   Callbacks anhand der Identität des aktiven Laufs
+- signalisiert dem Capture bei Timeout, Fehler und Stop, dass der Lauf keine
+  Ergebnisse mehr annehmen kann; dadurch können interne Warteschlangen ihre noch
+  nicht gestartete Arbeit verwerfen
 - veröffentlicht nur vollständig erfolgreiche immutable Snapshots
 - behält bei Fehler oder Timeout den letzten gültigen Snapshot
 - verwirft Ergebnisse nach `stop()` und beendet periodischen Task und
@@ -167,6 +174,14 @@ Snapshots enthalten nur primitive Werte, Strings, Enums und immutable
 Sammlungen. Insbesondere werden keine `Server`-, `World`-, `Player`-, `Plugin`-
 oder `Chunk`-Referenzen publiziert. Da Welt-Labelreihen bei jeder Collection aus
 dem aktuellen Snapshot entstehen, verschwinden entladene Welten automatisch.
+
+Nur `world-sizes` verwendet `collection.filesystem-timeout` mit dem Standard
+`15m`; `server`, `worlds` und `chunks` verwenden weiterhin den allgemeinen
+`collection.timeout`. Der Filesystem-Timeout umfasst die interne Wartezeit, alle
+Scans und die vollständige Snapshot-Publikation. Ein abgelaufener Lauf startet
+keine weiteren wartenden Scans. Physisch bereits laufende
+`Files.walkFileTree`-Aufrufe dürfen zu Ende laufen, können aber weder publizieren
+noch einen neueren Snapshot überschreiben.
 
 ### `MetricsEndpoint`
 

@@ -33,6 +33,15 @@ muss erfolgreich sein.
 - Weltfehler mit Aktualisierung der übrigen Welten und Erhalt des letzten
   gültigen Einzelwerts
 - rekursive Weltgrößen aus regulären Dateien ohne Folgen symbolischer Links
+- Standard-, Alt-Konfigurations-, Typ-, Bereichs- und Überlauftests für
+  `collection.filesystem-timeout` und
+  `filesystem.world-size-scan-concurrency`
+- begrenzte Weltgrößenparallelität für `1` und `2`, wartende dritte Scans,
+  deterministische Weltreihenfolge und niemals doppelt aktive Weltpfade
+- Slotfreigabe nach Erfolg, Berechnungs- und Scheduling-Fehler sowie nach Timeout
+- Timeout während wartender Scans, später erfolgreicher Folgelauf und keine
+  Publikation oder neue Arbeit nach Stop
+- unabhängige Weltgrößen-Captures ohne statisch geteilte Queue- oder Slotzustände
 - periodische Collector: idempotenter Lifecycle, Überlappungsschutz, Timeout,
   verspätete Callback-Unterdrückung und keine Publikation nach Stop
 - unabhängige Phase-4-Schalter, idempotente Registrierung und mehrere private
@@ -82,6 +91,12 @@ Abwesenheit des standardmäßig deaktivierten `minecraft_plugin_info`. Zusätzli
 dürfen noch keine Event-, Entity- oder Folia-Familien erscheinen. Output und
 Start-/Shutdown-Log werden auf Spielernamen-/UUID-Indikatoren beziehungsweise
 Threading- und Schedulerfehler geprüft.
+
+Der Smoke-Test setzt für seine kleine Testwelt explizit
+`collection.filesystem-interval: "5s"`,
+`collection.filesystem-timeout: "2m"` und
+`filesystem.world-size-scan-concurrency: 1`. Seine Wartezeit bleibt unabhängig
+davon auf 90 Sekunden begrenzt.
 
 ## 7.4 Threading-Prüfungen
 
@@ -210,6 +225,16 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
 - Laufende Erfassungen überlappen nicht. Timeout, verspätete Ergebnisse und Stop
   können keinen alten oder nachträglichen Snapshot publizieren; der letzte
   gültige Snapshot bleibt bei Laufzeitfehlern erhalten.
+- Server-, Welt- und Chunk-Collector verwenden weiter `collection.timeout`.
+  Ausschließlich `world-sizes` verwendet den eigenen Standard
+  `collection.filesystem-timeout: "15m"` für Queue, Scans und Publikation.
+- Die nach Weltname sortierte interne Queue hält höchstens die konfigurierte Zahl
+  aktiver Dateisystemscans. Standard `1` scannt sequenziell; gültig sind `1` bis
+  `8`. Fehler und Scheduling-Ablehnungen geben Slots frei und blockieren keine
+  Folgewelt.
+- Timeout und Stop verwerfen wartende Scans. Bereits laufende, nicht garantiert
+  unterbrechbare Java-Dateisystemoperationen dürfen zurückkehren, publizieren
+  aber nichts und starten für den ungültigen Lauf keine weitere Arbeit.
 - Geladene Welten werden dynamisch abgebildet. Entladene Welten verschwinden aus
   allen Phase-4-Weltfamilien; ein Fehler einer Welt blockiert die übrigen nicht.
 - `minecraft_world_loaded_chunks` verwendet nur `World#getChunkCount()` und

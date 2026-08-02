@@ -39,6 +39,13 @@ Phase 4 braucht keinen Region-Scheduler-Aufruf: Der öffentliche aggregierte
 Chunkzähler vermeidet Positions- und Chunkobjektzugriffe. Das Interface behält
 die Region-Methode für spätere, tatsächlich positionsgebundene Collector.
 
+Der Weltgrößen-Capture plant Dateisystemscans in deterministischer Reihenfolge
+nach Weltname und hält höchstens
+`filesystem.world-size-scan-concurrency` Async-Scans gleichzeitig aktiv. Der
+Standard `1` verarbeitet Weltverzeichnisse sequenziell und minimiert konkurrierende
+I/O-Last. Ein höherer Wert bis `8` erhöht ausschließlich die Dateisystemparallelität;
+Minecraft-Livezugriffe bleiben im globalen Scheduler.
+
 ## 4.2 Verbotene Muster
 
 Nicht verwenden:
@@ -109,6 +116,15 @@ Unvollständige Zwischenstände dürfen nicht sichtbar werden. Pro Collector ist
 nur ein Lauf aktiv. Ein Timeout entfernt diesen Lauf atomar; ein später Callback
 kann wegen der abweichenden Laufidentität nicht mehr publizieren. Nach `stop()`
 werden überhaupt keine Ergebnisse mehr angenommen.
+
+Für `world-sizes` signalisiert der Collector Timeout und Stop zusätzlich an die
+interne Scan-Warteschlange. Sie verwirft alle noch nicht laufenden Arbeiten und
+startet für den ungültigen Lauf nichts mehr. Ein bereits in
+`Files.walkFileTree` befindlicher Java-Dateisystemaufruf ist nicht garantiert
+hart unterbrechbar. Sein Slot und sein Pfad bleiben deshalb bis zur tatsächlichen
+Rückkehr belegt; danach werden sie zuverlässig freigegeben und das verspätete
+Ergebnis verworfen. Weltpfade verlassen diese Schedulergrenze nicht und werden
+insbesondere nicht als Metriklabels exportiert.
 
 Der Metrics Core setzt diese Grenze mit `ImmutableSnapshot<T>` und
 `SnapshotRepository<T>` um. Der Snapshot kopiert seine Werteliste defensiv und

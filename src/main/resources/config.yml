@@ -13,6 +13,7 @@ collection:
   entity-interval: "30s"
   filesystem-interval: "30m"
   timeout: "10s"
+  filesystem-timeout: "15m"
 
 collectors:
   server: true
@@ -61,6 +62,7 @@ folia:
 
 filesystem:
   include-world-sizes: true
+  world-size-scan-concurrency: 1
   include-server-filesystem: true
   include-log-size: false
   include-plugin-size: false

@@ -41,7 +41,8 @@ public record ExporterConfiguration(
                 Duration.ofSeconds(5),
                 Duration.ofSeconds(30),
                 Duration.ofMinutes(30),
-                Duration.ofSeconds(10)
+                Duration.ofSeconds(10),
+                Duration.ofMinutes(15)
             ),
             new CollectorsConfiguration(
                 true,
@@ -68,7 +69,7 @@ public record ExporterConfiguration(
                     List.of(19.5, 18.0, 15.0, 10.0)
                 )
             ),
-            new FilesystemConfiguration(true, true, false, false),
+            new FilesystemConfiguration(true, 1, true, false, false),
             new PrivacyConfiguration(false),
             new LoggingConfiguration(true, false)
         );
@@ -97,7 +98,8 @@ public record ExporterConfiguration(
         Duration regionInterval,
         Duration entityInterval,
         Duration filesystemInterval,
-        Duration timeout
+        Duration timeout,
+        Duration filesystemTimeout
     ) {
 
         public CollectionConfiguration {
@@ -107,6 +109,7 @@ public record ExporterConfiguration(
             Objects.requireNonNull(entityInterval, "entityInterval");
             Objects.requireNonNull(filesystemInterval, "filesystemInterval");
             Objects.requireNonNull(timeout, "timeout");
+            Objects.requireNonNull(filesystemTimeout, "filesystemTimeout");
         }
     }
 
@@ -173,6 +176,7 @@ public record ExporterConfiguration(
 
     public record FilesystemConfiguration(
         boolean includeWorldSizes,
+        int worldSizeScanConcurrency,
         boolean includeServerFilesystem,
         boolean includeLogSize,
         boolean includePluginSize

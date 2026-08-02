@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +30,11 @@ class ExporterConfigurationTest {
         assertTrue(configuration.collectors().chunks());
         assertFalse(configuration.collectors().pluginInfo());
         assertTrue(configuration.filesystem().includeWorldSizes());
+        assertEquals(
+            Duration.ofMinutes(15),
+            configuration.collection().filesystemTimeout()
+        );
+        assertEquals(1, configuration.filesystem().worldSizeScanConcurrency());
         assertThrows(
             UnsupportedOperationException.class,
             () -> configuration.folia().tps().windows().add("30m")
@@ -44,6 +50,7 @@ class ExporterConfigurationTest {
         Map<String, Object> values = new HashMap<>();
         values.put("http.port", 12345);
         values.put("collection.timeout", "250ms");
+        values.put("collection.filesystem-timeout", "2h");
         values.put("collectors.jvm", false);
         values.put("collectors.process", false);
         values.put("collectors.server", false);
@@ -51,6 +58,7 @@ class ExporterConfigurationTest {
         values.put("collectors.chunks", true);
         values.put("collectors.plugin-info", true);
         values.put("filesystem.include-world-sizes", false);
+        values.put("filesystem.world-size-scan-concurrency", 4);
         values.put("collectors.gameplay", true);
         values.put("logging.debug", true);
 
@@ -58,6 +66,10 @@ class ExporterConfigurationTest {
 
         assertEquals(12345, configuration.http().port());
         assertEquals(Duration.ofMillis(250), configuration.collection().timeout());
+        assertEquals(
+            Duration.ofHours(2),
+            configuration.collection().filesystemTimeout()
+        );
         assertFalse(configuration.privacy().individualPlayerMetricsSupported());
         assertFalse(configuration.collectors().jvm());
         assertFalse(configuration.collectors().process());
@@ -66,6 +78,7 @@ class ExporterConfigurationTest {
         assertTrue(configuration.collectors().chunks());
         assertTrue(configuration.collectors().pluginInfo());
         assertFalse(configuration.filesystem().includeWorldSizes());
+        assertEquals(4, configuration.filesystem().worldSizeScanConcurrency());
         assertTrue(configuration.collectors().gameplay());
         assertTrue(configuration.logging().debug());
         assertDoesNotThrow(() -> validator.validate(configuration));
@@ -76,6 +89,120 @@ class ExporterConfigurationTest {
         Map<String, Object> values = Map.of("http.port", "9940");
 
         assertThrows(ConfigurationException.class, () -> loader.load(values::get));
+    }
+
+    @Test
+    void missingNewKeysUseDefaultsForOlderConfigurations() {
+        ExporterConfiguration configuration = loader.load(
+            Map.<String, Object>of(
+                "collection.timeout",
+                "30s",
+                "filesystem.include-world-sizes",
+                false
+            )::get
+        );
+
+        assertEquals(Duration.ofSeconds(30), configuration.collection().timeout());
+        assertEquals(
+            Duration.ofMinutes(15),
+            configuration.collection().filesystemTimeout()
+        );
+        assertEquals(1, configuration.filesystem().worldSizeScanConcurrency());
+        assertDoesNotThrow(() -> validator.validate(configuration));
+    }
+
+    @Test
+    void rejectsInvalidFilesystemTimeoutStringsWithFullPath() {
+        for (String value : List.of("0s", "-1m", "fifteen minutes")) {
+            ConfigurationException failure = assertThrows(
+                ConfigurationException.class,
+                () -> loader.load(
+                    Map.<String, Object>of(
+                        "collection.filesystem-timeout",
+                        value
+                    )::get
+                )
+            );
+
+            assertTrue(
+                failure.getMessage().contains("collection.filesystem-timeout")
+            );
+        }
+    }
+
+    @Test
+    void rejectsFilesystemTimeoutOverflowWithFullPath() {
+        ExporterConfiguration configuration = loader.load(
+            Map.<String, Object>of(
+                "collection.filesystem-timeout",
+                "9223372036854775807s"
+            )::get
+        );
+
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> validator.validate(configuration)
+        );
+
+        assertTrue(
+            failure.getMessage().contains("collection.filesystem-timeout")
+        );
+        assertTrue(failure.getMessage().contains("millisecond range"));
+    }
+
+    @Test
+    void rejectsOutOfRangeWorldSizeScanConcurrencyWithFullPath() {
+        for (int value : List.of(0, -1, 9)) {
+            ExporterConfiguration configuration = loader.load(
+                Map.<String, Object>of(
+                    "filesystem.world-size-scan-concurrency",
+                    value
+                )::get
+            );
+
+            ConfigurationException failure = assertThrows(
+                ConfigurationException.class,
+                () -> validator.validate(configuration)
+            );
+
+            assertTrue(
+                failure.getMessage().contains(
+                    "filesystem.world-size-scan-concurrency"
+                )
+            );
+            assertTrue(failure.getMessage().contains("between 1 and 8"));
+        }
+    }
+
+    @Test
+    void rejectsWrongNewValueTypesWithFullPaths() {
+        ConfigurationException timeoutFailure = assertThrows(
+            ConfigurationException.class,
+            () -> loader.load(
+                Map.<String, Object>of(
+                    "collection.filesystem-timeout",
+                    900
+                )::get
+            )
+        );
+        ConfigurationException concurrencyFailure = assertThrows(
+            ConfigurationException.class,
+            () -> loader.load(
+                Map.<String, Object>of(
+                    "filesystem.world-size-scan-concurrency",
+                    "2"
+                )::get
+            )
+        );
+
+        assertTrue(
+            timeoutFailure.getMessage().contains("collection.filesystem-timeout")
+        );
+        assertTrue(
+            concurrencyFailure.getMessage().contains(
+                "filesystem.world-size-scan-concurrency"
+            )
+        );
     }
 
     @Test

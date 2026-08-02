@@ -13,7 +13,9 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
     private final List<TestTask> global = new ArrayList<>();
     private final List<TestTask> async = new ArrayList<>();
     private final List<TestTask> delayed = new ArrayList<>();
+    private final List<Duration> delayedDurations = new ArrayList<>();
     private boolean runAsyncImmediately;
+    private int asyncSchedulingFailures;
     private int entityExecutions;
 
     public ManualCollectionScheduler() {
@@ -60,6 +62,10 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
 
     @Override
     public CollectionTask executeAsync(Runnable task) {
+        if (asyncSchedulingFailures > 0) {
+            asyncSchedulingFailures--;
+            throw new IllegalStateException("expected async scheduling failure");
+        }
         TestTask scheduled = new TestTask(task, false);
         async.add(scheduled);
         if (runAsyncImmediately) {
@@ -72,6 +78,7 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
     public CollectionTask executeAsyncAfter(Duration delay, Runnable task) {
         TestTask scheduled = new TestTask(task, false);
         delayed.add(scheduled);
+        delayedDurations.add(delay);
         return scheduled;
     }
 
@@ -90,6 +97,14 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
         List.copyOf(async).forEach(TestTask::run);
     }
 
+    public void runNextAsync() {
+        for (TestTask task : List.copyOf(async)) {
+            if (task.run()) {
+                return;
+            }
+        }
+    }
+
     public void runDelayed() {
         List.copyOf(delayed).forEach(TestTask::run);
     }
@@ -99,7 +114,13 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
     }
 
     public int queuedAsyncTasks() {
-        return (int) async.stream().filter(task -> !task.completed).count();
+        return (int) async.stream()
+            .filter(task -> !task.cancelled && !task.completed)
+            .count();
+    }
+
+    public List<Duration> delayedDurations() {
+        return List.copyOf(delayedDurations);
     }
 
     public int entityExecutions() {
@@ -110,27 +131,35 @@ public final class ManualCollectionScheduler implements CollectionScheduler {
         runAsyncImmediately = value;
     }
 
+    public void failNextAsyncExecutions(int count) {
+        asyncSchedulingFailures = count;
+    }
+
     private static final class TestTask implements CollectionTask {
 
         private final Runnable runnable;
         private final boolean repeating;
-        private boolean cancelled;
-        private boolean completed;
+        private volatile boolean cancelled;
+        private volatile boolean completed;
 
         private TestTask(Runnable runnable, boolean repeating) {
             this.runnable = runnable;
             this.repeating = repeating;
         }
 
-        private void run() {
-            if (!cancelled && (repeating || !completed)) {
+        private boolean run() {
+            synchronized (this) {
+                if (cancelled || (!repeating && completed)) {
+                    return false;
+                }
                 completed = !repeating;
-                runnable.run();
             }
+            runnable.run();
+            return true;
         }
 
         @Override
-        public void cancel() {
+        public synchronized void cancel() {
             cancelled = true;
         }
     }

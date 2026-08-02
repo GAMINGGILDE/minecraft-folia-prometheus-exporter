@@ -73,7 +73,12 @@ public final class ConfigurationLoader {
                 "collection.filesystem-interval",
                 defaults.filesystemInterval()
             ),
-            durationValue(source, "collection.timeout", defaults.timeout())
+            durationValue(source, "collection.timeout", defaults.timeout()),
+            durationValue(
+                source,
+                "collection.filesystem-timeout",
+                defaults.filesystemTimeout()
+            )
         );
     }
 
@@ -151,6 +156,11 @@ public final class ConfigurationLoader {
                 source,
                 "filesystem.include-world-sizes",
                 defaults.includeWorldSizes()
+            ),
+            intValue(
+                source,
+                "filesystem.world-size-scan-concurrency",
+                defaults.worldSizeScanConcurrency()
             ),
             booleanValue(
                 source,

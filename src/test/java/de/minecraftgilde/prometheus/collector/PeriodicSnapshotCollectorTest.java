@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class PeriodicSnapshotCollectorTest {
@@ -102,7 +103,12 @@ class PeriodicSnapshotCollectorTest {
         collector.start();
 
         scheduler.runGlobal();
+        AtomicInteger inactiveCallbacks = new AtomicInteger();
+        completions.getFirst().whenInactive(inactiveCallbacks::incrementAndGet);
+        assertTrue(completions.getFirst().isActive());
         scheduler.runDelayed();
+        assertFalse(completions.getFirst().isActive());
+        assertEquals(1, inactiveCallbacks.get());
         assertEquals(List.of(7), repository.current().orElseThrow().values());
         assertEquals(1, failures.size());
 
@@ -131,9 +137,14 @@ class PeriodicSnapshotCollectorTest {
         scheduler.runGlobal();
 
         collector.stop();
+        AtomicInteger inactiveCallbacks = new AtomicInteger();
+        completions.getFirst().whenInactive(inactiveCallbacks::incrementAndGet);
+        collector.stop();
         completions.getFirst().success(List.of(10));
 
         assertFalse(repository.hasSnapshot());
+        assertFalse(completions.getFirst().isActive());
+        assertEquals(1, inactiveCallbacks.get());
         assertEquals(CollectorState.STOPPED, collector.state());
     }
 

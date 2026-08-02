@@ -67,12 +67,37 @@ insgesamt fehl, bleibt ihr letzter erfolgreicher Wert erhalten. Für denselben
 Weltpfad läuft höchstens eine Berechnung gleichzeitig. Entfernte Welten werden
 beim nächsten vollständigen Snapshot nicht mehr übernommen.
 
+Die Weltverzeichnisse werden vor dem Start deterministisch nach Weltname
+sortiert. Eine instanzgebundene interne Warteschlange hält höchstens
+`filesystem.world-size-scan-concurrency` Dateisystemscans gleichzeitig aktiv.
+Der gültige Bereich ist `1` bis `8`; der Standard `1` verarbeitet die Welten
+sequenziell und minimiert konkurrierende I/O-Last. Ein höherer Wert kann den
+Gesamtlauf beschleunigen, erhöht aber die I/O-Last. Die Queue nutzt weiterhin
+ausschließlich die bestehende Async-Scheduler-Abstraktion und keinen zusätzlichen
+allgemeinen Executor.
+
 ## Timeout, verspätete Ergebnisse und Fehlerzustand
 
-`PeriodicSnapshotCollector` besitzt atomar genau einen aktiven Lauf. Der
-konfigurierte Timeout entfernt diesen Lauf; ein später Callback kann wegen der
-abweichenden Laufidentität nicht mehr publizieren. Nach `stop()` werden keine
-Ergebnisse angenommen, der periodische Task und sein Timeout-Wächter werden
+`PeriodicSnapshotCollector` besitzt atomar genau einen aktiven Lauf. Server-,
+Welt- und Chunk-Collector verwenden weiterhin `collection.timeout`. Nur
+`world-sizes` verwendet `collection.filesystem-timeout` mit dem Standard `15m`,
+weil rekursive Scans großer Weltverzeichnisse den allgemeinen Standard `10s`
+berechtigt überschreiten können. Der Filesystem-Timeout umfasst die Wartezeit in
+der internen Queue, alle gestarteten Scans, Zusammenführung und Publikation des
+vollständigen Snapshots.
+
+Der konfigurierte Timeout entfernt den Lauf und signalisiert dessen Ungültigkeit
+an den Capture. Noch wartende oder nur eingeplante Scans werden verworfen und für
+den abgelaufenen Lauf wird keine neue Arbeit gestartet. Ein bereits physisch in
+`Files.walkFileTree` laufender Java-Dateisystemaufruf ist nicht garantiert hart
+unterbrechbar. Er darf zurückkehren, gibt dann seinen Parallelitätsslot und den
+Weltpfad zuverlässig frei; sein Ergebnis kann wegen Laufidentität und
+Gültigkeitssignal nicht mehr publiziert werden. Ein späterer Lauf darf nach dem
+Timeout beginnen, scannt denselben Pfad aber erst nach Freigabe und kann nicht von
+einem verspäteten alten Ergebnis überschrieben werden.
+
+Nach `stop()` werden keine Ergebnisse angenommen, die interne Warteschlange
+startet keine Scans mehr und periodischer Task sowie Timeout-Wächter werden
 abgebrochen. Ein ausgelassener Intervalltick startet keinen parallelen Lauf.
 
 Ein Erfassungsfehler löscht den letzten gültigen Snapshot nicht. Fehler einer
@@ -94,6 +119,9 @@ wachsender Labelcache existiert nicht.
 Wetter, Schwierigkeit, Umgebung und Spielmodus verwenden feste Enum-Mappings.
 Pluginname und -version sind die einzige optionale dynamische Plugin-Labelmenge;
 `minecraft_plugin_info` bleibt deshalb standardmäßig deaktiviert.
+Normalisierte Weltpfade sind nur interne Arbeitswerte und werden niemals als
+Prometheus-Labels exportiert; `minecraft_world_size_bytes{world="..."}` bleibt
+unverändert.
 
 ## Konsequenzen
 
@@ -102,6 +130,8 @@ Pluginname und -version sind die einzige optionale dynamische Plugin-Labelmenge;
 - Snapshots enthalten keine Bukkit-, Paper-, Folia- oder Minecraft-Liveobjekte.
 - Dateisystemdaten können bis zum `filesystem-interval` alt sein; Fehler und
   Timeouts bewahren bewusst den letzten konsistenten Stand.
+- Alte Konfigurationen erhalten ohne Migration automatisch den Filesystem-Timeout
+  `15m` und die sequenzielle Scanparallelität `1`.
 - Der Aktivierungszeitpunkt ist semantisch enger als ein Prozessstart, dafür
   öffentlich, deterministisch und plattformübergreifend korrekt.
 - Full Time, Autosave, Entityzahlen, Event-Counter, allgemeine

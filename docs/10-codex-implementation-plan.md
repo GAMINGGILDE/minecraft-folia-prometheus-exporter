@@ -123,6 +123,13 @@ Status: abgeschlossen.
   Schwierigkeit, Umgebung und PVP
 - geladene Chunks über `World#getChunkCount()` ohne Chunkobjekte
 - Weltgröße asynchron als Summe regulärer Dateien, ohne Symlink-Folgen
+- eigener Weltgrößen-Timeout `collection.filesystem-timeout` mit Standard `15m`;
+  der allgemeine `collection.timeout` bleibt Server, Welten und Chunks vorbehalten
+- deterministische interne Scan-Warteschlange mit konfigurierbarer Parallelität
+  `filesystem.world-size-scan-concurrency` von `1` bis `8` und Standard `1`
+- aktive Invalidierung bei Timeout und Stop: keine neue Queue-Arbeit und keine
+  Publikation verspäteter Ergebnisse; bereits laufende Java-Dateisystemaufrufe
+  müssen nicht physisch unterbrechbar sein
 - `PaperCollectionScheduler` ausschließlich auf öffentlichen gemeinsamen
   Global-, Region-, Entity- und Async-Schedulern
 - vier unabhängige verwaltete Snapshot-Collector mit Überlappungsschutz,

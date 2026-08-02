@@ -10,12 +10,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
+import org.bukkit.Server;
 import org.bukkit.plugin.Plugin;
 
 /** Wires Phase-4 collectors into the existing Metrics Core and coordinator. */
 public final class PhaseFourRuntime implements AutoCloseable {
 
     private final CollectionScheduler scheduler;
+    private final BukkitWorldSizeSnapshotCapture worldSizeCapture;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public PhaseFourRuntime(
@@ -25,15 +28,39 @@ public final class PhaseFourRuntime implements AutoCloseable {
         Instant activationTime,
         Clock clock
     ) {
+        this(
+            core,
+            Objects.requireNonNull(plugin, "plugin").getServer(),
+            new PaperCollectionScheduler(plugin, plugin.getServer()),
+            new WorldSizeCalculator(),
+            configuration,
+            activationTime,
+            clock,
+            plugin.getLogger()
+        );
+    }
+
+    PhaseFourRuntime(
+        MetricsCore core,
+        Server server,
+        CollectionScheduler scheduler,
+        WorldSizeCalculation worldSizeCalculator,
+        ExporterConfiguration configuration,
+        Instant activationTime,
+        Clock clock,
+        Logger logger
+    ) {
         Objects.requireNonNull(core, "core");
-        Objects.requireNonNull(plugin, "plugin");
+        Objects.requireNonNull(server, "server");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+        Objects.requireNonNull(worldSizeCalculator, "worldSizeCalculator");
         Objects.requireNonNull(configuration, "configuration");
         Objects.requireNonNull(activationTime, "activationTime");
         Objects.requireNonNull(clock, "clock");
+        Objects.requireNonNull(logger, "logger");
 
-        scheduler = new PaperCollectionScheduler(plugin, plugin.getServer());
         RateLimitedFailureReporter failures = new RateLimitedFailureReporter(
-            plugin.getLogger(),
+            logger,
             configuration.logging().collectionErrors(),
             clock
         );
@@ -43,6 +70,14 @@ public final class PhaseFourRuntime implements AutoCloseable {
         );
         metrics.register();
 
+        worldSizeCapture = new BukkitWorldSizeSnapshotCapture(
+            server,
+            scheduler,
+            worldSizeCalculator,
+            metrics.worldSizeRepository(),
+            failure -> failures.accept("world-sizes", failure),
+            configuration.filesystem().worldSizeScanConcurrency()
+        );
         core.collectorCoordinator().register(
             new PeriodicSnapshotCollector<>(
                 "server",
@@ -51,7 +86,7 @@ public final class PhaseFourRuntime implements AutoCloseable {
                 configuration.collection().serverInterval(),
                 configuration.collection().timeout(),
                 new BukkitServerSnapshotCapture(
-                    plugin.getServer(),
+                    server,
                     scheduler,
                     clock,
                     activationTime,
@@ -70,7 +105,7 @@ public final class PhaseFourRuntime implements AutoCloseable {
                 configuration.collection().worldInterval(),
                 configuration.collection().timeout(),
                 new BukkitWorldSnapshotCapture(
-                    plugin.getServer(),
+                    server,
                     metrics.worldRepository(),
                     failure -> failures.accept("worlds", failure)
                 ),
@@ -87,7 +122,7 @@ public final class PhaseFourRuntime implements AutoCloseable {
                 configuration.collection().worldInterval(),
                 configuration.collection().timeout(),
                 new BukkitChunkSnapshotCapture(
-                    plugin.getServer(),
+                    server,
                     metrics.chunkRepository(),
                     failure -> failures.accept("chunks", failure)
                 ),
@@ -104,14 +139,8 @@ public final class PhaseFourRuntime implements AutoCloseable {
                 worldSizesEnabled,
                 scheduler,
                 configuration.collection().filesystemInterval(),
-                configuration.collection().timeout(),
-                new BukkitWorldSizeSnapshotCapture(
-                    plugin.getServer(),
-                    scheduler,
-                    new WorldSizeCalculator(),
-                    metrics.worldSizeRepository(),
-                    failure -> failures.accept("world-sizes", failure)
-                ),
+                configuration.collection().filesystemTimeout(),
+                worldSizeCapture,
                 metrics.worldSizeRepository(),
                 clock,
                 failures
@@ -122,6 +151,7 @@ public final class PhaseFourRuntime implements AutoCloseable {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
+            worldSizeCapture.close();
             scheduler.cancelAll();
         }
     }

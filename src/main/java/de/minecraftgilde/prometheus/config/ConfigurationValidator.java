@@ -22,6 +22,7 @@ public final class ConfigurationValidator {
     public void validate(ExporterConfiguration configuration) {
         validateHttp(configuration.http());
         validateCollection(configuration.collection());
+        validateFilesystem(configuration.filesystem());
         validateFolia(configuration.folia());
 
         if (configuration.privacy().individualPlayerMetricsSupported()) {
@@ -79,6 +80,21 @@ public final class ConfigurationValidator {
             collection.filesystemInterval()
         );
         requireMillisecondDuration("collection.timeout", collection.timeout());
+        requireMillisecondDuration(
+            "collection.filesystem-timeout",
+            collection.filesystemTimeout()
+        );
+    }
+
+    private static void validateFilesystem(
+        ExporterConfiguration.FilesystemConfiguration filesystem
+    ) {
+        int concurrency = filesystem.worldSizeScanConcurrency();
+        if (concurrency < 1 || concurrency > 8) {
+            throw new ConfigurationException(
+                "filesystem.world-size-scan-concurrency must be between 1 and 8"
+            );
+        }
     }
 
     private static void validateFolia(
