@@ -7,9 +7,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.minecraftgilde.prometheus.ExporterLifecycleState;
 import de.minecraftgilde.prometheus.ExporterMetrics;
 import de.minecraftgilde.prometheus.ExporterMetricsTestSupport;
+import de.minecraftgilde.prometheus.TestConfigurations;
 import de.minecraftgilde.prometheus.collector.CollectorState;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
 import de.minecraftgilde.prometheus.jvm.JvmMetricsRegistrar;
+import de.minecraftgilde.prometheus.minecraft.DifficultyLabel;
+import de.minecraftgilde.prometheus.minecraft.EnvironmentLabel;
+import de.minecraftgilde.prometheus.minecraft.GameModeLabel;
+import de.minecraftgilde.prometheus.minecraft.PluginSnapshot;
+import de.minecraftgilde.prometheus.minecraft.ServerSnapshot;
+import de.minecraftgilde.prometheus.minecraft.WeatherLabel;
+import de.minecraftgilde.prometheus.minecraft.WorldChunkSnapshot;
+import de.minecraftgilde.prometheus.minecraft.WorldSizeSnapshot;
+import de.minecraftgilde.prometheus.minecraft.WorldSnapshot;
+import de.minecraftgilde.prometheus.minecraft.metrics.MinecraftMetrics;
+import de.minecraftgilde.prometheus.snapshot.ImmutableSnapshot;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -20,7 +32,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,6 +109,57 @@ class MetricsHttpServerTest {
             assertTrue(metrics.body().contains("jvm_classes_currently_loaded"));
             assertTrue(metrics.body().contains("jvm_buffer_pool_used_bytes"));
             assertTrue(metrics.body().contains("process_cpu_seconds_total"));
+            assertPhaseFourFamilies(metrics.body());
+            assertTrue(metrics.body().contains("minecraft_world_weather{weather=\"rain\",world=\"world\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_world_difficulty{difficulty=\"hard\",world=\"world\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_world_environment{environment=\"normal\",world=\"world\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_players_by_gamemode{gamemode=\"survival\"} 2.0"));
+            assertTrue(!metrics.body().contains("minecraft_plugin_info"));
+            assertTrue(!metrics.body().contains("Alice"));
+            assertTrue(!metrics.body().contains("minecraft_world_entities"));
+            assertTrue(!metrics.body().contains("minecraft_player_joins_total"));
+            assertTrue(!metrics.body().contains("minecraft_folia_"));
+        }
+    }
+
+    @Test
+    void optionalPluginInformationAppearsOnlyWhenEnabled() throws Exception {
+        TestServer testServer = startServer(true);
+        try (MetricsHttpServer server = testServer.server) {
+            testServer.state.setInitializationComplete(true);
+
+            String metrics = get(server, "/metrics").body();
+
+            assertTrue(metrics.contains("# HELP minecraft_plugin_info "));
+            assertTrue(metrics.contains("# TYPE minecraft_plugin_info gauge"));
+            assertTrue(
+                metrics.contains(
+                    "minecraft_plugin_info{enabled=\"true\",name=\"Exporter\",version=\"1.0\"} 1"
+                )
+            );
+        }
+    }
+
+    @Test
+    void scrapesReadSnapshotsWithoutTriggeringCollection() throws Exception {
+        TestServer testServer = startServer();
+        try (MetricsHttpServer server = testServer.server) {
+            Instant capturedAt = testServer.minecraftMetrics
+                .serverRepository()
+                .capturedAt()
+                .orElseThrow();
+
+            for (int attempt = 0; attempt < 5; attempt++) {
+                assertEquals(200, get(server, "/metrics").statusCode());
+            }
+
+            assertEquals(
+                capturedAt,
+                testServer.minecraftMetrics
+                    .serverRepository()
+                    .capturedAt()
+                    .orElseThrow()
+            );
         }
     }
 
@@ -164,8 +229,18 @@ class MetricsHttpServerTest {
     }
 
     private static TestServer startServer() throws IOException {
+        return startServer(false);
+    }
+
+    private static TestServer startServer(boolean pluginInfo) throws IOException {
         PrometheusRegistry registry = new PrometheusRegistry();
         new JvmMetricsRegistrar(registry, true, true).register();
+        MinecraftMetrics minecraftMetrics = new MinecraftMetrics(
+            registry,
+            TestConfigurations.phaseFour(true, true, true, true, pluginInfo)
+        );
+        minecraftMetrics.register();
+        publishPhaseFourSnapshots(minecraftMetrics);
         ExporterLifecycleState state = readyCoreState();
         ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);
@@ -175,7 +250,91 @@ class MetricsHttpServerTest {
             state,
             metrics
         );
-        return new TestServer(server, state);
+        return new TestServer(server, state, minecraftMetrics);
+    }
+
+    private static void publishPhaseFourSnapshots(MinecraftMetrics metrics) {
+        Instant capturedAt = Instant.parse("2026-08-02T10:00:00Z");
+        EnumMap<GameModeLabel, Integer> gameModes = new EnumMap<>(
+            GameModeLabel.class
+        );
+        gameModes.put(GameModeLabel.SURVIVAL, 2);
+        metrics.serverRepository().publish(
+            new ImmutableSnapshot<>(
+                capturedAt,
+                List.of(
+                    new ServerSnapshot(
+                        "Paper",
+                        "26.1.2",
+                        "25",
+                        5,
+                        1,
+                        true,
+                        false,
+                        10,
+                        8,
+                        2,
+                        100,
+                        3,
+                        1,
+                        1,
+                        1,
+                        gameModes,
+                        1,
+                        1,
+                        0,
+                        List.of(new PluginSnapshot("Exporter", "1.0", true))
+                    )
+                )
+            )
+        );
+        metrics.worldRepository().publish(
+            new ImmutableSnapshot<>(
+                capturedAt,
+                List.of(
+                    new WorldSnapshot(
+                        "world",
+                        2,
+                        6000,
+                        1000,
+                        WeatherLabel.RAIN,
+                        DifficultyLabel.HARD,
+                        EnvironmentLabel.NORMAL,
+                        true
+                    )
+                )
+            )
+        );
+        metrics.chunkRepository().publish(
+            new ImmutableSnapshot<>(
+                capturedAt,
+                List.of(new WorldChunkSnapshot("world", 12))
+            )
+        );
+        metrics.worldSizeRepository().publish(
+            new ImmutableSnapshot<>(
+                capturedAt,
+                List.of(new WorldSizeSnapshot("world", 1234))
+            )
+        );
+    }
+
+    private static void assertPhaseFourFamilies(String metrics) {
+        for (String family : List.of(
+            "minecraft_server_info",
+            "minecraft_server_uptime_seconds",
+            "minecraft_players_online",
+            "minecraft_plugins_total",
+            "minecraft_world_players",
+            "minecraft_world_loaded_chunks",
+            "minecraft_world_size_bytes",
+            "minecraft_world_time_ticks",
+            "minecraft_world_weather"
+        )) {
+            assertTrue(metrics.contains("# HELP " + family + " "), family);
+            assertTrue(metrics.contains("# TYPE " + family + " "), family);
+            assertTrue(metrics.contains("\n" + family), family);
+        }
     }
 
     private static ExporterLifecycleState readyCoreState() {
@@ -207,6 +366,7 @@ class MetricsHttpServerTest {
 
     private record TestServer(
         MetricsHttpServer server,
-        ExporterLifecycleState state
+        ExporterLifecycleState state,
+        MinecraftMetrics minecraftMetrics
     ) {}
 }

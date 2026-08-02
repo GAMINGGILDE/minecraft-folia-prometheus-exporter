@@ -3,10 +3,9 @@
 Repository: `minecraft-folia-prometheus-exporter`
 
 FoliaPrometheusExporter ist ein für Paper und Folia entwickelter
-Prometheus-Exporter. Der Metrics Core stellt den HTTP-Dienst, die
-Exporter-Eigenüberwachung, standardisierte JVM-/Prozessmetriken und die
-threadsichere Snapshot-/Collector-Grundlage für die fachlichen Metriken der
-folgenden Phasen bereit.
+Prometheus-Exporter. Neben HTTP-Dienst und Exporter-Eigenüberwachung liefert er
+standardisierte JVM-/Prozessmetriken sowie immutable Snapshots für aggregierte
+Server-, Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken.
 
 ## Verbindliche Eckdaten
 
@@ -82,8 +81,22 @@ http:
   worker-threads: 2
 
 collectors:
+  server: true
+  worlds: true
+  chunks: true
   jvm: true
   process: true
+  filesystem: true
+  plugin-info: false
+
+collection:
+  server-interval: "5s"
+  world-interval: "10s"
+  filesystem-interval: "30m"
+  timeout: "10s"
+
+filesystem:
+  include-world-sizes: true
 ```
 
 Lokale Prüfung bei laufendem Server:
@@ -137,7 +150,30 @@ bietet in dieser Version keine offiziellen `system_*`-Metriken, keine
 CPU-Usage-Ratios und keine Prozess-Uptime-Metrik. Diese Werte werden nicht
 nachgebaut oder umbenannt.
 
+## Server- und Weltmetriken
+
+Phase 4 erfasst Server- und Pluginzustand im konfigurierten Serverintervall,
+Welt- und Chunkzustand im Weltintervall und Weltgrößen im Dateisystemintervall.
+Der Startzeitpunkt der Servermetrik ist der Beginn der Pluginaktivierung; die
+Uptime wird relativ dazu berechnet. Spielerwerte sind ausschließlich aggregiert.
+Die Spielmoduslabels sind fest auf `survival`, `creative`, `adventure` und
+`spectator` begrenzt. `minecraft_plugin_info` ist wegen seiner dynamischen
+Labels standardmäßig deaktiviert.
+
+Welt-, Wetter-, Schwierigkeits- und Umgebungslabels werden aus jedem vollständig
+erfassten Snapshot neu aufgebaut. Entladene Welten verschwinden deshalb aus der
+Ausgabe. `minecraft_world_loaded_chunks` verwendet den öffentlichen aggregierten
+Chunkzähler der Welt und materialisiert keine Chunkobjekte.
+
+`minecraft_world_size_bytes` wird asynchron als Summe der regulären Dateien
+unterhalb des Weltverzeichnisses berechnet. Symbolischen Links wird nicht
+gefolgt. Laufende Berechnungen überlappen nicht; bei Timeout oder Einzelfehlern
+bleibt der letzte gültige Wert erhalten. Die Metrik benötigt sowohl
+`collectors.filesystem: true` als auch `filesystem.include-world-sizes: true`.
+Die optional katalogisierten Metriken für Full Time, Autosave, allgemeine
+Dateisystemkapazität, Logs und Pluginverzeichnisse gehören nicht zu Phase 4.
+
 ## Status
 
-Phase 3 „JVM- und Prozessmetriken“ ist implementiert. Phase 4 „Server und Welten“
-ist der nächste Umfang.
+Phase 4 „Server und Welten“ ist implementiert. Phase 5 „Events“ ist der nächste
+Umfang.

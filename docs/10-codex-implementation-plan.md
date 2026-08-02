@@ -108,18 +108,42 @@ Status: abgeschlossen.
 - Architekturentscheidung in ADR 0012
 
 Abnahme: Phase 3 ist abgeschlossen. Die standardisierten JVM-/Prozessmetriken
-werden vom bestehenden `/metrics`-Endpunkt ausgegeben. Phase 4 „Server und
-Welten“ ist der nächste Umfang.
+werden vom bestehenden `/metrics`-Endpunkt ausgegeben.
 
 ## Phase 4 – Server und Welten
 
-- Server-Info
-- Spielerzahlen aggregiert
-- Plugins
-- Whitelist
-- Weltinformationen
-- Weltgröße asynchron
-- geladene Chunks
+Status: abgeschlossen.
+
+- Server-Info, Online-Mode, Hardcore, View- und Simulation Distance
+- Serverstart als Plugin-Aktivierungszeit und daraus berechnete Uptime
+- aggregierte Online-, Maximal-, bekannte, Whitelist-, Ban- und Operatorzahlen
+- feste aggregierte Spielmodusgruppen über Entity Scheduler, ohne Identitäten
+- Plugin-Summen und standardmäßig deaktivierte Plugin-Info
+- dynamische Weltinformationen mit Spielern, Zeit, Border, Wetter,
+  Schwierigkeit, Umgebung und PVP
+- geladene Chunks über `World#getChunkCount()` ohne Chunkobjekte
+- Weltgröße asynchron als Summe regulärer Dateien, ohne Symlink-Folgen
+- `PaperCollectionScheduler` ausschließlich auf öffentlichen gemeinsamen
+  Global-, Region-, Entity- und Async-Schedulern
+- vier unabhängige verwaltete Snapshot-Collector mit Überlappungsschutz,
+  Timeout, Laufidentität und Erhalt des letzten gültigen Snapshots
+- private, idempotente Prometheus-Registrierung ohne globale Registry
+- dynamische Weltlabels ohne veraltete Reihen
+- Konfigurationsvalidierung für Tick-/Millisekundenintervalle und Überläufe
+- Unit-, HTTP-, Build- und gepinnte Paper-/Folia-Smoke-Prüfungen
+- Architekturentscheidung in ADR 0013
+
+Nicht Bestandteil von Phase 4:
+
+- Events und Chunk-Lifecycle-Counter
+- Entityzählungen
+- Folia-Regionsmetriken oder ein Folia-Provider
+- optionale Weltwerte Full Time und Autosave
+- allgemeine Dateisystem-, Log- oder Pluginverzeichnisgrößen
+
+Abnahme: Phase 4 ist abgeschlossen. Der `/metrics`-Endpunkt serialisiert nur
+immutable Snapshots; sämtliche Minecraft-Zugriffe beachten die gemeinsame
+öffentliche Paper-/Folia-Scheduler-API. Phase 5 „Events“ ist der nächste Umfang.
 
 ## Phase 5 – Events
 

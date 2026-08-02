@@ -29,6 +29,20 @@
 | `minecraft_plugins_disabled` | Gauge | – | an | Stabil | Deaktivierte Plugins |
 | `minecraft_plugin_info` | Info | `name`, `version`, `enabled` | aus | Optional | Einzelne Plugininformationen |
 
+Phase 4 implementiert diese Tabelle vollständig. `implementation` stammt aus
+`Server#getName()`, `minecraft_version` aus `Server#getMinecraftVersion()` und
+`java_version` aus der JVM-Systemeigenschaft. Serverstart und -Uptime beziehen
+sich auf den zu Beginn von `onEnable()` fixierten Aktivierungszeitpunkt des
+Plugins, da keine belastbare öffentliche API für einen früheren Prozess- oder
+Serverstart verwendet wird. Leere Info-Labelwerte werden als `unknown`
+normalisiert. Im Prometheus-Textformat 0.0.4 erscheint die vom Client modellierte
+Info-Familie technisch als `TYPE ... gauge`; OpenMetrics gibt sie als `info` aus.
+Plugininstanzen werden nach Objektidentität höchstens einmal gezählt. Für die
+optionale Info-Familie gelten ausschließlich `enabled="true"` und
+`enabled="false"`; leere oder fehlende Namen und Versionen werden als `unknown`
+abgebildet. Identische Labeltupel mehrerer ungewöhnlicher Plugininstanzen werden
+nicht doppelt ausgegeben.
+
 ## 2.3 Aggregierte Spielerzahlen
 
 | Metrik | Typ | Labels | Standard | Status | Bedeutung |
@@ -43,6 +57,12 @@
 | `minecraft_world_players` | Gauge | `world` | an | Snapshot | Spieler je Welt |
 
 Keine dieser Metriken darf Spielername oder UUID enthalten.
+
+Phase 4 liest ausschließlich aggregierte Mengen. Nur die Spielmodi erfordern
+Entity-Ownership: Je Online-Spieler wird allein `getGameMode()` über dessen
+Entity Scheduler gelesen und direkt in die festen Labels `survival`, `creative`,
+`adventure` und `spectator` aggregiert. Spielerobjekte werden nicht in einem
+Snapshot gespeichert; Namen und UUIDs werden weder abgefragt noch protokolliert.
 
 ## 2.4 Verbindung und Events
 
@@ -92,6 +112,19 @@ Keine freien Nachrichten als Labels.
 | `minecraft_world_pvp_enabled` | Gauge | `world` | an | Stabil |
 | `minecraft_world_autosave_enabled` | Gauge | `world` | aus | Optional |
 
+Phase 4 implementiert aus dieser Tabelle `minecraft_world_players`,
+`minecraft_world_size_bytes`, `minecraft_world_time_ticks`,
+`minecraft_world_border_size_blocks`, `minecraft_world_weather`,
+`minecraft_world_difficulty`, `minecraft_world_environment` und
+`minecraft_world_pvp_enabled`. Full Time und Autosave bleiben als optionale,
+deaktivierte Katalogeinträge einer späteren Phase vorbehalten. Entityfamilien
+werden in Phase 4 nicht registriert.
+
+Wetter ist One-Hot über `clear`, `rain`, `thunder`; Schwierigkeit über
+`peaceful`, `easy`, `normal`, `hard`; Umgebung über `normal`, `nether`,
+`the_end`, `custom`. Die Weltenliste wird pro Snapshot neu aufgebaut, sodass
+entladene Welten keine veralteten Labelreihen hinterlassen.
+
 ## 2.6 Entities
 
 | Metrik | Typ | Labels | Standard | Status |
@@ -125,6 +158,11 @@ Standardgruppen:
 | `minecraft_chunks_unloaded_total` | Counter | `world` | an | Eventbasiert |
 | `minecraft_chunks_generated_total` | Counter | `world` | an | Eventbasiert |
 | `minecraft_chunk_load_failures_total` | Counter | `world`, `reason` | aus | API-abhängig |
+
+Phase 4 implementiert nur `minecraft_world_loaded_chunks`. Grundlage ist
+`World#getChunkCount()` aus der öffentlichen Paper-API; es werden weder
+`getLoadedChunks()` noch Chunkobjekte oder regiongebundene Einzelabfragen
+verwendet. Die ereignisbasierten Chunk-Counter gehören zu Phase 5.
 
 ## 2.8 Folia
 
@@ -299,6 +337,14 @@ nach:
 | `minecraft_world_size_bytes` | Gauge | `world` | an |
 | `minecraft_logs_size_bytes` | Gauge | – | aus |
 | `minecraft_plugins_size_bytes` | Gauge | – | aus |
+
+Phase 4 implementiert in dieser Gruppe ausschließlich
+`minecraft_world_size_bytes`. Der Wert ist die rekursive Summe der Größen aller
+regulären Dateien innerhalb des jeweiligen Weltpfads. Symbolischen Links wird
+nicht gefolgt. Nicht lesbare oder während des Laufs verschwindende Einträge
+werden übersprungen; schlägt die Berechnung der Welt als Ganzes fehl, bleibt der
+letzte gültige Wert erhalten. Allgemeine Dateisystem-, Log- und Pluginpfadgrößen
+sind nicht Bestandteil von Phase 4.
 
 ## 2.12 Exporter-Eigenüberwachung
 

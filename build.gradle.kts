@@ -70,6 +70,9 @@ dependencies {
         platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}")
     )
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(
+        "io.papermc.paper:paper-api:${providers.gradleProperty("paperApiVersion").get()}"
+    )
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

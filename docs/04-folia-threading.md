@@ -5,15 +5,9 @@ auf Paper und Folia ausschließlich Global-, Region-, Entity- und Async-Schedule
 Es gibt keinen Fallback auf den klassischen `BukkitScheduler`.
 
 Diese vier Scheduler sind Teil der gemeinsamen öffentlichen Paper-API und werden
-nicht als Folia-Erkennungsmerkmal verwendet. Phase 3 benötigt deshalb weder einen
-Folia-Provider noch eine Plattform- oder Feature-Erkennung.
-
-Phase 3 führt noch keine periodischen Minecraft-Erfassungen aus. Die offiziellen
-JVM-/Prozesscallbacks lesen ausschließlich JDK- und Betriebssystemdaten direkt
-über die private Prometheus-Registry. Daher existiert
-noch keine konkrete Scheduler-Implementierung und insbesondere auch kein
-vorsorglicher Fallback. Die folgenden Zuordnungen werden erst von den fachlichen
-Collector-Phasen umgesetzt.
+nicht als Folia-Erkennungsmerkmal verwendet. Phase 4 setzt diese Grenze mit
+`PaperCollectionScheduler` um und benötigt weiterhin weder einen Folia-Provider
+noch Plattform- oder Feature-Erkennung.
 
 ## 4.1 Scheduler-Zuordnung
 
@@ -25,6 +19,25 @@ Collector-Phasen umgesetzt.
 | JVM-MBeans | Async oder HTTP-unabhängig |
 | Dateisystemoperationen | Async Scheduler |
 | HTTP-Ausgabe | eigener HTTP-Thread, nur Snapshots |
+
+Für Phase 4 gilt konkret:
+
+| Öffentlicher API-Zugriff | Ausführung |
+|---|---|
+| Servername, Minecraft-Version, Online-Mode, Hardcore, Distanzen | Global Region Scheduler |
+| Online-/Maximal-/bekannte Spieler, Whitelist, Bans und Operatoren | Global Region Scheduler |
+| Pluginliste, Plugin-Metadaten und Aktivierungszustand | Global Region Scheduler |
+| Liste geladener Welten und deren Name, Spielerzahl, Zeit, Wetter, Schwierigkeit, Umgebung, World Border und PVP | Global Region Scheduler |
+| `World#getChunkCount()` | Global Region Scheduler |
+| `World#getWorldPath()` | Global Region Scheduler; nur der immutable Pfad wird weitergereicht |
+| `Player#getGameMode()` | Entity Scheduler des jeweiligen Spielers |
+| Rekursives Lesen der Weltverzeichnisse | Async Scheduler |
+| Timeout-Wächter | Async Scheduler |
+| Prometheus-Scrape | HTTP-Thread; nur Repositories und Registry |
+
+Phase 4 braucht keinen Region-Scheduler-Aufruf: Der öffentliche aggregierte
+Chunkzähler vermeidet Positions- und Chunkobjektzugriffe. Das Interface behält
+die Region-Methode für spätere, tatsächlich positionsgebundene Collector.
 
 ## 4.2 Verbotene Muster
 
@@ -52,31 +65,35 @@ player.getLocation();
 
 ## 4.3 Scheduler-Abstraktion
 
-Empfohlenes Interface:
+Implementiertes Interface, gekürzt um Rückgabetypdetails:
 
 ```java
 public interface CollectionScheduler {
-    void executeGlobal(Runnable task);
+    CollectionTask scheduleGlobalAtFixedRate(Duration interval, Runnable task);
 
-    void executeAt(
+    CollectionTask executeAt(
         org.bukkit.World world,
         int chunkX,
         int chunkZ,
         Runnable task
     );
 
-    void executeFor(
+    Optional<CollectionTask> executeFor(
         org.bukkit.entity.Entity entity,
-        Runnable task
+        Runnable task,
+        Runnable retired
     );
 
-    void executeAsync(Runnable task);
+    CollectionTask executeAsync(Runnable task);
+    CollectionTask executeAsyncAfter(Duration delay, Runnable task);
+    void cancelAll();
 }
 ```
 
-Die Abstraktion darf keine klassische Scheduler-Alternative enthalten. Bis
-einschließlich Phase 3 wird noch keine Minecraft-Collector-Scheduling-Logik
-implementiert.
+Die Abstraktion enthält keine klassische Scheduler-Alternative. Globale
+Intervalle werden auf mindestens einen Tick aufgerundet; ungültige Intervalle
+werden bereits durch die Konfigurationsvalidierung abgelehnt. Beim Disable
+bricht `cancelAll()` alle durch das Plugin geplanten Aufgaben ab.
 
 Die spätere Capability-Prüfung des isolierten Folia-Metrikproviders bezieht sich
 ausschließlich auf die konkrete öffentliche Folia-API, die seine Messung benötigt.
@@ -88,7 +105,10 @@ Paper nicht vorzeitig.
 Jeder Scheduler-Task erzeugt nur lokale Werte. Erst nach vollständiger Erfassung wird
 ein unveränderlicher Snapshot veröffentlicht.
 
-Unvollständige Zwischenstände dürfen nicht sichtbar werden.
+Unvollständige Zwischenstände dürfen nicht sichtbar werden. Pro Collector ist
+nur ein Lauf aktiv. Ein Timeout entfernt diesen Lauf atomar; ein später Callback
+kann wegen der abweichenden Laufidentität nicht mehr publizieren. Nach `stop()`
+werden überhaupt keine Ergebnisse mehr angenommen.
 
 Der Metrics Core setzt diese Grenze mit `ImmutableSnapshot<T>` und
 `SnapshotRepository<T>` um. Der Snapshot kopiert seine Werteliste defensiv und
@@ -114,10 +134,15 @@ Callbacks der JVM-/Prozessinstrumentierung sind zulässig, weil sie ausschließl
 JDK- und Betriebssystemdaten lesen und keine Ownership-Regel von Paper oder Folia
 berühren.
 
+Die Phase-4-Prometheus-Callbacks lesen ebenfalls keine Minecraft-Objekte. Sie
+wandeln den jeweils einmal geladenen immutable Snapshot einer Gruppe in
+Prometheus-Snapshots um. Insbesondere lösen parallele Scrapes keine zusätzliche
+Minecraft-Erfassung oder Weltgrößenberechnung aus.
+
 ## 4.6 Regionsbeobachtung
 
 Dieser Abschnitt betrifft den späteren isolierten Folia-Provider und ist nicht
-Bestandteil von Phase 2.
+Bestandteil von Phase 4.
 
 Spielerpositionen dürfen intern als temporäre Beobachtungsquelle dienen. Dabei gilt:
 

@@ -88,6 +88,12 @@ logging:
 - HTTP-Pfade beginnen mit `/`, enthalten mindestens ein Segment und müssen
   eindeutig sein.
 - `http.worker-threads` muss positiv sein.
+- `collection.server-interval`, `world-interval`, `region-interval` und
+  `entity-interval` müssen mindestens `50ms` betragen, weil sie in Serverticks
+  darstellbar sein müssen.
+- `collection.filesystem-interval` und `collection.timeout` müssen mindestens
+  `1ms` betragen. Alle Erfassungsdauern müssen ohne Überlauf als Millisekunden
+  darstellbar sein; Fehlermeldungen nennen den vollständigen Konfigurationspfad.
 - Werte mit falschem YAML-Datentyp werden bereits beim Laden mit Pfadangabe
   abgelehnt.
 - Experimentelle oder interne Provider sind in Version 1 nicht konfigurierbar.
@@ -110,6 +116,9 @@ logging:
 - Phase 3 verwendet die bereits vorgesehenen unabhängigen Schalter
   `collectors.jvm` und `collectors.process`. Beide sind standardmäßig aktiv und
   werden vor dem HTTP-Start ausgewertet.
+- Phase 4 verwendet die Schalter `collectors.server`, `collectors.worlds`,
+  `collectors.chunks` und `collectors.filesystem` sowie die Optionen
+  `collectors.plugin-info` und `filesystem.include-world-sizes`.
 - Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
   Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
   und HTTP-Dienst.
@@ -138,6 +147,34 @@ Registry weiterhin die Exporter-Eigenmetriken, aber keine `jvm_*`- oder
 Das Instrumentierungsmodul 1.8.0 bietet keine `system_*`-Gruppe; daher existiert
 kein irreführender `collectors.system`-Schalter.
 
-Die übrigen Collector- und Erfassungswerte bleiben für die späteren fachlichen
-Phasen in der Konfiguration erhalten und lösen in Phase 3 noch keine
-Minecraft-Erfassung aus.
+## Phase-4-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `collection.server-interval` | `5s` | Intervall für Server-, aggregierte Spieler- und Pluginwerte |
+| `collection.world-interval` | `10s` | gemeinsames Intervall für Welt- und geladenen Chunkzustand |
+| `collection.filesystem-interval` | `30m` | Intervall für die asynchrone Weltgrößenberechnung |
+| `collection.timeout` | `10s` | maximale Annahmezeit je Snapshotlauf; verspätete Ergebnisse werden verworfen |
+| `collectors.server` | `true` | Server-, Spieler- und Plugin-Zählmetriken |
+| `collectors.worlds` | `true` | Weltzustandsmetriken außer Chunkzahl und Größe |
+| `collectors.chunks` | `true` | `minecraft_world_loaded_chunks` |
+| `collectors.filesystem` | `true` | übergeordneter Schalter für Dateisystemerfassung |
+| `collectors.plugin-info` | `false` | dynamische `minecraft_plugin_info`-Labelreihen zusätzlich zu Plugin-Summen |
+| `filesystem.include-world-sizes` | `true` | Weltgrößen, nur zusammen mit `collectors.filesystem` |
+| `logging.collection-errors` | `true` | rate-limitierte Laufzeitfehler der Erfassung protokollieren |
+
+Alle Schalter wirken unabhängig. Ist eine Gruppe deaktiviert, werden ihre
+fachlichen Metrikfamilien nicht registriert und ihr verwalteter Collector bleibt
+im Zustand `disabled`. `collectors.plugin-info` hat nur bei aktivem
+`collectors.server` eine Wirkung. Weltgrößen benötigen beide zugehörigen
+Dateisystemschalter; sie laufen niemals im HTTP- oder Tickthread.
+
+Das Timeout ersetzt keinen laufenden Task durch einen parallelen Task. Nach
+Ablauf darf der nächste Intervalllauf beginnen; ein verspätetes Ergebnis des
+alten Laufs wird anhand seiner Laufidentität verworfen. Der letzte erfolgreiche
+Snapshot bleibt während Fehlern und Timeouts erhalten.
+
+`collection.region-interval`, `collection.entity-interval`, die Event-, Entity-,
+Folia-, Gameplay- und detaillierten Schalter sowie die übrigen
+`filesystem.include-*`-Optionen bleiben für spätere Phasen in der Konfiguration.
+Sie lösen in Phase 4 keine zusätzliche Metrikerfassung aus.

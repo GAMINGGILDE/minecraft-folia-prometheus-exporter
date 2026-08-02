@@ -26,6 +26,19 @@ muss erfolgreich sein.
 - Registrierung repräsentativer JVM-/Prozessfamilien in der privaten Registry
 - idempotente Registrierung und getrennte JVM-/Prozessschaltung
 - zwei unabhängige Metrics Cores ohne Duplicate-Registration
+- feste GameMode-, Wetter-, Schwierigkeits- und Umgebungslabels
+- Server-, Plugin-, Spieler-, Welt- und Chunk-Snapshotabbildung ohne
+  Spieleridentitäten
+- dynamisches Hinzufügen und Entfernen von Welten ohne veraltete Labelreihen
+- Weltfehler mit Aktualisierung der übrigen Welten und Erhalt des letzten
+  gültigen Einzelwerts
+- rekursive Weltgrößen aus regulären Dateien ohne Folgen symbolischer Links
+- periodische Collector: idempotenter Lifecycle, Überlappungsschutz, Timeout,
+  verspätete Callback-Unterdrückung und keine Publikation nach Stop
+- unabhängige Phase-4-Schalter, idempotente Registrierung und mehrere private
+  Registries
+- Prometheus-`HELP`-, `TYPE`-, Sample- und Labelausgabe der Phase-4-Familien
+- parallele Scrapes, die keine neue Minecraft-Erfassung anstoßen
 
 ## 7.3 Integrationsprüfungen
 
@@ -62,6 +75,14 @@ Familien `jvm_memory_used_bytes`, `jvm_threads_current`,
 `HELP`-, `TYPE`- und Sample-Zeilen. Betriebssystemabhängige Familien wie
 `process_open_fds` sind bewusst keine plattformübergreifende Assertion.
 
+Seit Phase 4 wartet der Smoke-Test begrenzt auf den ersten Server-, Welt-, Chunk-
+und Weltgrößensnapshot. Er prüft repräsentative Phase-4-Familien samt `HELP`,
+`TYPE` und Samples, die drei kontrollierten Server-Info-Labels sowie die
+Abwesenheit des standardmäßig deaktivierten `minecraft_plugin_info`. Zusätzlich
+dürfen noch keine Event-, Entity- oder Folia-Familien erscheinen. Output und
+Start-/Shutdown-Log werden auf Spielernamen-/UUID-Indikatoren beziehungsweise
+Threading- und Schedulerfehler geprüft.
+
 ## 7.4 Threading-Prüfungen
 
 - keine Weltzugriffe aus HTTP-Threads
@@ -88,6 +109,10 @@ Familien `jvm_memory_used_bytes`, `jvm_threads_current`,
 - keine individuellen Spielermetriken
 - öffentliche API im stabilen Kern
 - Fehlermeldungen verständlich
+
+Die Tests dürfen Symlink-Fälle nur dann überspringen, wenn das ausführende
+Betriebssystem die für den Test nötige Linkerzeugung nicht erlaubt. Das
+Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
 
 ## 7.7 Abnahme Phase 1
 
@@ -171,3 +196,30 @@ Familien `jvm_memory_used_bytes`, `jvm_threads_current`,
   `system_*`-Metriken werden nicht nachgebaut.
 - Es existieren weiterhin keine Server-, Spieler-, Welt-, Event-, Entity- oder
   Folia-Regionsmetriken.
+
+## 7.11 Abnahme Phase 4
+
+- Die vier verwalteten Collector `server`, `worlds`, `chunks` und `world-sizes`
+  sind konfigurationsabhängig registriert und nutzen getrennte immutable
+  Snapshot-Repositories.
+- Server- und Weltzugriffe laufen über den Global Region Scheduler;
+  `Player#getGameMode()` läuft ausschließlich über den jeweiligen Entity
+  Scheduler; Weltgrößen und Timeout-Wächter laufen asynchron.
+- Der HTTP-Thread liest nur die private Prometheus-Registry und bereits
+  publizierte Snapshots. Parallele Scrapes führen keine Liveabfragen aus.
+- Laufende Erfassungen überlappen nicht. Timeout, verspätete Ergebnisse und Stop
+  können keinen alten oder nachträglichen Snapshot publizieren; der letzte
+  gültige Snapshot bleibt bei Laufzeitfehlern erhalten.
+- Geladene Welten werden dynamisch abgebildet. Entladene Welten verschwinden aus
+  allen Phase-4-Weltfamilien; ein Fehler einer Welt blockiert die übrigen nicht.
+- `minecraft_world_loaded_chunks` verwendet nur `World#getChunkCount()` und
+  materialisiert keine Chunkobjekte.
+- Weltgrößen summieren reguläre Dateien rekursiv, folgen keinen Symlinks und
+  werden nicht im Tick- oder HTTP-Thread berechnet.
+- Alle in Phase 4 vereinbarten Server-, aggregierten Spieler-, Plugin-, Welt-,
+  Chunk- und Weltgrößenfamilien sind im Metrikkatalog und in HTTP-Tests
+  abgedeckt. Optionale oder spätere Familien werden nicht registriert.
+- Spielername und UUID werden weder in Metriksnapshots noch in Fehlerlogs
+  übernommen.
+- Der gepinnte Paper-/Folia-Smoke-Test prüft die Phase-4-Familien und einen
+  sauberen Start/Shutdown ohne Scheduler- oder Threadingfehler.

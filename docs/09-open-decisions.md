@@ -58,7 +58,10 @@ Der Test setzt `eula=true`, kopiert das einzige erzeugte Plugin-JAR nach
 vorzeitiges Serverende oder Timeout sind Fehler. Nach erfolgreicher Aktivierung
 wird `stop` über die Serverkonsole gesendet und der Prozess kontrolliert beendet.
 Seit Phase 3 prüft der Smoke-Test zusätzlich stabile JVM-/Prozessfamilien samt
-Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen.
+Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen. Seit Phase 4 wartet er begrenzt auf
+Server-, Welt-, Chunk- und Weltgrößensnapshots, validiert repräsentative
+Phase-4-Familien und kontrollierte Labels und schließt vorgezogene Event-,
+Entity- und Folia-Familien aus.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -127,7 +130,38 @@ Details stehen in ADR 0011.
 
 Details stehen in ADR 0012.
 
-## 9.5 Festgelegt für den späteren Folia-Provider
+## 9.5 In Phase 4 umgesetzt
+
+- `server`, `worlds`, `chunks` und `world-sizes` sind getrennte verwaltete
+  Collector mit den bestehenden Standardintervallen `5s`, `10s`, `10s` und
+  `30m`; für alle gilt standardmäßig `collection.timeout: 10s`.
+- Periodische Erfassungen beginnen auf dem Global Region Scheduler. Globale
+  Server- und Weltwerte werden dort gelesen, Spielmodi jeweils auf dem Entity
+  Scheduler und Weltverzeichnisse ausschließlich auf dem Async Scheduler.
+- Pro Collector läuft höchstens eine Erfassung. Timeouts, Stop und die Identität
+  des aktiven Laufs verhindern die Publikation verspäteter Ergebnisse. Fehler
+  löschen den letzten gültigen Snapshot nicht.
+- Der Serverstartzeitpunkt ist der zu Beginn von `onEnable()` fixierte
+  Plugin-Aktivierungszeitpunkt. Es werden keine internen APIs verwendet, um
+  einen früheren Prozess- oder Serverstart abzuleiten.
+- Spielernamen und UUIDs werden weder abgefragt noch exportiert oder in
+  Erfassungsfehler übernommen. Spielmodi werden direkt in vier feste Gruppen
+  aggregiert.
+- `minecraft_world_loaded_chunks` basiert auf dem öffentlichen
+  `World#getChunkCount()` und erzeugt keine Chunkobjekte.
+- Weltgrößen sind die rekursive Summe regulärer Dateien innerhalb des
+  Weltverzeichnisses. Symlinks werden nicht verfolgt, Dateifehler isoliert und
+  parallele Scans derselben Welt verhindert.
+- Phase-4-Metriken werden als Prometheus-`MultiCollector` an die private Registry
+  gebunden. Eine Gruppe liest pro Scrape genau einen immutable Snapshot;
+  entladene Welten hinterlassen keine veralteten Labelreihen.
+- `minecraft_plugin_info` bleibt standardmäßig aus. Full Time, Autosave,
+  allgemeine Dateisystemmetriken sowie Event-, Entity- und Folia-Familien werden
+  nicht vorgezogen.
+
+Details stehen in ADR 0013.
+
+## 9.6 Festgelegt für den späteren Folia-Provider
 
 - Der Provider wird erst in Phase 6 in einem isolierten Package implementiert.
 - Seine Compile-API ist
@@ -150,9 +184,8 @@ Details stehen in ADR 0012.
 
 Details stehen in ADR 0010.
 
-## 9.6 Noch offen
+## 9.7 Noch offen
 
-- endgültige Collector-Standardintervalle
 - genaue Strategie zur Regionsbeobachtung über öffentliche APIs
 - konkrete öffentliche Folia-API für die in Phase 6 implementierbaren
   Regionsmetriken
@@ -160,7 +193,7 @@ Details stehen in ADR 0010.
 - gewünschte Standard-Buckets für Histogramme
 - Release- und Changelog-Format
 
-## 9.7 Nicht mehr offen
+## 9.8 Nicht mehr offen
 
 - Automatisierbarkeit eines verpflichtenden Paper- und Folia-Starttests
 - feste Paper- und Folia-Serverbuilds für den Smoke-Test
@@ -184,6 +217,12 @@ Details stehen in ADR 0010.
 - instanzgebundene Eigenmetriken ohne globalen Registry-Cache
 - direkte JVM-/Prozessregistrierung ohne globale Registry oder Snapshot-Collector
 - exakte offizielle JVM-/Prozessnamen und 1.8.0-Verfügbarkeitsgrenzen
+- Collector-Standardintervalle und Timeout-Semantik für Phase 4
+- Scheduler-Zuordnung für Server-, Welt-, Chunk- und Weltgrößenerfassung
+- Definition der Serverstartzeit und der Weltgröße
+- Chunkzahl über `World#getChunkCount()` ohne Chunkmaterialisierung
+- Überlappungs-, Timeout- und verspätete-Ergebnis-Strategie
+- dynamische Weltlabels ohne veraltete Reihen
 - klassische `plugin.yml` statt `paper-plugin.yml`
 - fest gepinnte `paper-api`-Koordinate und JUnit-5-Version
 - Fehlerverhalten des Konfigurationsloaders bei ungültigen Werten

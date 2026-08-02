@@ -8,12 +8,12 @@ Paper/Folia Events und Scheduler
              ▼
       CollectorCoordinator
              │
-    ┌────────┼─────────┐
-    ▼        ▼         ▼
- Global   Region     Async
-Collector Collector Collector
-    │        │         │
-    └────────┼─────────┘
+    ┌────────┼─────────┬────────┐
+    ▼        ▼         ▼        ▼
+ Global   Region     Entity   Async
+Collector Collector Collector Collector
+    │        │         │        │
+    └────────┴─────────┴────────┘
              ▼
       Immutable Snapshots
              │
@@ -65,6 +65,8 @@ Minecraft-Liveobjekte.
   `unknown` als robustem Fallback
 - erzeugt Registry, JVM-/Prozessregistrar, Eigenmetriken und
   `CollectorCoordinator`
+- fixiert zu Beginn von `onEnable()` den für Phase 4 verwendeten
+  Server-Aktivierungszeitpunkt und erzeugt `PhaseFourRuntime`
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
 - setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
@@ -80,9 +82,9 @@ Minecraft-Liveobjekte.
 
 Der allgemeine Lifecycle verwendet die feste Zustandsmenge `disabled`,
 `starting`, `running`, `unsupported`, `failed` und `stopped`. Initialisierung
-erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 3
-registriert weiterhin keinen Minecraft-Collector und plant keine
-Erfassungsintervalle.
+erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 4
+registriert die vier verwalteten Collector `server`, `worlds`, `chunks` und
+`world-sizes`; deaktivierte Gruppen bleiben sichtbar im Zustand `disabled`.
 
 ### `JvmMetricsRegistrar`
 
@@ -117,6 +119,29 @@ Abstraktion für:
 Diese Scheduler werden auf Paper und Folia verwendet. Es gibt keinen Fallback auf
 den klassischen `BukkitScheduler`.
 
+`PaperCollectionScheduler` ist die gemeinsame konkrete Implementierung. Phase 4
+plant die periodischen Erfassungsstarts über den Global Region Scheduler,
+einzelne Spielmoduslesungen über den jeweiligen Entity Scheduler und
+Dateisystemarbeit sowie Timeout-Wächter über den Async Scheduler. Der Region
+Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil die
+öffentliche API aggregierte Welt- und Chunkzahlen ohne Positionszugriff anbietet.
+
+### `PeriodicSnapshotCollector`
+
+- startet in festem Intervall auf dem Global Region Scheduler
+- lässt pro Collector höchstens einen Erfassungslauf gleichzeitig zu
+- beendet die Annahme nach dem konfigurierten Timeout und ignoriert verspätete
+  Callbacks anhand der Identität des aktiven Laufs
+- veröffentlicht nur vollständig erfolgreiche immutable Snapshots
+- behält bei Fehler oder Timeout den letzten gültigen Snapshot
+- verwirft Ergebnisse nach `stop()` und beendet periodischen Task und
+  Timeout-Wächter idempotent
+
+Ein vorübergehender Erfassungsfehler ändert den Collector-Lifecycle nicht von
+`running` zu `failed`: Dieser Zustand bezeichnet weiterhin einen strukturellen
+Startfehler. Laufzeitfehler werden höchstens einmal je Collector und fünf
+Minuten protokolliert, sofern `logging.collection-errors` aktiv ist.
+
 ### `SnapshotRepository`
 
 - `ImmutableSnapshot<T>` enthält einen eindeutigen `Instant` und eine defensiv
@@ -127,6 +152,21 @@ den klassischen `BukkitScheduler`.
   `AtomicReference`
 - Lesen, Ersetzen und Entfernen erfolgen atomar und ohne große Lockbereiche
 - Erfassungszeitpunkt und Snapshot-Alter sind direkt abfragbar
+
+### `PhaseFourRuntime` und `MinecraftMetrics`
+
+`PhaseFourRuntime` verdrahtet die vier Erfassungsgruppen mit ihren privaten
+Repositories und dem vorhandenen Coordinator. `MinecraftMetrics` registriert
+pro aktivierter Gruppe genau einen Prometheus-`MultiCollector` in der privaten
+Core-Registry. Ein `MultiCollector` liest für sämtliche Familien seiner Gruppe
+genau einen aktuellen Snapshot; dadurch bilden zusammengehörige Samples einen
+konsistenten Stand. Die Registrierung ist pro Runtime idempotent und wird bei
+einem Teilfehler zurückgerollt.
+
+Snapshots enthalten nur primitive Werte, Strings, Enums und immutable
+Sammlungen. Insbesondere werden keine `Server`-, `World`-, `Player`-, `Plugin`-
+oder `Chunk`-Referenzen publiziert. Da Welt-Labelreihen bei jeder Collection aus
+dem aktuellen Snapshot entstehen, verschwinden entladene Welten automatisch.
 
 ### `MetricsEndpoint`
 
@@ -190,15 +230,20 @@ GameplayCollector (optional)
 ```
 
 `JvmCollector` und `ProcessCollector` sind logische Metrikgruppen, keine
-`ManagedCollector`: In Phase 3 werden sie durch `JvmMetricsRegistrar` direkt an
-die Registry gebunden. Alle Minecraft-bezogenen Gruppen folgen weiterhin dem
-Collector-/Snapshot-Lifecycle.
+`ManagedCollector`: Sie werden durch `JvmMetricsRegistrar` direkt an die
+Registry gebunden. In Phase 4 sind Server, Welten, Chunks und Weltgrößen separate
+`ManagedCollector` mit jeweils eigenem Snapshot-Repository. Event-, Entity-,
+Folia- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 
 ## 3.5 Fehlerisolation
 
-- Jeder Collector hat eigenen Fehlerzähler.
 - Fehler setzen den letzten gültigen Snapshot nicht automatisch auf null.
-- Snapshot-Alter zeigt veraltete Daten.
+- Ein Fehler in einer einzelnen Welt verhindert die Aktualisierung der übrigen
+  Welten nicht; für die betroffene weiterhin geladene Welt bleibt ihr letzter
+  gültiger Wert erhalten.
+- Timeout, Überlappungsschutz und Laufidentität verhindern, dass verspätete
+  Ergebnisse einen neueren Snapshot überschreiben.
+- Laufzeitfehler werden je Collector rate-limitiert protokolliert.
 - Ein Collector-Fehler darf den HTTP-Endpunkt nicht stoppen.
 - Ein optionaler plattformspezifischer Provider darf das Plugin nicht am Start hindern.
 - Ein konfigurierter, aber nicht unterstützter Folia-Collector wird nicht gestartet,
@@ -233,15 +278,18 @@ Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-3-Lifecycle
+## 3.7 Phase-4-Lifecycle
 
 ```text
 onEnable
+  Aktivierungszeitpunkt fixieren
   Konfiguration validieren
   → Buildinformation laden
   → eigene PrometheusRegistry erzeugen
   → konfigurierte offizielle JVM-/Prozessinstrumentierungen einmalig registrieren
   → Eigenmetriken einmalig registrieren
+  → Phase-4-Metrikfamilien registrieren
+  → Phase-4-Collector beim Coordinator registrieren
   → CollectorCoordinator starten
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1
@@ -250,6 +298,7 @@ onDisable oder Startfehler
   ready = 0
   → HTTP-Server und Workerpool stoppen
   → gestartete Collector rückwärts stoppen
+  → alle verbliebenen Phase-4-Schedulertasks abbrechen
   → Registry und Core-Zustand freigeben
 ```
 

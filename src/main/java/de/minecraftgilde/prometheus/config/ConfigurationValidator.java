@@ -58,15 +58,27 @@ public final class ConfigurationValidator {
     }
 
     private static void validateCollection(CollectionConfiguration collection) {
-        requirePositive("collection.server-interval", collection.serverInterval());
-        requirePositive("collection.world-interval", collection.worldInterval());
-        requirePositive("collection.region-interval", collection.regionInterval());
-        requirePositive("collection.entity-interval", collection.entityInterval());
-        requirePositive(
+        requireTickInterval(
+            "collection.server-interval",
+            collection.serverInterval()
+        );
+        requireTickInterval(
+            "collection.world-interval",
+            collection.worldInterval()
+        );
+        requireTickInterval(
+            "collection.region-interval",
+            collection.regionInterval()
+        );
+        requireTickInterval(
+            "collection.entity-interval",
+            collection.entityInterval()
+        );
+        requireMillisecondDuration(
             "collection.filesystem-interval",
             collection.filesystemInterval()
         );
-        requirePositive("collection.timeout", collection.timeout());
+        requireMillisecondDuration("collection.timeout", collection.timeout());
     }
 
     private static void validateFolia(
@@ -111,6 +123,34 @@ public final class ConfigurationValidator {
     private static void requirePositive(String path, Duration duration) {
         if (duration.isZero() || duration.isNegative()) {
             throw new ConfigurationException(path + " must be positive");
+        }
+    }
+
+    private static void requireTickInterval(String path, Duration duration) {
+        requireMillisecondDuration(path, duration);
+        if (duration.compareTo(Duration.ofMillis(50)) < 0) {
+            throw new ConfigurationException(
+                path + " must be at least 50ms (one server tick)"
+            );
+        }
+    }
+
+    private static void requireMillisecondDuration(
+        String path,
+        Duration duration
+    ) {
+        requirePositive(path, duration);
+        final long millis;
+        try {
+            millis = duration.toMillis();
+        } catch (ArithmeticException overflow) {
+            throw new ConfigurationException(
+                path + " is outside the supported millisecond range",
+                overflow
+            );
+        }
+        if (millis < 1L) {
+            throw new ConfigurationException(path + " must be at least 1ms");
         }
     }
 

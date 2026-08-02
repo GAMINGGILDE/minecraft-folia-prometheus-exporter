@@ -24,6 +24,11 @@ class ExporterConfigurationTest {
         assertDoesNotThrow(() -> validator.validate(configuration));
         assertTrue(configuration.collectors().jvm());
         assertTrue(configuration.collectors().process());
+        assertTrue(configuration.collectors().server());
+        assertTrue(configuration.collectors().worlds());
+        assertTrue(configuration.collectors().chunks());
+        assertFalse(configuration.collectors().pluginInfo());
+        assertTrue(configuration.filesystem().includeWorldSizes());
         assertThrows(
             UnsupportedOperationException.class,
             () -> configuration.folia().tps().windows().add("30m")
@@ -41,6 +46,11 @@ class ExporterConfigurationTest {
         values.put("collection.timeout", "250ms");
         values.put("collectors.jvm", false);
         values.put("collectors.process", false);
+        values.put("collectors.server", false);
+        values.put("collectors.worlds", false);
+        values.put("collectors.chunks", true);
+        values.put("collectors.plugin-info", true);
+        values.put("filesystem.include-world-sizes", false);
         values.put("collectors.gameplay", true);
         values.put("logging.debug", true);
 
@@ -51,6 +61,11 @@ class ExporterConfigurationTest {
         assertFalse(configuration.privacy().individualPlayerMetricsSupported());
         assertFalse(configuration.collectors().jvm());
         assertFalse(configuration.collectors().process());
+        assertFalse(configuration.collectors().server());
+        assertFalse(configuration.collectors().worlds());
+        assertTrue(configuration.collectors().chunks());
+        assertTrue(configuration.collectors().pluginInfo());
+        assertFalse(configuration.filesystem().includeWorldSizes());
         assertTrue(configuration.collectors().gameplay());
         assertTrue(configuration.logging().debug());
         assertDoesNotThrow(() -> validator.validate(configuration));
@@ -72,6 +87,57 @@ class ExporterConfigurationTest {
             ConfigurationException.class,
             () -> validator.validate(configuration)
         );
+    }
+
+    @Test
+    void rejectsSubTickIntervalsWithTheFullConfigurationPath() {
+        ExporterConfiguration configuration = loader.load(
+            Map.<String, Object>of("collection.server-interval", "49ms")::get
+        );
+
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> validator.validate(configuration)
+        );
+
+        assertTrue(failure.getMessage().contains("collection.server-interval"));
+        assertTrue(failure.getMessage().contains("50ms"));
+    }
+
+    @Test
+    void rejectsDurationOverflowDuringParsingWithTheFullPath() {
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> loader.load(
+                Map.<String, Object>of(
+                    "collection.filesystem-interval",
+                    "9223372036854775807h"
+                )::get
+            )
+        );
+
+        assertTrue(
+            failure.getMessage().contains("collection.filesystem-interval")
+        );
+        assertTrue(failure.getMessage().contains("supported range"));
+    }
+
+    @Test
+    void rejectsDurationsThatOverflowSchedulerMilliseconds() {
+        ExporterConfiguration configuration = loader.load(
+            Map.<String, Object>of(
+                "collection.timeout",
+                "9223372036854775807s"
+            )::get
+        );
+
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> validator.validate(configuration)
+        );
+
+        assertTrue(failure.getMessage().contains("collection.timeout"));
+        assertTrue(failure.getMessage().contains("millisecond range"));
     }
 
     @Test
