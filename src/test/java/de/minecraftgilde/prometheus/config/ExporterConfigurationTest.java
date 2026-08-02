@@ -26,6 +26,7 @@ class ExporterConfigurationTest {
         assertTrue(configuration.collectors().jvm());
         assertTrue(configuration.collectors().process());
         assertTrue(configuration.collectors().server());
+        assertTrue(configuration.collectors().events());
         assertTrue(configuration.collectors().worlds());
         assertTrue(configuration.collectors().chunks());
         assertFalse(configuration.collectors().pluginInfo());
@@ -54,6 +55,7 @@ class ExporterConfigurationTest {
         values.put("collectors.jvm", false);
         values.put("collectors.process", false);
         values.put("collectors.server", false);
+        values.put("collectors.events", false);
         values.put("collectors.worlds", false);
         values.put("collectors.chunks", true);
         values.put("collectors.plugin-info", true);
@@ -74,6 +76,7 @@ class ExporterConfigurationTest {
         assertFalse(configuration.collectors().jvm());
         assertFalse(configuration.collectors().process());
         assertFalse(configuration.collectors().server());
+        assertFalse(configuration.collectors().events());
         assertFalse(configuration.collectors().worlds());
         assertTrue(configuration.collectors().chunks());
         assertTrue(configuration.collectors().pluginInfo());
@@ -89,6 +92,18 @@ class ExporterConfigurationTest {
         Map<String, Object> values = Map.of("http.port", "9940");
 
         assertThrows(ConfigurationException.class, () -> loader.load(values::get));
+    }
+
+    @Test
+    void rejectsWrongEventCollectorTypeWithFullPath() {
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> loader.load(
+                Map.<String, Object>of("collectors.events", "yes")::get
+            )
+        );
+
+        assertTrue(failure.getMessage().contains("collectors.events"));
     }
 
     @Test

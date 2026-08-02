@@ -125,6 +125,8 @@ logging:
   `collectors.chunks` und `collectors.filesystem` sowie die Optionen
   `collectors.plugin-info`, `filesystem.include-world-sizes` und
   `filesystem.world-size-scan-concurrency`.
+- Phase 5 verwendet ausschließlich den bereits vorgesehenen gemeinsamen Schalter
+  `collectors.events`. Es gibt keine einzelnen Schalter pro Eventfamilie.
 - Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
   Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
   und HTTP-Dienst.
@@ -193,7 +195,24 @@ beschleunigen, erhöht aber die konkurrierende I/O-Last. Die Option verändert
 weder den Namen noch die Labels von `minecraft_world_size_bytes`; interne
 Weltpfade werden niemals exportiert.
 
-`collection.region-interval`, `collection.entity-interval`, die Event-, Entity-,
-Folia-, Gameplay- und detaillierten Schalter sowie die übrigen
+`collection.region-interval`, `collection.entity-interval`, die Entity-, Folia-,
+Gameplay- und detaillierten Schalter sowie die übrigen
 `filesystem.include-*`-Optionen bleiben für spätere Phasen in der Konfiguration.
 Sie lösen in Phase 4 keine zusätzliche Metrikerfassung aus.
+
+## Phase-5-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `collectors.events` | `true` | registriert gemeinsam die zehn Event-Counter und genau einen Listener |
+
+Bei `collectors.events: false` bleibt der verwaltete Collector im Zustand
+`disabled`. Es werden weder Listener noch eine der folgenden Familien
+registriert: Loginversuche, Loginablehnungen, Join, Quit, Kick,
+Serverlisten-Ping, Chat sowie Chunk-Load, -Unload und -Generierung. JVM-, Prozess-
+und Phase-4-Collector funktionieren unverändert weiter.
+
+Der Event-Collector besitzt bewusst keine Intervalle oder Timeouts. Seine
+Counter werden direkt beim jeweiligen Ereignis erhöht. Alle zehn Familien werden
+gemeinsam geschaltet; feinere Optionen würden in Phase 5 nur zusätzliche
+Konfigurationskomplexität ohne technische Notwendigkeit erzeugen.

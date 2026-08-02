@@ -148,12 +148,45 @@ for required_metric in \
   minecraft_world_weather \
   minecraft_world_difficulty \
   minecraft_world_environment \
-  minecraft_world_pvp_enabled; do
+  minecraft_world_pvp_enabled \
+  minecraft_login_attempts_total \
+  minecraft_login_denied_total \
+  minecraft_player_joins_total \
+  minecraft_player_quits_total \
+  minecraft_player_kicks_total \
+  minecraft_server_list_pings_total \
+  minecraft_chat_messages_total \
+  minecraft_chunks_loaded_total \
+  minecraft_chunks_unloaded_total \
+  minecraft_chunks_generated_total; do
   if ! grep -Fq "$required_metric" <<<"$metrics_response"; then
     echo "Missing exporter metric: $required_metric" >&2
     exit 1
   fi
 done
+
+for phase_five_metric in \
+  minecraft_login_attempts_total \
+  minecraft_login_denied_total \
+  minecraft_player_joins_total \
+  minecraft_player_quits_total \
+  minecraft_player_kicks_total \
+  minecraft_server_list_pings_total \
+  minecraft_chat_messages_total \
+  minecraft_chunks_loaded_total \
+  minecraft_chunks_unloaded_total \
+  minecraft_chunks_generated_total; do
+  if ! grep -Eq "^# HELP ${phase_five_metric} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${phase_five_metric} counter$" <<<"$metrics_response"; then
+    echo "Invalid or incomplete Phase-5 Prometheus family: $phase_five_metric" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Eq '^minecraft_exporter_collector_state\{collector="events",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
+  echo "Phase-5 event collector is not running under the default configuration." >&2
+  exit 1
+fi
 
 for phase_four_metric in \
   minecraft_server_uptime_seconds \
@@ -185,8 +218,8 @@ fi
 
 for forbidden_prefix in \
   minecraft_world_entities \
-  minecraft_player_joins_total \
-  minecraft_chunks_loaded_total \
+  minecraft_commands_total \
+  minecraft_chunk_load_failures_total \
   minecraft_folia_; do
   if grep -Fq "$forbidden_prefix" <<<"$metrics_response"; then
     echo "Out-of-scope metric unexpectedly exposed: $forbidden_prefix" >&2

@@ -1,7 +1,5 @@
 package de.minecraftgilde.prometheus.minecraft;
 
-import java.util.Objects;
-
 /** Immutable aggregate state for one loaded world. */
 public record WorldSnapshot(
     String world,
@@ -15,9 +13,9 @@ public record WorldSnapshot(
 ) {
 
     public WorldSnapshot {
-        world = Objects.requireNonNull(world, "world");
-        weather = Objects.requireNonNull(weather, "weather");
-        difficulty = Objects.requireNonNull(difficulty, "difficulty");
-        environment = Objects.requireNonNull(environment, "environment");
+        world = WorldLabel.normalize(world);
+        weather = java.util.Objects.requireNonNull(weather, "weather");
+        difficulty = java.util.Objects.requireNonNull(difficulty, "difficulty");
+        environment = java.util.Objects.requireNonNull(environment, "environment");
     }
 }

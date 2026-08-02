@@ -154,14 +154,37 @@ immutable Snapshots; sämtliche Minecraft-Zugriffe beachten die gemeinsame
 
 ## Phase 5 – Events
 
-- Login
-- Join
-- Quit
-- Kick
-- Serverlisten-Ping
-- Chat-Zähler
-- Chunk-Events
-- feste Reason-Kategorien
+Status: abgeschlossen.
+
+- einzelner standardmäßig aktiver `events`-Collector ohne periodische Tasks
+- finaler Loginversuch und strukturierte Ablehnung über genau eine
+  `PlayerLoginEvent`-Quelle ohne phasenübergreifende Doppelzählung
+- Join, Quit und nicht abgebrochene Kicks; Kick und nachfolgendes Quit zählen
+  unabhängig
+- Serverlisten-Ping ohne Client- oder Antwortdaten
+- moderner `AsyncChatEvent` bei `MONITOR`, nur nicht abgebrochene Spielerchats;
+  keine Commands, Systemnachrichten oder Inhalte
+- Chunk-Load, -Unload und -Generated; ein neuer Chunk erhöht Loaded und Generated
+- ausschließlich gemeinsam validierte Weltlabels, keine Koordinaten
+- neun feste Reason-Kategorien aus strukturierten Result-/Cause-Enumnamen;
+  unbekannte Werte konservativ `unknown`, keine Nachrichtenfallbacks
+- direkte threadsichere Counterinkremente auf Eventthreads ohne Schedulerwechsel
+- idempotente Listenerregistrierung und -abmeldung, keine Inkremente nach Stop
+- `collectors.events: false` entfernt Listener und sämtliche Phase-5-Familien
+- nicht persistente Counter mit dokumentierter `rate()`-/`increase()`-Semantik
+- Unit-, Parallelitäts-, HTTP-, Build- und gepinnte Paper-/Folia-Smoke-Prüfungen
+- Architekturentscheidung in ADR 0014
+
+Nicht Bestandteil von Phase 5:
+
+- Command-Metriken
+- Chunk-Load-Failures
+- Spieler-, Connection- oder Chunkidentitäten
+- freie Reason-Texte
+- Counter-Persistenz
+
+Abnahme: Phase 5 ist abgeschlossen. Phase 6 „Folia Regions-TPS“ ist der nächste
+Umfang.
 
 ## Phase 6 – Folia Regions-TPS
 

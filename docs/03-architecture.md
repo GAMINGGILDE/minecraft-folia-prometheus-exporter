@@ -3,7 +3,7 @@
 ## 3.1 Datenfluss
 
 ```text
-Paper/Folia Events und Scheduler
+Paper/Folia Scheduler
              │
              ▼
       CollectorCoordinator
@@ -23,6 +23,26 @@ Collector Collector Collector Collector
              ▼
        MetricsEndpoint
 ```
+
+Phase 5 ergänzt einen getrennten ereignisbasierten Pfad:
+
+```text
+öffentliche Paper-/Bukkit-Events auf ihrem jeweiligen Eventthread
+                            │
+                            ▼
+                    EventCollector
+                            │
+                            ▼
+       threadsichere Counter der privaten PrometheusRegistry
+                            │
+                            ▼
+                    MetricsEndpoint
+```
+
+Der Eventpfad fragt beim Scrape keine Minecraft-Daten ab. Er akkumuliert während
+des Events nur primitive Werte, strukturierte Enumwerte und validierte
+Weltlabels. Er verwendet keine periodischen Tasks und speichert keine
+Minecraft-Objekte im Registryzustand.
 
 Die JVM- und Prozessinstrumentierungen aus Phase 3 bilden einen getrennten,
 serverunabhängigen Datenpfad:
@@ -48,13 +68,15 @@ Chunks, Entities oder Spieler zugreifen.
 Ein Scrape darf nur:
 
 1. vorhandene Minecraft-Snapshots lesen,
-2. offizielle Prometheus-Callbacks für reine JVM-/Prozessdaten ausführen,
-3. Prometheus-Text serialisieren,
-4. HTTP-Status und Header schreiben.
+2. bereits akkumulierten threadsicheren Event-Counterzustand lesen,
+3. offizielle Prometheus-Callbacks für reine JVM-/Prozessdaten ausführen,
+4. Prometheus-Text serialisieren,
+5. HTTP-Status und Header schreiben.
 
-Die Ausnahme in Punkt 2 betrifft ausschließlich die offizielle
+Die Ausnahme in Punkt 3 betrifft ausschließlich die offizielle
 JVM-Instrumentierung. Sie liest keine Bukkit-, Paper-, Folia- oder
-Minecraft-Liveobjekte.
+Minecraft-Liveobjekte. Punkt 2 löst ebenfalls keine Liveabfrage aus; die Werte
+wurden bereits während öffentlicher Events erhöht.
 
 ## 3.3 Hauptkomponenten
 
@@ -67,6 +89,8 @@ Minecraft-Liveobjekte.
   `CollectorCoordinator`
 - fixiert zu Beginn von `onEnable()` den für Phase 4 verwendeten
   Server-Aktivierungszeitpunkt und erzeugt `PhaseFourRuntime`
+- erzeugt `PhaseFiveRuntime`, das den konfigurierten Event-Collector vor dem
+  Core-Start beim vorhandenen Coordinator registriert
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
 - setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
@@ -83,8 +107,8 @@ Minecraft-Liveobjekte.
 Der allgemeine Lifecycle verwendet die feste Zustandsmenge `disabled`,
 `starting`, `running`, `unsupported`, `failed` und `stopped`. Initialisierung
 erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 4
-registriert die vier verwalteten Collector `server`, `worlds`, `chunks` und
-`world-sizes`; deaktivierte Gruppen bleiben sichtbar im Zustand `disabled`.
+registriert `server`, `worlds`, `chunks` und `world-sizes`; Phase 5 ergänzt
+`events`. Deaktivierte Gruppen bleiben sichtbar im Zustand `disabled`.
 
 ### `JvmMetricsRegistrar`
 
@@ -183,6 +207,37 @@ keine weiteren wartenden Scans. Physisch bereits laufende
 `Files.walkFileTree`-Aufrufe dürfen zu Ende laufen, können aber weder publizieren
 noch einen neueren Snapshot überschreiben.
 
+### `PhaseFiveRuntime`, `EventCollector` und `EventMetrics`
+
+`PhaseFiveRuntime` registriert genau einen verwalteten Collector namens
+`events`. Bei `collectors.events: false` bleibt dessen Zustand `disabled`; weder
+Listener noch Phase-5-Metrikfamilien werden registriert. Bei Aktivierung legt
+der Collector einmalig zehn Counter in der privaten Core-Registry an und
+registriert genau einen Bukkit-Listener.
+
+Der Listener beobachtet `PlayerLoginEvent`, `PlayerJoinEvent`,
+`PlayerQuitEvent`, `PlayerKickEvent`, `ServerListPingEvent`, `AsyncChatEvent`,
+`ChunkLoadEvent` und `ChunkUnloadEvent` bei `MONITOR`. `ServerLoadEvent` und
+`WorldLoadEvent` initialisieren zusätzlich ausschließlich nullwertige
+Chunkreihen für tatsächlich geladene Welten, damit die registrierten Familien
+vor dem ersten Lifecycle-Ereignis im Textformat sichtbar sind. Kick und Chat
+verwenden `ignoreCancelled = true`. Ein Read-/Write-Lock trennt Eventinkremente vom Stop:
+Stop deaktiviert zuerst die Annahme, wartet auf bereits laufende kurze
+Inkremente und meldet den Listener anschließend über `HandlerList.unregisterAll`
+ab. Nach Rückkehr von Stop kann kein Counter mehr steigen; Mehrfachstart und
+Mehrfachstop bleiben über den vorhandenen Collector-Lifecycle idempotent.
+
+`EventReasonMapper` liest ausschließlich strukturierte Result-/Cause-Enumnamen
+und gibt nur die neun katalogisierten Reasonwerte aus. Nachrichten, Identitäten,
+Adressen, Hostnamen und Koordinaten gelangen nicht in den Mapper. Chunkfamilien
+verwenden dieselbe `WorldLabel`-Validierung wie die Phase-4-Werttypen.
+
+Prometheus-Counter sind threadsicher. Deshalb wechseln Login-, Ping-, Chat- und
+Chunkereignisse nicht auf Global-, Region-, Entity- oder Async-Scheduler. Fehler
+eines einzelnen Updates werden innerhalb des Eventbereichs abgefangen und ohne
+Eventdaten rate-limitiert gemeldet; andere Ereignisbereiche und der HTTP-Dienst
+laufen weiter.
+
 ### `MetricsEndpoint`
 
 - `/metrics`, `/health` und `/ready` als Standardpfade
@@ -246,9 +301,11 @@ GameplayCollector (optional)
 
 `JvmCollector` und `ProcessCollector` sind logische Metrikgruppen, keine
 `ManagedCollector`: Sie werden durch `JvmMetricsRegistrar` direkt an die
-Registry gebunden. In Phase 4 sind Server, Welten, Chunks und Weltgrößen separate
-`ManagedCollector` mit jeweils eigenem Snapshot-Repository. Event-, Entity-,
-Folia- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
+Registry gebunden. Seit Phase 5 ist `EventCollector` ebenfalls ein
+`ManagedCollector`, verwendet aber wegen seines fortlaufenden ereignisbasierten
+Zustands kein Snapshot-Repository und keinen Scheduler. Server, Welten, Chunks
+und Weltgrößen bleiben separate periodische Snapshot-Collector. Entity-, Folia-
+und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 
 ## 3.5 Fehlerisolation
 
@@ -293,7 +350,7 @@ Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-4-Lifecycle
+## 3.7 Phase-5-Lifecycle
 
 ```text
 onEnable
@@ -305,7 +362,9 @@ onEnable
   → Eigenmetriken einmalig registrieren
   → Phase-4-Metrikfamilien registrieren
   → Phase-4-Collector beim Coordinator registrieren
+  → Event-Collector beim Coordinator registrieren
   → CollectorCoordinator starten
+    → bei aktiviertem Event-Collector Counter und einen Listener registrieren
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1
 
@@ -313,6 +372,7 @@ onDisable oder Startfehler
   ready = 0
   → HTTP-Server und Workerpool stoppen
   → gestartete Collector rückwärts stoppen
+    → Eventannahme sperren und Listener abmelden
   → alle verbliebenen Phase-4-Schedulertasks abbrechen
   → Registry und Core-Zustand freigeben
 ```

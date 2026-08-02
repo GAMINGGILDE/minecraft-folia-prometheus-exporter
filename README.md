@@ -5,7 +5,9 @@ Repository: `minecraft-folia-prometheus-exporter`
 FoliaPrometheusExporter ist ein für Paper und Folia entwickelter
 Prometheus-Exporter. Neben HTTP-Dienst und Exporter-Eigenüberwachung liefert er
 standardisierte JVM-/Prozessmetriken sowie immutable Snapshots für aggregierte
-Server-, Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken.
+Server-, Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken. Phase 5 ergänzt
+direkte, aggregierte Event-Counter für Verbindungen, Spieleraktionen und den
+Chunk-Lifecycle.
 
 ## Verbindliche Eckdaten
 
@@ -82,6 +84,7 @@ http:
 
 collectors:
   server: true
+  events: true
   worlds: true
   chunks: true
   jvm: true
@@ -125,9 +128,11 @@ reproduzierbar mit `-PgitCommit=<Hash oder unknown>` vorgegeben werden.
 
 Collector werden in Registrierungsreihenfolge gestartet, in umgekehrter
 Reihenfolge gestoppt und bei Fehlern voneinander isoliert. Erfasste Daten werden
-als vollständig konstruierte, immutable Snapshots atomar publiziert. HTTP-Threads
-lesen ausschließlich Prometheus-internen Zustand, kontrollierten Exporterstatus
-und später diese Snapshots; sie greifen nie auf Minecraft-Liveobjekte zu.
+als vollständig konstruierte, immutable Snapshots atomar publiziert;
+ereignisbasierte Counter werden bereits während des Events akkumuliert.
+HTTP-Threads lesen ausschließlich Prometheus-internen Zustand, kontrollierten
+Exporterstatus, Snapshots und Counter; sie greifen nie auf
+Minecraft-Liveobjekte zu.
 
 Jede `MetricsCore`-Instanz besitzt genau eine private `PrometheusRegistry` und
 genau einen daran gebundenen Eigenmetrik-Satz. Es gibt keinen globalen Registry-
@@ -186,7 +191,35 @@ Metrik benötigt sowohl
 Die optional katalogisierten Metriken für Full Time, Autosave, allgemeine
 Dateisystemkapazität, Logs und Pluginverzeichnisse gehören nicht zu Phase 4.
 
+## Event-Counter
+
+`collectors.events: true` aktiviert gemeinsam die zehn Phase-5-Familien für
+Loginversuche und -ablehnungen, Join, Quit, Kick, Serverlisten-Ping, Chat sowie
+Chunk-Load, -Unload und -Generierung. Der Collector registriert öffentliche
+Paper-/Bukkit-Events genau einmal und erhöht die threadsicheren Prometheus-Counter
+direkt auf dem jeweiligen Eventthread. Er erzeugt keine periodischen Tasks und
+speichert keine Player-, Connection- oder Chunkobjekte.
+
+Loginversuche werden ausschließlich am finalen `PlayerLoginEvent` gezählt, um
+Doppelzählungen zwischen Loginphasen zu vermeiden. Ein abgelehnter Login erhöht
+zusätzlich genau eine feste Reason-Reihe. Kicks verwenden ausschließlich
+`PlayerKickEvent.Cause`; ein nicht abgebrochener Kick kann anschließend auch ein
+`PlayerQuitEvent` auslösen und erhöht dann sowohl Kick als auch Quit. Chat basiert
+auf dem modernen `AsyncChatEvent` bei `MONITOR`; abgebrochene Chatereignisse,
+Commands und Systemnachrichten zählen nicht.
+
+Reason-Labels sind auf `banned`, `whitelist`, `server_full`, `invalid_session`,
+`idle`, `connection_lost`, `moderation`, `plugin` und `unknown` begrenzt. Freie
+Kick- und Logintexte, Chatinhalt, Spielername, UUID, IP, Clienthostname und
+Chunkkoordinaten werden weder gelesen noch exportiert. Chunk-Counter verwenden
+ausschließlich das gemeinsame validierte `world`-Label. Ein neu generierter
+Chunk zählt sowohl als geladen als auch als generiert.
+
+Alle Event-Counter beginnen bei jedem Plugin- beziehungsweise Serverstart bei
+null. Es gibt keine Persistenz; auch ein Plugin-Reload kann einen Reset erzeugen.
+Prometheus-Abfragen sollten deshalb `rate()` oder `increase()` verwenden.
+
 ## Status
 
-Phase 4 „Server und Welten“ ist implementiert. Phase 5 „Events“ ist der nächste
+Phase 5 „Events“ ist implementiert. Phase 6 „Folia Regions-TPS“ ist der nächste
 Umfang.

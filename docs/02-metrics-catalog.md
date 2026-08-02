@@ -91,6 +91,33 @@ Erlaubte normalisierte Gründe:
 
 Keine freien Nachrichten als Labels.
 
+Phase 5 implementiert alle Familien dieser Tabelle außer
+`minecraft_commands_total`. Genau ein `PlayerLoginEvent` zählt einen final
+verarbeiteten Loginversuch; ein nicht erlaubtes strukturiertes Ergebnis zählt
+zusätzlich genau eine Denial-Reihe. `KICK_BANNED`, `KICK_WHITELIST` und
+`KICK_FULL` werden auf `banned`, `whitelist` und `server_full` abgebildet;
+`KICK_OTHER` bleibt konservativ `unknown`. Die Ziel-API stellt an dieser finalen
+Eventquelle keinen strukturierten Wert für Authentifizierungsfehler bereit,
+weshalb `invalid_session` derzeit nicht erzeugt wird. Freie Logintexte dienen
+auch nicht als Fallback.
+
+`PlayerKickEvent.Cause` wird ausschließlich über feste Enumwerte normalisiert:
+Bans und Whitelist behalten ihre gleichnamige Kategorie, `TIMEOUT` und `IDLING`
+werden `idle`, `PLUGIN` wird `plugin` und administrative beziehungsweise
+Protokoll-/Chat-Regelverstöße werden `moderation`. Nicht eindeutig zuordenbare
+Werte werden `unknown`. Die aktuelle API besitzt keine eindeutige
+Connection-Lost-Cause; deshalb wird `connection_lost` erst bei einem passenden
+strukturierten API-Wert verwendet. Kicknachrichten werden nicht gelesen.
+
+Join, Quit und Ping zählen das jeweilige Event. Ein erfolgreicher Kick kann
+anschließend regulär ein Quit-Event auslösen; in diesem Fall steigen bewusst
+sowohl Kick als auch Quit. Chat zählt nur nicht abgebrochene `AsyncChatEvent`s
+bei `MONITOR`. Commands und Systemnachrichten lösen diese Quelle nicht aus.
+
+Die Counter beginnen je Plugin-/Serverstart bei null, werden nicht persistiert
+und können auch nach einem Plugin-Reload zurückgesetzt sein. Für Zeiträume sind
+PromQL `rate()` und `increase()` vorgesehen.
+
 ## 2.5 Welten
 
 | Metrik | Typ | Labels | Standard | Status |
@@ -159,10 +186,19 @@ Standardgruppen:
 | `minecraft_chunks_generated_total` | Counter | `world` | an | Eventbasiert |
 | `minecraft_chunk_load_failures_total` | Counter | `world`, `reason` | aus | API-abhängig |
 
-Phase 4 implementiert nur `minecraft_world_loaded_chunks`. Grundlage ist
+Phase 4 implementiert `minecraft_world_loaded_chunks`. Grundlage ist
 `World#getChunkCount()` aus der öffentlichen Paper-API; es werden weder
 `getLoadedChunks()` noch Chunkobjekte oder regiongebundene Einzelabfragen
-verwendet. Die ereignisbasierten Chunk-Counter gehören zu Phase 5.
+verwendet. Phase 5 implementiert die drei Lifecycle-Counter über
+`ChunkLoadEvent` und `ChunkUnloadEvent`. `ChunkLoadEvent#isNewChunk()` entscheidet
+über die zusätzliche Generated-Inkrementierung: Ein neuer Chunk erhöht Loaded
+und Generated, ein bestehender nur Loaded. Alle drei Counter verwenden
+ausschließlich das gemeinsam validierte Weltlabel; Chunkkoordinaten werden nicht
+gelesen oder gespeichert. `ServerLoadEvent` und `WorldLoadEvent` legen lediglich
+Nullreihen für tatsächlich geladene Welten an, damit alle drei Familien bereits
+vor dem ersten Chunk-Lifecycle-Event sichtbar sind.
+`minecraft_chunk_load_failures_total` bleibt
+unimplementiert.
 
 ## 2.8 Folia
 

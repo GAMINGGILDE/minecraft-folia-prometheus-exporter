@@ -21,6 +21,7 @@ import de.minecraftgilde.prometheus.minecraft.WorldChunkSnapshot;
 import de.minecraftgilde.prometheus.minecraft.WorldSizeSnapshot;
 import de.minecraftgilde.prometheus.minecraft.WorldSnapshot;
 import de.minecraftgilde.prometheus.minecraft.metrics.MinecraftMetrics;
+import de.minecraftgilde.prometheus.minecraft.event.EventMetrics;
 import de.minecraftgilde.prometheus.snapshot.ImmutableSnapshot;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
@@ -39,6 +40,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.junit.jupiter.api.Test;
 
 class MetricsHttpServerTest {
@@ -110,6 +113,7 @@ class MetricsHttpServerTest {
             assertTrue(metrics.body().contains("jvm_buffer_pool_used_bytes"));
             assertTrue(metrics.body().contains("process_cpu_seconds_total"));
             assertPhaseFourFamilies(metrics.body());
+            assertPhaseFiveFamilies(metrics.body());
             assertTrue(metrics.body().contains("minecraft_world_weather{weather=\"rain\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_difficulty{difficulty=\"hard\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_environment{environment=\"normal\",world=\"world\"} 1.0"));
@@ -117,7 +121,12 @@ class MetricsHttpServerTest {
             assertTrue(!metrics.body().contains("minecraft_plugin_info"));
             assertTrue(!metrics.body().contains("Alice"));
             assertTrue(!metrics.body().contains("minecraft_world_entities"));
-            assertTrue(!metrics.body().contains("minecraft_player_joins_total"));
+            assertTrue(metrics.body().contains("minecraft_login_denied_total{reason=\"unknown\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_player_kicks_total{reason=\"idle\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_chunks_loaded_total{world=\"world\"} 2.0"));
+            assertTrue(metrics.body().contains("minecraft_chunks_generated_total{world=\"world\"} 1.0"));
+            assertTrue(!metrics.body().contains("minecraft_commands_total"));
+            assertTrue(!metrics.body().contains("minecraft_chunk_load_failures_total"));
             assertTrue(!metrics.body().contains("minecraft_folia_"));
         }
     }
@@ -170,17 +179,28 @@ class MetricsHttpServerTest {
         testServer.state.setInitializationComplete(true);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(8)) {
-            List<Future<Integer>> responses = new ArrayList<>();
+            List<Future<?>> work = new ArrayList<>();
             for (int request = 0; request < 40; request++) {
                 String path = request % 3 == 0 ? "/metrics" : "/health";
-                responses.add(
-                    executor.submit(() -> get(testServer.server, path).statusCode())
-                );
+                work.add(executor.submit(() -> {
+                    assertEquals(200, get(testServer.server, path).statusCode());
+                    return null;
+                }));
             }
-            for (Future<Integer> response : responses) {
-                assertEquals(200, response.get());
+            for (int event = 0; event < 1_000; event++) {
+                work.add(executor.submit(() -> {
+                    testServer.eventMetrics.recordJoin();
+                    testServer.eventMetrics.recordChunkLoad("world", false);
+                }));
+            }
+            for (Future<?> completed : work) {
+                completed.get();
             }
         }
+
+        String afterParallelWork = get(testServer.server, "/metrics").body();
+        assertTrue(afterParallelWork.contains("minecraft_player_joins_total 1001.0"));
+        assertTrue(afterParallelWork.contains("minecraft_chunks_loaded_total{world=\"world\"} 1002.0"));
 
         testServer.server.close();
         testServer.server.close();
@@ -241,6 +261,8 @@ class MetricsHttpServerTest {
         );
         minecraftMetrics.register();
         publishPhaseFourSnapshots(minecraftMetrics);
+        EventMetrics eventMetrics = new EventMetrics(registry);
+        publishPhaseFiveEvents(eventMetrics);
         ExporterLifecycleState state = readyCoreState();
         ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);
@@ -250,7 +272,21 @@ class MetricsHttpServerTest {
             state,
             metrics
         );
-        return new TestServer(server, state, minecraftMetrics);
+        return new TestServer(server, state, minecraftMetrics, eventMetrics);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void publishPhaseFiveEvents(EventMetrics metrics) {
+        metrics.recordLogin(PlayerLoginEvent.Result.ALLOWED);
+        metrics.recordLogin(PlayerLoginEvent.Result.KICK_OTHER);
+        metrics.recordJoin();
+        metrics.recordQuit();
+        metrics.recordKick(PlayerKickEvent.Cause.TIMEOUT);
+        metrics.recordServerListPing();
+        metrics.recordChatMessage();
+        metrics.recordChunkLoad("world", false);
+        metrics.recordChunkLoad("world", true);
+        metrics.recordChunkUnload("world");
     }
 
     private static void publishPhaseFourSnapshots(MinecraftMetrics metrics) {
@@ -337,6 +373,27 @@ class MetricsHttpServerTest {
         }
     }
 
+    private static void assertPhaseFiveFamilies(String metrics) {
+        for (String family : List.of(
+            "minecraft_login_attempts_total",
+            "minecraft_login_denied_total",
+            "minecraft_player_joins_total",
+            "minecraft_player_quits_total",
+            "minecraft_player_kicks_total",
+            "minecraft_server_list_pings_total",
+            "minecraft_chat_messages_total",
+            "minecraft_chunks_loaded_total",
+            "minecraft_chunks_unloaded_total",
+            "minecraft_chunks_generated_total"
+        )) {
+            assertTrue(metrics.contains("# HELP " + family + " "), family);
+            assertTrue(metrics.contains("# TYPE " + family + " counter"), family);
+            assertTrue(metrics.contains("\n" + family), family);
+        }
+        assertTrue(!metrics.contains("private chat content"));
+        assertTrue(!metrics.contains("private-client-host"));
+    }
+
     private static ExporterLifecycleState readyCoreState() {
         ExporterLifecycleState state = new ExporterLifecycleState();
         state.setRegistryAvailable(true);
@@ -367,6 +424,7 @@ class MetricsHttpServerTest {
     private record TestServer(
         MetricsHttpServer server,
         ExporterLifecycleState state,
-        MinecraftMetrics minecraftMetrics
+        MinecraftMetrics minecraftMetrics,
+        EventMetrics eventMetrics
     ) {}
 }

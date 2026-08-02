@@ -9,6 +9,12 @@ nicht als Folia-Erkennungsmerkmal verwendet. Phase 4 setzt diese Grenze mit
 `PaperCollectionScheduler` um und benötigt weiterhin weder einen Folia-Provider
 noch Plattform- oder Feature-Erkennung.
 
+Phase 5 benötigt für Event-Counter keinen Scheduler: Öffentliche Events werden
+auf ihrem jeweiligen Paper-/Folia-Eventthread beobachtet und erhöhen dort nur
+threadsichere Counter. Der Collector verschiebt insbesondere Async-Login,
+Async-Chat, Ping- oder regionsgebundene Chunkereignisse nicht künstlich auf einen
+anderen Scheduler.
+
 ## 4.1 Scheduler-Zuordnung
 
 | Aufgabe | Scheduler |
@@ -34,6 +40,25 @@ Für Phase 4 gilt konkret:
 | Rekursives Lesen der Weltverzeichnisse | Async Scheduler |
 | Timeout-Wächter | Async Scheduler |
 | Prometheus-Scrape | HTTP-Thread; nur Repositories und Registry |
+
+Für Phase 5 gilt zusätzlich:
+
+| Event/API-Wert | Ausführung |
+|---|---|
+| `PlayerLoginEvent#getResult()` | ausliefernder Login-Eventthread; nur Enum lesen |
+| Join und Quit | ausliefernder Eventthread; nur Counter erhöhen |
+| `PlayerKickEvent#getCause()` | ausliefernder Entity-/Region-Eventthread; nur Enum lesen |
+| `ServerListPingEvent` | Ping-Eventthread; keine Adress-, Host- oder Antwortdaten lesen |
+| `AsyncChatEvent` | synchron oder asynchron wie von Paper ausgeliefert; Inhalt nicht lesen |
+| `ChunkLoadEvent`/`ChunkUnloadEvent` | besitzender Region-/Tickthread; nur Weltname und `isNewChunk()` lesen |
+| `ServerLoadEvent`/`WorldLoadEvent` | globaler beziehungsweise besitzender Eventthread; nur geladene Weltnamen für Nullinitialisierung übernehmen |
+| Prometheus-Scrape | HTTP-Thread; nur bereits akkumulierten Counterzustand serialisieren |
+
+Alle Eventhandler sind kurz und nicht blockierend. Sie führen keine Datei- oder
+Netzwerkoperation aus, speichern kein Event- oder Minecraft-Objekt und lesen
+weder Spieleridentität noch Chunkkoordinaten. Die gemeinsame
+`WorldLabel`-Validierung übernimmt ausschließlich den während des Events
+gelesenen Weltname-String.
 
 Phase 4 braucht keinen Region-Scheduler-Aufruf: Der öffentliche aggregierte
 Chunkzähler vermeidet Positions- und Chunkobjektzugriffe. Das Interface behält
@@ -154,6 +179,11 @@ Die Phase-4-Prometheus-Callbacks lesen ebenfalls keine Minecraft-Objekte. Sie
 wandeln den jeweils einmal geladenen immutable Snapshot einer Gruppe in
 Prometheus-Snapshots um. Insbesondere lösen parallele Scrapes keine zusätzliche
 Minecraft-Erfassung oder Weltgrößenberechnung aus.
+
+Die Phase-5-Counter sind ebenfalls scrape-sicher: Ihre Datenpunkte werden von
+den threadsicheren Counterimplementierungen des Prometheus Java Client
+akkumuliert. Der HTTP-Thread besitzt keine Referenz auf Listener, Events,
+Connections, Spieler, Welten oder Chunks und löst keine Eventarbeit aus.
 
 ## 4.6 Regionsbeobachtung
 

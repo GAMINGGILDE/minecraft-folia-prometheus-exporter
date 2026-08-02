@@ -1,6 +1,7 @@
 package de.minecraftgilde.prometheus.minecraft;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
@@ -8,6 +9,13 @@ import org.bukkit.World;
 import org.junit.jupiter.api.Test;
 
 class LabelMappingTest {
+
+    @Test
+    void worldLabelsPreserveThePublicNameAndRejectBlankValues() {
+        assertEquals("World Name", WorldLabel.normalize("World Name"));
+        assertThrows(IllegalArgumentException.class, () -> WorldLabel.normalize(" "));
+        assertThrows(NullPointerException.class, () -> WorldLabel.normalize(null));
+    }
 
     @Test
     void mapsEveryGameModeToAFixedLowercaseValue() {

@@ -60,8 +60,9 @@ wird `stop` über die Serverkonsole gesendet und der Prozess kontrolliert beende
 Seit Phase 3 prüft der Smoke-Test zusätzlich stabile JVM-/Prozessfamilien samt
 Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen. Seit Phase 4 wartet er begrenzt auf
 Server-, Welt-, Chunk- und Weltgrößensnapshots, validiert repräsentative
-Phase-4-Familien und kontrollierte Labels und schließt vorgezogene Event-,
-Entity- und Folia-Familien aus.
+Phase-4-Familien und kontrollierte Labels. Seit Phase 5 prüft er die zehn
+Eventfamilien und den laufenden Listener-Collector; Entity- und Folia-Familien
+bleiben ausgeschlossen.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -171,7 +172,39 @@ Details stehen in ADR 0012.
 
 Details stehen in ADR 0013.
 
-## 9.6 Festgelegt für den späteren Folia-Provider
+## 9.6 In Phase 5 umgesetzt
+
+- `events` ist ein einzelner standardmäßig aktiver `ManagedCollector`; bei
+  Deaktivierung werden weder Listener noch Phase-5-Familien registriert.
+- `PlayerLoginEvent` ist die einzige Loginquelle, weil es genau einmal an der
+  finalen Loginentscheidung feuert und strukturierte `Result`-Werte bietet. Das
+  neuere `PlayerConnectionValidateLoginEvent` kann in zwei Phasen feuern und
+  besitzt nur eine freie Nachricht; es wird deshalb nicht verwendet.
+- Die Deprecation von `PlayerLoginEvent` ist eine dokumentierte Einschränkung der
+  Ziel-API. Freie Logintexte werden auch nicht als Fallback gelesen.
+- Join, Quit, Ping, modernes `AsyncChatEvent`, `PlayerKickEvent` sowie Chunk-Load
+  und -Unload sind die übrigen Quellen. Chat und Kick zählen nur nicht
+  abgebrochene Events bei `MONITOR`.
+- Kick und ein danach ausgelöstes Quit zählen bewusst beide; es gibt keine
+  nachträgliche Korrelation über Spieleridentitäten.
+- Reasonwerte stammen ausschließlich aus strukturierten Enumnamen und sind auf
+  neun feste Kategorien begrenzt. Aktuell nicht strukturiert erkennbare
+  Invalid-Session- und Connection-Lost-Fälle werden nicht über Nachrichtentexte
+  erraten.
+- Chunk-Load zählt immer Loaded und bei `isNewChunk()` zusätzlich Generated;
+  Unload zählt Unloaded. Nur das gemeinsame validierte Weltlabel wird übernommen.
+- Prometheus-Counter werden direkt und threadsicher auf Eventthreads erhöht. Es
+  gibt keine Schedulerwechsel, Event-Snapshots oder gespeicherten
+  Minecraft-Objekte.
+- Listenerstart und -stop sind idempotent. Stop sperrt neue Inkremente, wartet
+  kurze laufende Updates ab und meldet den Listener öffentlich über
+  `HandlerList.unregisterAll` ab.
+- Counter werden nicht persistiert und können bei Serverstart oder Plugin-Reload
+  zurückgesetzt werden.
+
+Details stehen in ADR 0014.
+
+## 9.7 Festgelegt für den späteren Folia-Provider
 
 - Der Provider wird erst in Phase 6 in einem isolierten Package implementiert.
 - Seine Compile-API ist
@@ -194,7 +227,7 @@ Details stehen in ADR 0013.
 
 Details stehen in ADR 0010.
 
-## 9.7 Noch offen
+## 9.8 Noch offen
 
 - genaue Strategie zur Regionsbeobachtung über öffentliche APIs
 - konkrete öffentliche Folia-API für die in Phase 6 implementierbaren
@@ -203,7 +236,7 @@ Details stehen in ADR 0010.
 - gewünschte Standard-Buckets für Histogramme
 - Release- und Changelog-Format
 
-## 9.8 Nicht mehr offen
+## 9.9 Nicht mehr offen
 
 - Automatisierbarkeit eines verpflichtenden Paper- und Folia-Starttests
 - feste Paper- und Folia-Serverbuilds für den Smoke-Test
@@ -237,3 +270,9 @@ Details stehen in ADR 0010.
 - fest gepinnte `paper-api`-Koordinate und JUnit-5-Version
 - Fehlerverhalten des Konfigurationsloaders bei ungültigen Werten
 - keine individuellen Spielerstatistiken
+- eindeutige Login-Eventquelle und Vermeidung von Doppelzählungen
+- feste Login-/Kick-Reason-Normalisierung ohne freie Texte
+- Kick-/Quit- und Cancelled-Chat-Semantik
+- direkte threadsichere Eventinkremente ohne Schedulerwechsel
+- Chunk-Generated-Semantik und gemeinsame Weltlabelvalidierung
+- nicht persistenter Lifecycle der Event-Counter

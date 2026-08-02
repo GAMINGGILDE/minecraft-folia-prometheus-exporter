@@ -4,6 +4,7 @@ import de.minecraftgilde.prometheus.config.ConfigurationLoader;
 import de.minecraftgilde.prometheus.config.ConfigurationValidator;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration;
 import de.minecraftgilde.prometheus.minecraft.PhaseFourRuntime;
+import de.minecraftgilde.prometheus.minecraft.event.PhaseFiveRuntime;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -68,6 +69,12 @@ public final class ExporterPlugin extends JavaPlugin {
                 this,
                 loaded,
                 activationTime,
+                Clock.systemUTC()
+            );
+            new PhaseFiveRuntime(
+                initializingCore,
+                this,
+                loaded,
                 Clock.systemUTC()
             );
             metricsCore = initializingCore;

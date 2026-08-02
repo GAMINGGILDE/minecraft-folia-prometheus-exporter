@@ -53,10 +53,18 @@ Verbotene Labels:
 - Koordinaten
 - dynamische interne Regions-ID
 
+Seit Phase 5 ist `reason` exakt auf `banned`, `whitelist`, `server_full`,
+`invalid_session`, `idle`, `connection_lost`, `moderation`, `plugin` und
+`unknown` begrenzt. Chunk-Eventfamilien besitzen ausschließlich `world`; Namen
+werden über dieselbe Validierung wie Phase-4-Weltmetriken übernommen.
+
 ## 6.4 Counter-Resets
 
-Event-Counter werden in Version 1 nicht lokal persistiert. Prometheus erkennt
-Counter-Resets nach Neustarts. Langzeitwerte werden in Prometheus berechnet.
+Event-Counter werden in Version 1 nicht lokal persistiert. Sie beginnen bei
+Plugin- beziehungsweise Serverstart bei null und können auch bei einem
+Plugin-Reload zurückgesetzt werden. Prometheus erkennt Counter-Resets nach
+Neustarts. Zeiträume und Langzeitwerte werden mit `rate()` beziehungsweise
+`increase()` in Prometheus berechnet.
 
 ## 6.5 Histogramme
 
@@ -67,10 +75,10 @@ regionalen Tickdauern tatsächlich belastbar messbar sind.
 ## 6.6 Scrape-Datenquelle
 
 Der Renderer und alle HTTP-Handler lesen immutable Minecraft-Snapshots,
-kontrollierten Exporterstatus und die Registry-Callbacks der offiziellen
-JVM-/Prozessinstrumentierung. Diese Callbacks lesen ausschließlich JDK- und
-Betriebssystemdaten. Es gibt keine Live-Abfragen gegen Bukkit, Paper, Folia oder
-Minecraft-Daten.
+bereits akkumulierten Event-Counterzustand, kontrollierten Exporterstatus und die
+Registry-Callbacks der offiziellen JVM-/Prozessinstrumentierung. Diese Callbacks
+lesen ausschließlich JDK- und Betriebssystemdaten. Es gibt keine Live-Abfragen
+gegen Bukkit, Paper, Folia oder Minecraft-Daten.
 
 Die HTTP-Eigenmetrik enthält weder den konfigurierten oder angefragten Rohpfad noch
 Methode, Client-IP, vollständige URL oder User-Agent. Fehlerursachen und

@@ -48,6 +48,20 @@ muss erfolgreich sein.
   Registries
 - Prometheus-`HELP`-, `TYPE`-, Sample- und Labelausgabe der Phase-4-Familien
 - parallele Scrapes, die keine neue Minecraft-Erfassung anstoßen
+- Event-Collector standardmäßig aktiv und über `collectors.events` vollständig
+  deaktivierbar; deaktiviert weder Listener noch Phase-5-Familien
+- idempotenter Event-Start/-Stop, genau eine Listenerregistrierung, Abmeldung
+  beim Stop und keine Inkremente nach Rückkehr von Stop
+- vollständige strukturierte Login-Result- und Kick-Cause-Klassifikation,
+  unbekannte Werte als `unknown` und exakt neun erlaubte Reasonwerte
+- Login-Attempt-/Denial-, Join-, Quit-, Kick-, Ping- und nicht abgebrochene
+  Chatsemantik ohne Commands oder freie Eventtexte
+- bestehender und neuer Chunkload, Generierung und Unload mit ausschließlich
+  gemeinsam validiertem Weltlabel und ohne Koordinaten
+- parallele Eventinkremente aus mehreren Threads und Welten mit exakt erwartetem
+  Endstand aller zehn Counterfamilien
+- Phase-5-`HELP`-, `TYPE`-, Counter-Suffix-, Sample- und Labelausgabe über den
+  realen lokalen HTTP-Endpunkt, einschließlich paralleler Scrapes und Events
 
 ## 7.3 Integrationsprüfungen
 
@@ -87,16 +101,24 @@ Familien `jvm_memory_used_bytes`, `jvm_threads_current`,
 Seit Phase 4 wartet der Smoke-Test begrenzt auf den ersten Server-, Welt-, Chunk-
 und Weltgrößensnapshot. Er prüft repräsentative Phase-4-Familien samt `HELP`,
 `TYPE` und Samples, die drei kontrollierten Server-Info-Labels sowie die
-Abwesenheit des standardmäßig deaktivierten `minecraft_plugin_info`. Zusätzlich
-dürfen noch keine Event-, Entity- oder Folia-Familien erscheinen. Output und
-Start-/Shutdown-Log werden auf Spielernamen-/UUID-Indikatoren beziehungsweise
-Threading- und Schedulerfehler geprüft.
+Abwesenheit des standardmäßig deaktivierten `minecraft_plugin_info`. Im
+Phase-4-Stand durften zusätzlich noch keine Event-, Entity- oder Folia-Familien
+erscheinen. Output und Start-/Shutdown-Log werden auf
+Spielernamen-/UUID-Indikatoren beziehungsweise Threading- und Schedulerfehler
+geprüft.
 
 Der Smoke-Test setzt für seine kleine Testwelt explizit
 `collection.filesystem-interval: "5s"`,
 `collection.filesystem-timeout: "2m"` und
 `filesystem.world-size-scan-concurrency: 1`. Seine Wartezeit bleibt unabhängig
 davon auf 90 Sekunden begrenzt.
+
+Seit Phase 5 prüft der gepinnte Smoke-Test alle zehn Eventfamilien einschließlich
+`HELP` und `TYPE counter` sowie den laufenden Collectorstatus `events`. Echte
+Spielerlogins werden nicht künstlich erzeugt; damit validiert der Test bewusst
+Registrierung, Defaultkonfiguration und den fehlerfreien Listener-Lifecycle. Die
+zuvor erwartete Abwesenheit der Eventfamilien wurde entfernt. Commands und
+Chunk-Load-Failures bleiben weiterhin ausgeschlossen.
 
 ## 7.4 Threading-Prüfungen
 
@@ -106,6 +128,9 @@ davon auf 90 Sekunden begrenzt.
 - Entity-Aufrufe über Entity Scheduler
 - Dateisystemoperationen nicht auf Tickthreads
 - kein Fallback auf den klassischen BukkitScheduler
+- direkte threadsichere Eventinkremente ohne Schedulerwechsel
+- Chat-, Login-, Ping- und Chunkhandler dürfen auf unterschiedlichen Threads
+  parallel laufen; Stop wartet kurze laufende Inkremente ab
 
 ## 7.5 Performance-Ziele
 
@@ -248,3 +273,26 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
   übernommen.
 - Der gepinnte Paper-/Folia-Smoke-Test prüft die Phase-4-Familien und einen
   sauberen Start/Shutdown ohne Scheduler- oder Threadingfehler.
+
+## 7.12 Abnahme Phase 5
+
+- Genau die zehn vereinbarten Eventfamilien sind standardmäßig registriert;
+  `minecraft_commands_total` und `minecraft_chunk_load_failures_total` fehlen.
+- `collectors.events: false` registriert weder Listener noch Phase-5-Familien
+  und beeinträchtigt die übrigen Collector nicht.
+- `PlayerLoginEvent` ist die einzige Loginquelle. Attempt steigt einmal pro
+  Event; ein Denial steigt zusätzlich einmal mit festem Reasonwert.
+- Kicks verwenden ausschließlich `PlayerKickEvent.Cause`. Ein nachfolgendes
+  `PlayerQuitEvent` zählt unabhängig zusätzlich das tatsächliche Sitzungsende.
+- Nur nicht abgebrochene moderne `AsyncChatEvent`s zählen. Commands und
+  Systemnachrichten besitzen keinen Handler im Event-Collector.
+- Neue Chunks erhöhen Loaded und Generated, bestehende nur Loaded; Unload erhöht
+  Unloaded. Ausschließlich `world` wird als Chunklabel exportiert.
+- Der Event-Stop meldet den Listener ab und schließt über einen Lock aus, dass
+  nach seiner Rückkehr weitere Counterinkremente erfolgen.
+- Parallelitätstests verlieren keine Inkremente; parallele HTTP-Scrapes lösen
+  weder Schedulerwechsel noch Minecraft-Livezugriffe aus.
+- Counter sind nicht persistent, beginnen bei Start bei null und sind für
+  `rate()` beziehungsweise `increase()` vorgesehen.
+- Der gepinnte Paper-/Folia-Smoke-Test bestätigt Familienregistrierung,
+  Collectorstatus und sauberen Listener-Lifecycle auf beiden Plattformen.
