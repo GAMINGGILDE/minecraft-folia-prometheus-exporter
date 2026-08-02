@@ -8,32 +8,42 @@ import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("deprecation")
 class EventReasonMapperTest {
 
     @Test
+    @SuppressWarnings("deprecation")
     void mapsEveryStructuredLoginResultWithoutReadingMessages() {
         assertTrue(
-            EventReasonMapper.loginDenial(PlayerLoginEvent.Result.ALLOWED).isEmpty()
+            EventReasonMapper.loginDenialName(
+                PlayerLoginEvent.Result.ALLOWED.name()
+            ).isEmpty()
         );
         assertEquals(
             EventReason.SERVER_FULL,
-            EventReasonMapper.loginDenial(PlayerLoginEvent.Result.KICK_FULL)
+            EventReasonMapper.loginDenialName(
+                PlayerLoginEvent.Result.KICK_FULL.name()
+            )
                 .orElseThrow()
         );
         assertEquals(
             EventReason.BANNED,
-            EventReasonMapper.loginDenial(PlayerLoginEvent.Result.KICK_BANNED)
+            EventReasonMapper.loginDenialName(
+                PlayerLoginEvent.Result.KICK_BANNED.name()
+            )
                 .orElseThrow()
         );
         assertEquals(
             EventReason.WHITELIST,
-            EventReasonMapper.loginDenial(PlayerLoginEvent.Result.KICK_WHITELIST)
+            EventReasonMapper.loginDenialName(
+                PlayerLoginEvent.Result.KICK_WHITELIST.name()
+            )
                 .orElseThrow()
         );
         assertEquals(
             EventReason.UNKNOWN,
-            EventReasonMapper.loginDenial(PlayerLoginEvent.Result.KICK_OTHER)
+            EventReasonMapper.loginDenialName(
+                PlayerLoginEvent.Result.KICK_OTHER.name()
+            )
                 .orElseThrow()
         );
         assertEquals(
@@ -42,7 +52,7 @@ class EventReasonMapperTest {
         );
         assertEquals(
             EventReason.UNKNOWN,
-            EventReasonMapper.loginDenial(null).orElseThrow()
+            EventReasonMapper.loginDenialName(null).orElseThrow()
         );
     }
 
@@ -53,7 +63,7 @@ class EventReasonMapperTest {
             Map.entry(PlayerKickEvent.Cause.WHITELIST, EventReason.WHITELIST),
             Map.entry(PlayerKickEvent.Cause.BANNED, EventReason.BANNED),
             Map.entry(PlayerKickEvent.Cause.IP_BANNED, EventReason.BANNED),
-            Map.entry(PlayerKickEvent.Cause.TIMEOUT, EventReason.IDLE),
+            Map.entry(PlayerKickEvent.Cause.TIMEOUT, EventReason.CONNECTION_LOST),
             Map.entry(PlayerKickEvent.Cause.IDLING, EventReason.IDLE),
             Map.entry(PlayerKickEvent.Cause.KICK_COMMAND, EventReason.MODERATION),
             Map.entry(PlayerKickEvent.Cause.FLYING_PLAYER, EventReason.MODERATION),
@@ -82,6 +92,14 @@ class EventReasonMapperTest {
         for (PlayerKickEvent.Cause cause : PlayerKickEvent.Cause.values()) {
             assertEquals(expected.get(cause), EventReasonMapper.kick(cause), cause.name());
         }
+        assertEquals(
+            EventReason.CONNECTION_LOST,
+            EventReasonMapper.kickCauseName("CONNECTION_LOST")
+        );
+        assertEquals(
+            EventReason.CONNECTION_LOST,
+            EventReasonMapper.kickCauseName("NETWORK_ERROR")
+        );
         assertEquals(EventReason.UNKNOWN, EventReasonMapper.kickCauseName("FUTURE_CAUSE"));
         assertEquals(EventReason.UNKNOWN, EventReasonMapper.kick(null));
     }

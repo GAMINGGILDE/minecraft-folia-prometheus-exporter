@@ -99,15 +99,31 @@ zusätzlich genau eine Denial-Reihe. `KICK_BANNED`, `KICK_WHITELIST` und
 `KICK_OTHER` bleibt konservativ `unknown`. Die Ziel-API stellt an dieser finalen
 Eventquelle keinen strukturierten Wert für Authentifizierungsfehler bereit,
 weshalb `invalid_session` derzeit nicht erzeugt wird. Freie Logintexte dienen
-auch nicht als Fallback.
+auch nicht als Fallback. `PlayerLoginEvent` ist seit 1.21.6 deprecated, bleibt
+für die API-Linie 26.1.2 aber die einzige verwendete Loginquelle: Das
+experimentelle `PlayerConnectionValidateLoginEvent` kann in zwei Loginphasen
+feuern und besitzt keinen strukturierten Ablehnungsgrund, während
+`AsyncPlayerPreLoginEvent` vor der finalen Serverentscheidung und
+`PlayerServerFullCheckEvent` nur für den Full-Check ausgeliefert werden. Eine
+Kombination dieser Quellen würde ohne personenbezogene Korrelation
+Doppelzählungen oder unvollständige Denial-Semantik erzeugen.
 
 `PlayerKickEvent.Cause` wird ausschließlich über feste Enumwerte normalisiert:
-Bans und Whitelist behalten ihre gleichnamige Kategorie, `TIMEOUT` und `IDLING`
-werden `idle`, `PLUGIN` wird `plugin` und administrative beziehungsweise
-Protokoll-/Chat-Regelverstöße werden `moderation`. Nicht eindeutig zuordenbare
-Werte werden `unknown`. Die aktuelle API besitzt keine eindeutige
-Connection-Lost-Cause; deshalb wird `connection_lost` erst bei einem passenden
-strukturierten API-Wert verwendet. Kicknachrichten werden nicht gelesen.
+Bans und Whitelist behalten ihre gleichnamige Kategorie, `TIMEOUT` wird
+`connection_lost`, `IDLING` wird `idle`, `PLUGIN` wird `plugin` und
+administrative beziehungsweise Protokoll-/Chat-Regelverstöße werden
+`moderation`. Nicht eindeutig zuordenbare Werte werden `unknown`. Die aktuelle
+API erzeugt `connection_lost` bereits über den strukturierten Wert `TIMEOUT`;
+die vorsorglich unterstützten Namen `CONNECTION_LOST` und `NETWORK_ERROR`
+würden dieselbe Kategorie verwenden, falls eine spätere öffentliche API sie
+einführt. Kicknachrichten werden nicht gelesen.
+
+Damit können die aktuellen strukturierten Login- und Kick-Enums die Kategorien
+`banned`, `whitelist`, `server_full`, `idle`, `connection_lost`, `moderation`,
+`plugin` und `unknown` tatsächlich erzeugen. `invalid_session` bleibt allein für
+einen zukünftigen eindeutigen strukturierten Loginwert reserviert. Die ebenfalls
+vorsorglich erkannten Namen `KICK_PLUGIN`, `CONNECTION_LOST` und `NETWORK_ERROR`
+sind keine aktuellen Enumwerte der jeweils verwendeten 26.1.2-Quelle.
 
 Join, Quit und Ping zählen das jeweilige Event. Ein erfolgreicher Kick kann
 anschließend regulär ein Quit-Event auslösen; in diesem Fall steigen bewusst
@@ -117,6 +133,12 @@ bei `MONITOR`. Commands und Systemnachrichten lösen diese Quelle nicht aus.
 Die Counter beginnen je Plugin-/Serverstart bei null, werden nicht persistiert
 und können auch nach einem Plugin-Reload zurückgesetzt sein. Für Zeiträume sind
 PromQL `rate()` und `increase()` vorgesehen.
+
+Schlägt ein Eventupdate fehl, meldet der Collector eine
+`IllegalStateException` mit der ursprünglichen `RuntimeException` als Cause an
+den vorhandenen rate-limitierten Reporter. Auch eine Exception dieses Reporters
+wird innerhalb des Eventbereichs abgefangen; sie verlässt niemals den
+Minecraft-Eventthread.
 
 ## 2.5 Welten
 

@@ -178,19 +178,27 @@ Details stehen in ADR 0013.
   Deaktivierung werden weder Listener noch Phase-5-Familien registriert.
 - `PlayerLoginEvent` ist die einzige Loginquelle, weil es genau einmal an der
   finalen Loginentscheidung feuert und strukturierte `Result`-Werte bietet. Das
-  neuere `PlayerConnectionValidateLoginEvent` kann in zwei Phasen feuern und
-  besitzt nur eine freie Nachricht; es wird deshalb nicht verwendet.
-- Die Deprecation von `PlayerLoginEvent` ist eine dokumentierte Einschränkung der
-  Ziel-API. Freie Logintexte werden auch nicht als Fallback gelesen.
+  stabile `AsyncPlayerPreLoginEvent` liegt vor späteren Serverprüfungen, das
+  `PlayerServerFullCheckEvent` deckt nur den Full-Check ab und das experimentelle
+  `PlayerConnectionValidateLoginEvent` kann in zwei Phasen feuern und besitzt
+  nur eine freie Nachricht; sie werden deshalb weder einzeln als Ersatz noch in
+  Kombination verwendet.
+- Die Deprecation von `PlayerLoginEvent` seit 1.21.6 ist eine dokumentierte
+  Einschränkung der Ziel-API. Sie ist auf die konkrete Handler-Methode begrenzt;
+  der Metrikkern erhält nur den strukturierten Enumnamen. Freie Logintexte werden
+  auch nicht als Fallback gelesen. Migriert wird, sobald eine stabile öffentliche
+  API genau eine finale Auslieferung und strukturierte Ablehnungsgründe bietet.
 - Join, Quit, Ping, modernes `AsyncChatEvent`, `PlayerKickEvent` sowie Chunk-Load
   und -Unload sind die übrigen Quellen. Chat und Kick zählen nur nicht
   abgebrochene Events bei `MONITOR`.
 - Kick und ein danach ausgelöstes Quit zählen bewusst beide; es gibt keine
   nachträgliche Korrelation über Spieleridentitäten.
 - Reasonwerte stammen ausschließlich aus strukturierten Enumnamen und sind auf
-  neun feste Kategorien begrenzt. Aktuell nicht strukturiert erkennbare
-  Invalid-Session- und Connection-Lost-Fälle werden nicht über Nachrichtentexte
-  erraten.
+  neun feste Kategorien begrenzt. `TIMEOUT` erzeugt `connection_lost`, `IDLING`
+  erzeugt `idle`; zukünftige strukturierte Namen `CONNECTION_LOST` und
+  `NETWORK_ERROR` sind vorsorglich ebenfalls `connection_lost`. Nur
+  `invalid_session` ist mit den aktuellen strukturierten Enums nicht erzeugbar
+  und wird nicht über Nachrichtentexte erraten.
 - Chunk-Load zählt immer Loaded und bei `isNewChunk()` zusätzlich Generated;
   Unload zählt Unloaded. Nur das gemeinsame validierte Weltlabel wird übernommen.
 - Prometheus-Counter werden direkt und threadsicher auf Eventthreads erhöht. Es
@@ -199,6 +207,9 @@ Details stehen in ADR 0013.
 - Listenerstart und -stop sind idempotent. Stop sperrt neue Inkremente, wartet
   kurze laufende Updates ab und meldet den Listener öffentlich über
   `HandlerList.unregisterAll` ab.
+- Eventupdate-Fehler werden als `IllegalStateException` mit der ursprünglichen
+  `RuntimeException` als Cause an den rate-limitierten Reporter übergeben. Auch
+  dessen Fehler werden abgefangen und erreichen den Eventthread nicht.
 - Counter werden nicht persistiert und können bei Serverstart oder Plugin-Reload
   zurückgesetzt werden.
 

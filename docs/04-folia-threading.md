@@ -45,7 +45,7 @@ Für Phase 5 gilt zusätzlich:
 
 | Event/API-Wert | Ausführung |
 |---|---|
-| `PlayerLoginEvent#getResult()` | ausliefernder Login-Eventthread; nur Enum lesen |
+| `PlayerLoginEvent#getResult()` | ausliefernder Login-Eventthread; nur Enumname lesen; einzige Loginquelle trotz eng begrenzter Deprecation |
 | Join und Quit | ausliefernder Eventthread; nur Counter erhöhen |
 | `PlayerKickEvent#getCause()` | ausliefernder Entity-/Region-Eventthread; nur Enum lesen |
 | `ServerListPingEvent` | Ping-Eventthread; keine Adress-, Host- oder Antwortdaten lesen |
@@ -58,7 +58,17 @@ Alle Eventhandler sind kurz und nicht blockierend. Sie führen keine Datei- oder
 Netzwerkoperation aus, speichern kein Event- oder Minecraft-Objekt und lesen
 weder Spieleridentität noch Chunkkoordinaten. Die gemeinsame
 `WorldLabel`-Validierung übernimmt ausschließlich den während des Events
-gelesenen Weltname-String.
+gelesenen Weltname-String. Die deprecated Loginquelle wird nicht mit
+`AsyncPlayerPreLoginEvent`, `PlayerConnectionValidateLoginEvent` oder
+`PlayerServerFullCheckEvent` kombiniert; deshalb entstehen weder zusätzliche
+Loginphasen noch ein Bedarf an identitätsbasierter Deduplizierung.
+
+Ein `RuntimeException` aus Validierung oder Counterupdate wird noch unter der
+kurzen Event-Annahmegrenze abgefangen und als Cause einer neutralen
+`IllegalStateException` an den rate-limitierten Reporter weitergereicht. Wirft
+dieser Beobachter selbst, wird seine Exception ebenfalls abgefangen. Weder der
+ursprüngliche Fehler noch ein Reporterfehler kann dadurch den ausliefernden
+Paper-/Folia-Eventthread beschädigen.
 
 Phase 4 braucht keinen Region-Scheduler-Aufruf: Der öffentliche aggregierte
 Chunkzähler vermeidet Positions- und Chunkobjektzugriffe. Das Interface behält

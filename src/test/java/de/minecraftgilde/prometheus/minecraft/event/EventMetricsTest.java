@@ -16,10 +16,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("deprecation")
 class EventMetricsTest {
 
     private static final List<String> FAMILIES = List.of(
@@ -75,8 +73,8 @@ class EventMetricsTest {
                     for (int iteration = 0; iteration < iterations; iteration++) {
                         metrics.recordLogin(
                             iteration % 2 == 0
-                                ? PlayerLoginEvent.Result.KICK_BANNED
-                                : PlayerLoginEvent.Result.ALLOWED
+                                ? "KICK_BANNED"
+                                : "ALLOWED"
                         );
                         metrics.recordJoin();
                         metrics.recordQuit();

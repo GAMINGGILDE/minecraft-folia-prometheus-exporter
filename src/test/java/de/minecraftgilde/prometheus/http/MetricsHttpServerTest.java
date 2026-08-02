@@ -41,7 +41,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.junit.jupiter.api.Test;
 
 class MetricsHttpServerTest {
@@ -122,7 +121,11 @@ class MetricsHttpServerTest {
             assertTrue(!metrics.body().contains("Alice"));
             assertTrue(!metrics.body().contains("minecraft_world_entities"));
             assertTrue(metrics.body().contains("minecraft_login_denied_total{reason=\"unknown\"} 1.0"));
-            assertTrue(metrics.body().contains("minecraft_player_kicks_total{reason=\"idle\"} 1.0"));
+            assertTrue(metrics.body().contains("minecraft_player_kicks_total{reason=\"connection_lost\"} 1.0"));
+            assertReasonLabelsAreBounded(metrics.body());
+            assertTrue(!metrics.body().contains("PRIVATE_LOGIN_REASON"));
+            assertTrue(!metrics.body().contains("203.0.113.17"));
+            assertTrue(!metrics.body().contains("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"));
             assertTrue(metrics.body().contains("minecraft_chunks_loaded_total{world=\"world\"} 2.0"));
             assertTrue(metrics.body().contains("minecraft_chunks_generated_total{world=\"world\"} 1.0"));
             assertTrue(!metrics.body().contains("minecraft_commands_total"));
@@ -275,10 +278,9 @@ class MetricsHttpServerTest {
         return new TestServer(server, state, minecraftMetrics, eventMetrics);
     }
 
-    @SuppressWarnings("deprecation")
     private static void publishPhaseFiveEvents(EventMetrics metrics) {
-        metrics.recordLogin(PlayerLoginEvent.Result.ALLOWED);
-        metrics.recordLogin(PlayerLoginEvent.Result.KICK_OTHER);
+        metrics.recordLogin("ALLOWED");
+        metrics.recordLogin("PRIVATE_LOGIN_REASON");
         metrics.recordJoin();
         metrics.recordQuit();
         metrics.recordKick(PlayerKickEvent.Cause.TIMEOUT);
@@ -392,6 +394,29 @@ class MetricsHttpServerTest {
         }
         assertTrue(!metrics.contains("private chat content"));
         assertTrue(!metrics.contains("private-client-host"));
+    }
+
+    private static void assertReasonLabelsAreBounded(String metrics) {
+        java.util.Set<String> allowed = java.util.Set.of(
+            "banned",
+            "whitelist",
+            "server_full",
+            "invalid_session",
+            "idle",
+            "connection_lost",
+            "moderation",
+            "plugin",
+            "unknown"
+        );
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+            .compile("reason=\\\"([^\\\"]*)\\\"")
+            .matcher(metrics);
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            assertTrue(allowed.contains(matcher.group(1)), matcher.group(1));
+        }
+        assertTrue(found);
     }
 
     private static ExporterLifecycleState readyCoreState() {

@@ -53,9 +53,19 @@ muss erfolgreich sein.
 - idempotenter Event-Start/-Stop, genau eine Listenerregistrierung, Abmeldung
   beim Stop und keine Inkremente nach Rückkehr von Stop
 - vollständige strukturierte Login-Result- und Kick-Cause-Klassifikation,
-  unbekannte Werte als `unknown` und exakt neun erlaubte Reasonwerte
+  insbesondere `IDLING → idle`, `TIMEOUT → connection_lost`, vorsorgliche
+  `CONNECTION_LOST`/`NETWORK_ERROR → connection_lost`, unbekannte Werte als
+  `unknown` und exakt neun erlaubte Reasonwerte
 - Login-Attempt-/Denial-, Join-, Quit-, Kick-, Ping- und nicht abgebrochene
   Chatsemantik ohne Commands oder freie Eventtexte
+- genau eine registrierte Loginquelle ohne Handler für parallele Loginphasen;
+  erlaubtes Event genau ein Attempt, abgelehntes Event genau ein Attempt und
+  eine Denial-Reihe
+- Fehlerweitergabe mit ursprünglicher `RuntimeException` als Cause, abgefangener
+  Exception eines fehlschlagenden Failure-Listeners, weiter funktionsfähigem
+  Collector und keinen Inkrementen nach Stop
+- keine Spieleridentität, UUID, IP-Adresse, Host-, Kick-, Login- oder Chattexte
+  in Eventlabels oder Exposition
 - bestehender und neuer Chunkload, Generierung und Unload mit ausschließlich
   gemeinsam validiertem Weltlabel und ohne Koordinaten
 - parallele Eventinkremente aus mehreren Threads und Welten mit exakt erwartetem
@@ -118,7 +128,11 @@ Seit Phase 5 prüft der gepinnte Smoke-Test alle zehn Eventfamilien einschließl
 Spielerlogins werden nicht künstlich erzeugt; damit validiert der Test bewusst
 Registrierung, Defaultkonfiguration und den fehlerfreien Listener-Lifecycle. Die
 zuvor erwartete Abwesenheit der Eventfamilien wurde entfernt. Commands und
-Chunk-Load-Failures bleiben weiterhin ausgeschlossen.
+Chunk-Load-Failures bleiben weiterhin ausgeschlossen. Das Start-/Shutdown-Log
+wird zusätzlich auf Eventregistrierungsfehler, Eventhandler-Exceptions,
+Hinweise auf doppelte Listener sowie Deprecation-bedingte Laufzeitfehler geprüft.
+Die bekannte dokumentierte `PlayerLoginEvent`-Deprecation allein ist kein
+Laufzeitfehler; ihre Einmaligkeit wird ergänzend im Unit-Test erzwungen.
 
 ## 7.4 Threading-Prüfungen
 
@@ -281,15 +295,22 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
 - `collectors.events: false` registriert weder Listener noch Phase-5-Familien
   und beeinträchtigt die übrigen Collector nicht.
 - `PlayerLoginEvent` ist die einzige Loginquelle. Attempt steigt einmal pro
-  Event; ein Denial steigt zusätzlich einmal mit festem Reasonwert.
+  Event; ein Denial steigt zusätzlich einmal mit festem Reasonwert. Die seit
+  1.21.6 deprecated Quelle ist nur an der Handler-Methode unterdrückt und besitzt
+  einen dokumentierten Migrationspunkt zu einer künftigen stabilen, einzelnen
+  finalen Quelle mit strukturierten Gründen.
 - Kicks verwenden ausschließlich `PlayerKickEvent.Cause`. Ein nachfolgendes
   `PlayerQuitEvent` zählt unabhängig zusätzlich das tatsächliche Sitzungsende.
+  `TIMEOUT` zählt als `connection_lost`, `IDLING` als `idle`.
 - Nur nicht abgebrochene moderne `AsyncChatEvent`s zählen. Commands und
   Systemnachrichten besitzen keinen Handler im Event-Collector.
 - Neue Chunks erhöhen Loaded und Generated, bestehende nur Loaded; Unload erhöht
   Unloaded. Ausschließlich `world` wird als Chunklabel exportiert.
 - Der Event-Stop meldet den Listener ab und schließt über einen Lock aus, dass
   nach seiner Rückkehr weitere Counterinkremente erfolgen.
+- Fehlgeschlagene Eventupdates bleiben auf dem Eventthread abgefangen und werden
+  mit ihrer ursprünglichen Exception als Cause rate-limitiert gemeldet; auch ein
+  fehlschlagender Fehlerbeobachter kann nicht nach außen werfen.
 - Parallelitätstests verlieren keine Inkremente; parallele HTTP-Scrapes lösen
   weder Schedulerwechsel noch Minecraft-Livezugriffe aus.
 - Counter sind nicht persistent, beginnen bei Start bei null und sind für

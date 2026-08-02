@@ -2,19 +2,11 @@ package de.minecraftgilde.prometheus.minecraft.event;
 
 import java.util.Optional;
 import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 
 /** Maps only structured public API values to the fixed reason vocabulary. */
-@SuppressWarnings("deprecation")
 public final class EventReasonMapper {
 
     private EventReasonMapper() {}
-
-    public static Optional<EventReason> loginDenial(
-        PlayerLoginEvent.Result result
-    ) {
-        return loginDenialName(result == null ? null : result.name());
-    }
 
     static Optional<EventReason> loginDenialName(String resultName) {
         if ("ALLOWED".equals(resultName)) {
@@ -42,8 +34,8 @@ public final class EventReasonMapper {
             case "PLUGIN" -> EventReason.PLUGIN;
             case "WHITELIST" -> EventReason.WHITELIST;
             case "BANNED", "IP_BANNED" -> EventReason.BANNED;
-            case "TIMEOUT", "IDLING" -> EventReason.IDLE;
-            case "CONNECTION_LOST", "NETWORK_ERROR" ->
+            case "IDLING" -> EventReason.IDLE;
+            case "TIMEOUT", "CONNECTION_LOST", "NETWORK_ERROR" ->
                 EventReason.CONNECTION_LOST;
             case "KICK_COMMAND",
                 "FLYING_PLAYER",

@@ -22,7 +22,6 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 
 /** Directly records bounded counters on the threads that deliver public events. */
-@SuppressWarnings("deprecation")
 public final class EventCollector extends AbstractCollector implements Listener {
 
     private final PrometheusRegistry registry;
@@ -90,10 +89,11 @@ public final class EventCollector extends AbstractCollector implements Listener 
         }
     }
 
+    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onLogin(PlayerLoginEvent event) {
         Objects.requireNonNull(event, "event");
-        record(metrics -> metrics.recordLogin(event.getResult()));
+        record(metrics -> metrics.recordLogin(event.getResult().name()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -172,17 +172,20 @@ public final class EventCollector extends AbstractCollector implements Listener 
             try {
                 observation.accept(metrics);
             } catch (RuntimeException failure) {
-                reportFailure();
+                reportFailure(failure);
             }
         } finally {
             activityLock.readLock().unlock();
         }
     }
 
-    private void reportFailure() {
+    private void reportFailure(RuntimeException cause) {
         try {
             failureListener.accept(
-                new IllegalStateException("An event metric could not be updated")
+                new IllegalStateException(
+                    "An event metric could not be updated",
+                    cause
+                )
             );
         } catch (RuntimeException ignored) {
             // An observer must never break a Minecraft event thread.

@@ -8,10 +8,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 
 /** Thread-safe Phase-5 counters owned by one private Prometheus registry. */
-@SuppressWarnings("deprecation")
 public final class EventMetrics {
 
     private final Counter loginAttempts;
@@ -104,9 +102,9 @@ public final class EventMetrics {
         playerKicks.labelValues(EventReason.UNKNOWN.metricValue()).inc(0);
     }
 
-    public void recordLogin(PlayerLoginEvent.Result result) {
+    public void recordLogin(String structuredResultName) {
         loginAttempts.inc();
-        EventReasonMapper.loginDenial(result).ifPresent(
+        EventReasonMapper.loginDenialName(structuredResultName).ifPresent(
             reason -> loginDenied.labelValues(reason.metricValue()).inc()
         );
     }

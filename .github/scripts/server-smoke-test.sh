@@ -6,6 +6,7 @@ server_directory="${1:?Usage: server-smoke-test.sh <server-directory>}"
 activation_marker="FoliaPrometheusExporter started."
 failure_pattern="(Could not load|Failed to load|Error occurred while (loading|enabling)|Could not pass event).*FoliaPrometheusExporter|Task .*FoliaPrometheusExporter.*exception|FoliaPrometheusExporter.*(Exception|ERROR|SEVERE)|Exception.*FoliaPrometheusExporter"
 thread_failure_pattern="(AsyncCatcher|Thread check failed|not (the )?tick thread|not owned by (the )?current region|IllegalStateException:.*(region|thread))"
+event_failure_pattern="Could not pass event|EventException|IllegalPluginAccessException|(Unable|Failed|Could not) to register event|duplicate(d)? listener|listener.*already registered|(deprecated|deprecation).*(exception|error|fail)|(exception|error|fail).*(deprecated|deprecation)"
 startup_timeout_seconds=240
 shutdown_timeout_seconds=120
 snapshot_timeout_seconds=90
@@ -73,6 +74,12 @@ while ((SECONDS < startup_deadline)); do
     exit 1
   fi
 
+  if grep -Eiq "$event_failure_pattern" "$server_log" 2>/dev/null; then
+    echo "Event registration, listener, handler, or deprecation runtime failure detected." >&2
+    grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
+    exit 1
+  fi
+
   if ! kill -0 "$server_pid" 2>/dev/null; then
     wait "$server_pid" || true
     server_pid=""
@@ -91,6 +98,12 @@ fi
 if grep -Eiq "$failure_pattern" "$server_log"; then
   echo "Plugin failure was logged during activation." >&2
   grep -Ein "$failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if grep -Eiq "$event_failure_pattern" "$server_log"; then
+  echo "Event registration, listener, handler, or deprecation runtime failure was logged during activation." >&2
+  grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
   exit 1
 fi
 
@@ -238,6 +251,12 @@ if grep -Eiq "$thread_failure_pattern" "$server_log"; then
   exit 1
 fi
 
+if grep -Eiq "$event_failure_pattern" "$server_log"; then
+  echo "Event registration, listener, handler, or deprecation runtime failure was logged." >&2
+  grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
 for phase_three_metric in \
   jvm_memory_used_bytes \
   jvm_threads_current \
@@ -291,6 +310,12 @@ fi
 if grep -Eiq "$thread_failure_pattern" "$server_log"; then
   echo "Paper/Folia thread ownership failure was logged before shutdown completed." >&2
   grep -Ein "$thread_failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if grep -Eiq "$event_failure_pattern" "$server_log"; then
+  echo "Event registration, listener, handler, or deprecation runtime failure was logged before shutdown completed." >&2
+  grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
   exit 1
 fi
 

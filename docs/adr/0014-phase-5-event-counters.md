@@ -20,20 +20,41 @@ Paper-/Bukkit-Event ausliefert.
 `minecraft_login_attempts_total` steigt einmal für jedes Event; bei allen Werten
 außer `ALLOWED` steigt zusätzlich genau eine Denial-Reihe.
 
-Die Alternativen sind für diese Semantik schlechter geeignet:
+Die tatsächlich aufgelösten öffentlichen Sources von
+`paper-api:26.1.2.build.74-stable` und
+`folia-api:26.1.2.build.8-stable` enthalten für die geprüften Quellen denselben
+API-Vertrag:
 
-- `AsyncPlayerPreLoginEvent` läuft nach erfolgreicher Mojang-Authentifizierung,
-  aber vor der vollständigen finalen Serverentscheidung.
-- `PlayerConnectionValidateLoginEvent` kann laut öffentlicher API beim ersten
-  Loginversuch und erneut beim Abschluss einer Konfigurationsphase feuern. Es
-  besitzt keinen strukturierten Cause, sondern nur eine freie Kicknachricht.
+| Quelle | Einmaligkeit und Phase | Strukturierte Gründe / `server_full` | Stabilität und Threading | Datenschutz / Entscheidung |
+|---|---|---|---|---|
+| `PlayerLoginEvent` | Eine einzelne finale Eventquelle für jeden Versuch, der diese Serverphase erreicht | `Result` enthält `ALLOWED`, `KICK_FULL`, `KICK_BANNED`, `KICK_WHITELIST`, `KICK_OTHER`; `server_full` ist eindeutig | Öffentlich, aber seit 1.21.6 deprecated und mit `@Warning` versehen; direkter kurzer Eventhandler, kein Schedulerwechsel | Host, Adressen und Player werden nicht gelesen; gewählt |
+| `AsyncPlayerPreLoginEvent` | Frühe asynchrone Phase nach erfolgreicher Mojang-Authentifizierung; spätere Validierungen können das Ergebnis noch ändern | Gleichnamige strukturierte Resultwerte, aber keine vollständige finale Entscheidung | Öffentlich und nicht als Event deprecated; asynchron, kein Schedulerwechsel für ein Counterupdate | Name, UUID, IP, Host und Connection sind verfügbar, werden aber nicht benötigt; als alleinige finale Quelle ungeeignet |
+| `PlayerConnectionValidateLoginEvent` | Laut Javadoc beim ersten Login und erneut am Ende einer Konfigurationsphase möglich; daher bis zu zwei Aufrufe derselben Verbindung | Nur `isAllowed()` und eine freie `Component`; kein strukturierter Cause und kein eindeutig klassifizierbares `server_full` | Öffentlich, aber das gesamte Connection-Package ist `@ApiStatus.Experimental`; synchroner Eventcallback | Eine Kombination bräuchte Connection- oder Spieleridentität zur Deduplizierung; nicht verwendet |
+| `PlayerServerFullCheckEvent` | Nur ein einzelner Teilcheck, keine vollständige Attemptquelle | `isAllowed() == false` ist strukturell ein Full-Check | Öffentlich und nicht deprecated; direkter Eventcallback | Exponiert ein Profil, das nicht benötigt wird; nicht mit anderen Phasen kombiniert |
+| `ProfileWhitelistVerifyEvent` | Nur Whitelist-Teilcheck, keine vollständige Attemptquelle | Strukturiert nur Whiteliststatus | Öffentlich und nicht deprecated; direkter Eventcallback | Exponiert ein Profil; nicht kombiniert |
+| `PlayerHandshakeEvent` | Zu frühe Handshakephase, nicht gleichbedeutend mit einem verarbeiteten Login | Nur Handshakefehler, keine finalen Loginresultate oder `server_full` | Öffentlich; asynchroner Low-Level-Callback | Enthält Host-, UUID- und Profildaten; nicht verwendet |
+| `PlayerConnectionCloseEvent` | Disconnectquelle nach Pre-Login und auch nach erfolgreichem Join, daher keine Attempt- oder Denialquelle | Kein strukturierter Login-Ablehnungsgrund | Öffentlich; kann synchron oder asynchron feuern | Enthält Name, UUID und IP; nicht verwendet |
+| Initial-/Async-Konfiguration und `PlayerJoinEvent` | Spätere Konfigurations- beziehungsweise reine Erfolgspunkte | Keine vollständigen strukturierten Denialgründe | Connection-Konfigurationspackage experimentell; Join stabil | Können abgelehnte Versuche nicht vollständig abbilden; nicht verwendet |
 
-Eine Kombination mehrerer Phasen würde Connection- oder Spieleridentitäten zur
-Deduplizierung benötigen und ist ausgeschlossen. `PlayerLoginEvent` ist in der
-Ziel-API seit 1.21.6 deprecated, weil ein Listener den Player früh erzeugt. Diese
-bekannte öffentliche API-Einschränkung wird akzeptiert, bis eine eindeutige
-moderne Quelle sowohl Einmaligkeit als auch strukturierte Endgründe anbietet. Es
-werden keine internen APIs und keine Reflection als Ersatz verwendet.
+Eine Kombination mehrerer Phasen würde Doppelzählungen erzeugen oder
+Connection-/Spieleridentitäten zur Deduplizierung benötigen und ist
+ausgeschlossen. Versuche, die vor `PlayerLoginEvent` beispielsweise bereits an
+der Authentifizierung scheitern, sind mit dieser finalen Quelle nicht sichtbar;
+sie werden nicht aus Texten oder anderen Phasen ergänzt.
+
+`PlayerLoginEvent` ist seit 1.21.6 deprecated, weil ein Listener den Player früh
+erzeugt und laut API-Hinweis einen der zwei Vanilla-Validierungspunkte überspringt.
+Dieses Laufzeit- und Migrationsrisiko wird für 26.1.2 akzeptiert, weil keine
+moderne stabile Einzelquelle dieselbe doppelfreie finale Semantik samt
+strukturierten Gründen bietet. `@SuppressWarnings("deprecation")` steht nur an
+der einen Handler-Methode; `EventMetrics` und `EventReasonMapper` erhalten allein
+den strukturierten Enumnamen und hängen nicht vom deprecated Typ ab.
+
+Migriert wird, sobald Paper und Folia in der unterstützten API-Linie eine stabile
+öffentliche Quelle anbieten, die pro verarbeitetem Versuch genau einmal feuert,
+die finale Entscheidung samt strukturierten Gründen einschließlich Full-Check
+liefert und keine identitätsbasierte Deduplizierung verlangt. Interne APIs,
+Reflection oder mehrere parallele Loginquellen sind kein Übergangsersatz.
 
 ## Feste Reason-Normalisierung
 
@@ -76,14 +97,23 @@ Kick:
 | `PLUGIN` | `plugin` |
 | `WHITELIST` | `whitelist` |
 | `BANNED`, `IP_BANNED` | `banned` |
-| `TIMEOUT`, `IDLING` | `idle` |
+| `TIMEOUT` | `connection_lost` |
+| `IDLING` | `idle` |
 | Kick-Command, Flying-, Movement-, Payload-, Cookie-, Spam-, Illegal- und Chatvalidierungsverstöße sowie Resource-Pack-Ablehnung | `moderation` |
 | `DUPLICATE_LOGIN`, `RESTART_COMMAND`, `UNKNOWN` oder unbekannt | `unknown` |
 
-Die aktuelle Cause-Menge besitzt keinen eindeutigen Netzwerkabbruch. Deshalb
-wird `connection_lost` nur für einen zukünftigen expliziten strukturierten
-`CONNECTION_LOST`- oder `NETWORK_ERROR`-Wert verwendet. Unsichere Fälle bleiben
-`unknown`.
+Die aktuelle Cause-Menge besitzt mit `TIMEOUT` bereits einen strukturierten Wert,
+der als Verbindungsverlust klassifiziert wird. Die vorsorglich unterstützten
+Namen `CONNECTION_LOST` und `NETWORK_ERROR` werden ebenfalls
+`connection_lost`, sobald eine spätere öffentliche API einen dieser Enumwerte
+liefert. Unsichere Fälle bleiben `unknown`.
+
+Mit den aktuellen 26.1.2-Enums können Login und Kick zusammen `banned`,
+`whitelist`, `server_full`, `idle`, `connection_lost`, `moderation`, `plugin`
+und `unknown` tatsächlich erzeugen. `invalid_session` bleibt für einen
+zukünftigen eindeutigen strukturierten Loginwert reserviert. Der Mapper erkennt
+vorsorglich `INVALID_SESSION`, `KICK_INVALID_SESSION`, `KICK_PLUGIN`,
+`CONNECTION_LOST` und `NETWORK_ERROR`, wertet aber niemals Nachrichtentext aus.
 
 ## Join, Quit und Kick
 
@@ -145,8 +175,11 @@ bereits begonnenes Inkrement mehr nachlaufen. Der vorhandene
 `AbstractCollector` verhindert doppelte Starts und macht Stop idempotent.
 
 Ein fehlerhaftes Eventupdate wird im Eventbereich abgefangen und ohne
-Eventpayload rate-limitiert gemeldet. Andere Eventtypen, Collector, Readiness und
-HTTP bleiben aktiv.
+Eventpayload als `IllegalStateException` rate-limitiert gemeldet. Die
+ursprüngliche `RuntimeException` bleibt als Cause erhalten. Wirft der
+Failure-Listener selbst, wird auch diese Exception innerhalb des Collectors
+abgefangen; weder Counter- noch Reporterfehler verlassen einen Minecraft-
+Eventthread. Andere Eventtypen, Collector, Readiness und HTTP bleiben aktiv.
 
 ## Datenschutz und Counter-Lifecycle
 

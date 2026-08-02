@@ -227,16 +227,35 @@ Inkremente und meldet den Listener anschließend über `HandlerList.unregisterAl
 ab. Nach Rückkehr von Stop kann kein Counter mehr steigen; Mehrfachstart und
 Mehrfachstop bleiben über den vorhandenen Collector-Lifecycle idempotent.
 
+`PlayerLoginEvent` ist trotz seiner Deprecation seit 1.21.6 bewusst die einzige
+Loginquelle. Seine Verwendung ist auf die eine Handler-Methode begrenzt; sie
+reicht nur den Namen des strukturierten `Result` an den API-unabhängigen
+Metrikkern weiter. `AsyncPlayerPreLoginEvent` liegt vor der finalen Entscheidung,
+`PlayerServerFullCheckEvent` deckt nur den Full-Check ab und das experimentelle
+`PlayerConnectionValidateLoginEvent` kann beim ersten Login und nach der
+Konfigurationsphase feuern, ohne einen strukturierten Cause anzubieten. Mehrere
+Quellen werden nicht kombiniert und können daher keinen Versuch doppelt zählen.
+Der Migrationspunkt ist eine stabile öffentliche Quelle, die genau eine finale
+Auslieferung und strukturierte Ablehnungsgründe garantiert.
+
 `EventReasonMapper` liest ausschließlich strukturierte Result-/Cause-Enumnamen
 und gibt nur die neun katalogisierten Reasonwerte aus. Nachrichten, Identitäten,
 Adressen, Hostnamen und Koordinaten gelangen nicht in den Mapper. Chunkfamilien
 verwenden dieselbe `WorldLabel`-Validierung wie die Phase-4-Werttypen.
 
+Für Kickursachen gilt insbesondere `TIMEOUT → connection_lost` und
+`IDLING → idle`. `CONNECTION_LOST` und `NETWORK_ERROR` bleiben zusätzlich als
+vorsorgliche strukturierte Namen auf `connection_lost` abgebildet. Die aktuelle
+Loginquelle kann `banned`, `whitelist`, `server_full` und `unknown` erzeugen;
+`invalid_session` bleibt mangels eindeutigem aktuellem Result nur reserviert.
+
 Prometheus-Counter sind threadsicher. Deshalb wechseln Login-, Ping-, Chat- und
 Chunkereignisse nicht auf Global-, Region-, Entity- oder Async-Scheduler. Fehler
 eines einzelnen Updates werden innerhalb des Eventbereichs abgefangen und ohne
-Eventdaten rate-limitiert gemeldet; andere Ereignisbereiche und der HTTP-Dienst
-laufen weiter.
+Eventdaten rate-limitiert als `IllegalStateException` gemeldet. Die ursprüngliche
+`RuntimeException` bleibt deren Cause. Auch wenn der Fehlerbeobachter selbst
+wirft, verlässt keine Exception den Eventthread; andere Ereignisbereiche und der
+HTTP-Dienst laufen weiter.
 
 ### `MetricsEndpoint`
 

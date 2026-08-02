@@ -202,18 +202,35 @@ speichert keine Player-, Connection- oder Chunkobjekte.
 
 Loginversuche werden ausschließlich am finalen `PlayerLoginEvent` gezählt, um
 Doppelzählungen zwischen Loginphasen zu vermeiden. Ein abgelehnter Login erhöht
-zusätzlich genau eine feste Reason-Reihe. Kicks verwenden ausschließlich
-`PlayerKickEvent.Cause`; ein nicht abgebrochener Kick kann anschließend auch ein
-`PlayerQuitEvent` auslösen und erhöht dann sowohl Kick als auch Quit. Chat basiert
-auf dem modernen `AsyncChatEvent` bei `MONITOR`; abgebrochene Chatereignisse,
-Commands und Systemnachrichten zählen nicht.
+zusätzlich genau eine feste Reason-Reihe. Die Quelle ist seit 1.21.6 deprecated,
+bleibt in Paper und Folia 26.1.2 jedoch die verlässlichste einzelne Quelle für
+eine finale, strukturierte Entscheidung. `AsyncPlayerPreLoginEvent` liegt davor,
+das experimentelle `PlayerConnectionValidateLoginEvent` kann in zwei Phasen
+feuern und `PlayerServerFullCheckEvent` deckt nur einen Teilgrund ab. Sobald eine
+stabile öffentliche API eine einzelne finale Auslieferung samt strukturierten
+Gründen garantiert, ist diese schmale Listenergrenze der vorgesehene
+Migrationspunkt. Kicks verwenden ausschließlich `PlayerKickEvent.Cause`; ein
+nicht abgebrochener Kick kann anschließend auch ein `PlayerQuitEvent` auslösen
+und erhöht dann sowohl Kick als auch Quit. Chat basiert auf dem modernen
+`AsyncChatEvent` bei `MONITOR`; abgebrochene Chatereignisse, Commands und
+Systemnachrichten zählen nicht.
 
 Reason-Labels sind auf `banned`, `whitelist`, `server_full`, `invalid_session`,
 `idle`, `connection_lost`, `moderation`, `plugin` und `unknown` begrenzt. Freie
 Kick- und Logintexte, Chatinhalt, Spielername, UUID, IP, Clienthostname und
 Chunkkoordinaten werden weder gelesen noch exportiert. Chunk-Counter verwenden
 ausschließlich das gemeinsame validierte `world`-Label. Ein neu generierter
-Chunk zählt sowohl als geladen als auch als generiert.
+Chunk zählt sowohl als geladen als auch als generiert. Bei Kicks gilt
+`TIMEOUT → connection_lost` und `IDLING → idle`; zukünftige strukturierte
+`CONNECTION_LOST`- oder `NETWORK_ERROR`-Werte würden ebenfalls
+`connection_lost` ergeben. Von den neun Kategorien ist allein
+`invalid_session` mit den aktuellen strukturierten 26.1.2-Enums nicht
+erzeugbar und für eine zukünftige eindeutige API-Ursache reserviert.
+
+Fehler beim Counterupdate werden ohne Eventpayload rate-limitiert als
+`IllegalStateException` gemeldet; die ursprüngliche `RuntimeException` bleibt
+als Cause erhalten. Wirft der Fehlerbeobachter selbst, wird auch diese Exception
+abgefangen, damit kein Fehler den Minecraft-Eventthread verlässt.
 
 Alle Event-Counter beginnen bei jedem Plugin- beziehungsweise Serverstart bei
 null. Es gibt keine Persistenz; auch ein Plugin-Reload kann einen Reset erzeugen.
