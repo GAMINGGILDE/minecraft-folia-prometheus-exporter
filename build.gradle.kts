@@ -49,6 +49,16 @@ java {
     }
 }
 
+val foliaSourceSet = sourceSets.create("folia") {
+    java.srcDir("src/folia/java")
+    resources.setSrcDirs(emptyList<String>())
+}
+
+val foliaTestSourceSet = sourceSets.create("foliaTest") {
+    java.srcDir("src/foliaTest/java")
+    resources.setSrcDirs(emptyList<String>())
+}
+
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -66,6 +76,11 @@ dependencies {
         "io.papermc.paper:paper-api:${providers.gradleProperty("paperApiVersion").get()}"
     )
 
+    add(
+        foliaSourceSet.compileOnlyConfigurationName,
+        "dev.folia:folia-api:${providers.gradleProperty("foliaApiVersion").get()}"
+    )
+
     testImplementation(
         platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}")
     )
@@ -74,7 +89,48 @@ dependencies {
         "io.papermc.paper:paper-api:${providers.gradleProperty("paperApiVersion").get()}"
     )
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    add(
+        foliaTestSourceSet.implementationConfigurationName,
+        platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}")
+    )
+    add(
+        foliaTestSourceSet.implementationConfigurationName,
+        "org.junit.jupiter:junit-jupiter"
+    )
+    add(
+        foliaTestSourceSet.implementationConfigurationName,
+        "dev.folia:folia-api:${providers.gradleProperty("foliaApiVersion").get()}"
+    )
+    add(
+        foliaTestSourceSet.runtimeOnlyConfigurationName,
+        "org.junit.platform:junit-platform-launcher"
+    )
 }
+
+configurations.named(foliaTestSourceSet.implementationConfigurationName) {
+    extendsFrom(configurations.implementation.get())
+}
+
+foliaSourceSet.compileClasspath = files(
+    sourceSets.main.get().output,
+    configurations.runtimeClasspath,
+    configurations.named(foliaSourceSet.compileClasspathConfigurationName)
+)
+foliaSourceSet.runtimeClasspath = files(
+    foliaSourceSet.output,
+    foliaSourceSet.compileClasspath
+)
+foliaTestSourceSet.compileClasspath = files(
+    sourceSets.main.get().output,
+    foliaSourceSet.output,
+    configurations.named(foliaTestSourceSet.compileClasspathConfigurationName)
+)
+foliaTestSourceSet.runtimeClasspath = files(
+    foliaTestSourceSet.output,
+    foliaTestSourceSet.compileClasspath,
+    configurations.named(foliaTestSourceSet.runtimeClasspathConfigurationName)
+)
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(targetJavaVersion)
@@ -98,11 +154,22 @@ tasks.test {
     useJUnitPlatform()
 }
 
+val foliaTest = tasks.register<Test>("foliaTest") {
+    description = "Runs tests for the isolated Folia provider against folia-api."
+    group = "verification"
+    testClassesDirs = foliaTestSourceSet.output.classesDirs
+    classpath = foliaTestSourceSet.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.test)
+}
+
 tasks.jar {
     enabled = false
 }
 
 tasks.shadowJar {
+    dependsOn(tasks.named(foliaSourceSet.classesTaskName))
+    from(foliaSourceSet.output)
     archiveClassifier.set("")
     relocate(
         "io.prometheus",
@@ -142,6 +209,9 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
                 "de/minecraftgilde/prometheus/ExporterPlugin.class" in names
             ) { "Plugin main class is missing from the plugin JAR" }
             check(
+                "de/minecraftgilde/prometheus/folia/provider/FoliaRegionProvider.class" in names
+            ) { "Isolated Folia provider is missing from the plugin JAR" }
+            check(
                 names.any {
                     it.startsWith(
                         "de/minecraftgilde/prometheus/internal/prometheus/metrics/"
@@ -171,6 +241,37 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
                         || it.startsWith("net/minecraft/")
                 }
             ) { "A Paper, Folia, Bukkit, or Minecraft API class was embedded" }
+            val forbiddenInternalName =
+                "io/papermc/paper/threadedregions/RegionizedServer"
+            check(
+                entries
+                    .filter {
+                        it.name.startsWith("de/minecraftgilde/prometheus/")
+                            && it.name.endsWith(".class")
+                    }
+                    .none { entry ->
+                        archive.getInputStream(entry).use { input ->
+                            input.readBytes()
+                                .toString(Charsets.ISO_8859_1)
+                                .contains(forbiddenInternalName)
+                        }
+                    }
+            ) { "Internal Folia RegionizedServer API is referenced by plugin bytecode" }
+            val concreteProviderInternalName =
+                "de/minecraftgilde/prometheus/folia/provider/FoliaRegionProvider"
+            check(
+                listOf(
+                    "de/minecraftgilde/prometheus/ExporterPlugin.class",
+                    "de/minecraftgilde/prometheus/folia/PhaseSixRuntime.class",
+                    "de/minecraftgilde/prometheus/folia/FoliaCollector.class"
+                ).none { commonClass ->
+                    archive.getInputStream(archive.getEntry(commonClass)).use { input ->
+                        input.readBytes()
+                            .toString(Charsets.ISO_8859_1)
+                            .contains(concreteProviderInternalName)
+                    }
+                }
+            ) { "Common bootstrap bytecode statically references the Folia provider" }
             check(
                 names.none {
                     it.startsWith("META-INF/")
@@ -206,8 +307,34 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
     }
 }
 
+val verifyFoliaDependencyIsolation = tasks.register("verifyFoliaDependencyIsolation") {
+    group = "verification"
+    description = "Verifies that folia-api is isolated from common and runtime classpaths."
+
+    doLast {
+        fun modules(configurationName: String) = configurations
+            .getByName(configurationName)
+            .resolvedConfiguration
+            .resolvedArtifacts
+            .map { "${it.moduleVersion.id.group}:${it.name}" }
+
+        check(
+            modules(configurations.compileClasspath.get().name)
+                .none { it == "dev.folia:folia-api" }
+        ) { "folia-api leaked onto the common compile classpath" }
+        check(
+            modules(configurations.runtimeClasspath.get().name)
+                .none { it == "dev.folia:folia-api" }
+        ) { "folia-api leaked onto the plugin runtime classpath" }
+        check(
+            modules(foliaSourceSet.compileClasspathConfigurationName)
+                .contains("dev.folia:folia-api")
+        ) { "The isolated Folia source set does not compile against folia-api" }
+    }
+}
+
 tasks.check {
-    dependsOn(verifyPluginJar)
+    dependsOn(verifyPluginJar, verifyFoliaDependencyIsolation, foliaTest)
 }
 
 tasks.withType<AbstractArchiveTask>().configureEach {

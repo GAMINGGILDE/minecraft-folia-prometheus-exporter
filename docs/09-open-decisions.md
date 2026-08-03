@@ -62,7 +62,10 @@ Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen. Seit Phase 4 wartet er begrenzt a
 Server-, Welt-, Chunk- und Weltgrößensnapshots, validiert repräsentative
 Phase-4-Familien und kontrollierte Labels. Seit Phase 5 prüft er die zehn
 Eventfamilien und den laufenden Listener-Collector; Entity- und Folia-Familien
-bleiben ausgeschlossen.
+bleiben dort ausgeschlossen. Seit Phase 6 erwartet Paper den Folia-Status
+`unsupported`, genau eine Warnung und keine Folia-Familie. Folia erwartet
+`running` und prüft bei vorhandenen Beobachtungen die sechs Phase-6-Familien;
+ohne Beobachtung sind fehlende dynamische Samples ausdrücklich zulässig.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -215,34 +218,45 @@ Details stehen in ADR 0013.
 
 Details stehen in ADR 0014.
 
-## 9.7 Festgelegt für den späteren Folia-Provider
+## 9.7 In Phase 6 umgesetzt
 
-- Der Provider wird erst in Phase 6 in einem isolierten Package implementiert.
-- Seine Compile-API ist
-  `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`.
-- NMS, interne Klassen und insbesondere
-  `io.papermc.paper.threadedregions.RegionizedServer` sind verboten.
-- Aktivierung erfolgt ausschließlich anhand genau der öffentlichen Folia-API, die
-  für die konkrete Messung benötigt wird.
-- Servername, Versionsstring und die auf beiden Plattformen verfügbaren Scheduler
-  sind keine Erkennungsmerkmale.
-- Allgemeiner Code darf die konkrete Providerklasse vor erfolgreicher
-  Capability-Prüfung nicht statisch referenzieren oder laden.
-- Fehlt die Capability auf Paper, wird ein konfigurierter Folia-Collector nicht
-  gestartet, einmalig verständlich gewarnt und intern als `unsupported` markiert.
-  Der Pluginstart läuft weiter; Folia-Metriken und künstliche Nullwerte werden
-  nicht exportiert.
-- Eine zusätzliche Statusmetrik ist derzeit nicht beschlossen. Wird sie später
-  eingeführt, verwendet sie ausschließlich feste Zustände wie `enabled`,
-  `disabled`, `unsupported` und `failed` und wird zuvor im Metrikkatalog ergänzt.
+- Die tatsächlichen gepinnten API-Artefakte bestätigen
+  `Server#getRegionTPS(World,int,int)` als Folia-exklusive öffentliche
+  Mess-Capability. Rückgabefenster sind `5s`, `15s`, `1m`, `5m`, `15m`.
+- Es gibt keine öffentliche Regions-ID, Vollauflistung oder Lifecycle-Events.
+  Der Provider misst daher ausschließlich über öffentliche Spieler-, Spawn- und
+  optionale Force-Load-Anker und nennt das Ergebnis „beobachtete Regionen“.
+- Anker werden auf dem besitzenden Region-Thread mit der öffentlichen
+  `isOwnedByCurrentRegion`-Methode dedupliziert. Spielerzahlen entstehen aus
+  neutralisierten Spielerankern ohne Name oder UUID.
+- Allgemeiner Code kompiliert nur gegen Paper. Das getrennte `folia`-Source-Set
+  kompiliert gegen
+  `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`; die API wird
+  nicht eingebettet und beide Ausgaben bilden ein gemeinsames JAR.
+- Reflection prüft nur die öffentliche Methodensignatur und lädt danach die
+  eigene Providerklasse. Servernamen, Versionen, Scheduler und interne Klassen
+  sind keine Capability oder Datenquelle.
+- Paper bleibt bei aktivem Collector nach genau einer Warnung `unsupported` und
+  registriert keine Folia-Familie. Deaktiviert bleibt der Collector ohne Warnung
+  `disabled`. Health und Readiness sind von diesem optionalen Zustand unabhängig.
+- Die Registry ersetzt erfolgreiche Generationen vollständig, verwirft
+  verspätete Updates, akzeptiert nach Stop nichts und bewahrt bei Fehler/Timeout
+  den letzten vollständigen Snapshot bis zur TTL.
+- Implementiert sind beobachtete Regionen, TPS-Verteilung, Regionen unter
+  Schwellen, Regionen mit Spielern, Spieler pro Region und Alter der ältesten
+  gültigen Observation.
+- Quantile verwenden lineare Typ-7-Interpolation ohne Rundung. Schwellen sind
+  eindeutig, in `(0,20]`, absteigend und kanonisch formatiert. Leere und
+  ungültige Daten erzeugen keine Samples.
+- Aktive Regionsgesamtzahl, Tickdauer, Überlastung und Tickverzögerung bleiben
+  mangels öffentlicher API nicht verfügbar.
+- Eine zusätzliche Statusmetrik wurde nicht eingeführt; der vorhandene
+  `minecraft_exporter_collector_state` bildet `folia` vollständig ab.
 
-Details stehen in ADR 0010.
+Details stehen in ADR 0010 und ADR 0015.
 
 ## 9.8 Noch offen
 
-- genaue Strategie zur Regionsbeobachtung über öffentliche APIs
-- konkrete öffentliche Folia-API für die in Phase 6 implementierbaren
-  Regionsmetriken
 - genaue Entity-Abgleichstrategie
 - gewünschte Standard-Buckets für Histogramme
 - Release- und Changelog-Format
@@ -287,3 +301,8 @@ Details stehen in ADR 0010.
 - direkte threadsichere Eventinkremente ohne Schedulerwechsel
 - Chunk-Generated-Semantik und gemeinsame Weltlabelvalidierung
 - nicht persistenter Lifecycle der Event-Counter
+- öffentliche Folia-Regions-TPS-Quelle und feste Fenster
+- Beobachtungsanker, Ownership-Deduplizierung und Grenze zu aktiven Regionen
+- Klassenlade- und Source-Set-Isolation des Folia-Providers
+- Folia-Registry-, TTL-, Quantil-, Schwellen- und Nullsample-Semantik
+- unterstützte und nicht verfügbare Phase-6-Metriken

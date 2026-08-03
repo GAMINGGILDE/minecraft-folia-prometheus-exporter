@@ -12,7 +12,7 @@ http:
 collection:
   server-interval: "5s"
   world-interval: "10s"
-  region-interval: "5s"
+  folia-interval: "5s"
   entity-interval: "30s"
   filesystem-interval: "30m"
   timeout: "10s"
@@ -24,7 +24,7 @@ collectors:
   worlds: true
   chunks: true
   entities: true
-  folia-regions: true
+  folia: true
   jvm: true
   process: true
   filesystem: true
@@ -38,30 +38,28 @@ folia:
   observation-sources:
     player-regions: true
     world-spawns: true
-    force-loaded-chunks: true
+    force-loaded-chunks: false
     configured-locations: []
 
   observation-ttl: "60s"
 
-  tps:
-    windows:
-      - "5s"
-      - "15s"
-      - "1m"
-      - "5m"
-      - "15m"
-    statistics:
-      - "min"
-      - "p05"
-      - "p50"
-      - "p95"
-      - "max"
-      - "average"
-    thresholds:
-      - 19.5
-      - 18.0
-      - 15.0
-      - 10.0
+  tps-windows:
+    - "5s"
+    - "15s"
+    - "1m"
+    - "5m"
+    - "15m"
+  tps-statistics:
+    - "min"
+    - "p05"
+    - "p50"
+    - "p95"
+    - "max"
+    - "average"
+  tps-thresholds:
+    - 19.0
+    - 18.0
+    - 15.0
 
 filesystem:
   include-world-sizes: true
@@ -90,7 +88,7 @@ logging:
 - HTTP-Pfade beginnen mit `/`, enthalten mindestens ein Segment und müssen
   eindeutig sein.
 - `http.worker-threads` muss positiv sein.
-- `collection.server-interval`, `world-interval`, `region-interval` und
+- `collection.server-interval`, `world-interval`, `folia-interval` und
   `entity-interval` müssen mindestens `50ms` betragen, weil sie in Serverticks
   darstellbar sein müssen.
 - `collection.filesystem-interval`, `collection.timeout` und
@@ -103,11 +101,14 @@ logging:
   abgelehnt.
 - Experimentelle oder interne Provider sind in Version 1 nicht konfigurierbar.
 - Spielermetriken existieren nicht als aktivierbare Option.
-- Die genaue Behandlung von `folia-regions: true` auf Paper wird erst zusammen
-  mit dem isolierten Folia-Provider in Phase 6 implementiert: Der Collector wird
-  nicht gestartet, einmalig als nicht unterstützt protokolliert und intern als
-  `unsupported` markiert. Der Pluginstart läuft weiter und es werden keine
-  Folia-Metriken mit künstlichen Nullwerten exportiert.
+- Bei `collectors.folia: true` auf Paper wird der Collector nicht gestartet,
+  genau einmal als nicht unterstützt protokolliert und als `unsupported`
+  markiert. Pluginstart, Health und Readiness laufen weiter; Folia-Familien und
+  künstliche Nullwerte fehlen.
+- `collection.region-interval`, `collectors.folia-regions`,
+  `folia.tps.windows`, `folia.tps.statistics` und `folia.tps.thresholds` werden
+  als Legacy-Aliasse weiter gelesen. Sind neuer und alter Schlüssel vorhanden,
+  gewinnt deterministisch der neue Phase-6-Schlüssel.
 
 ## Konfigurationsmodell
 
@@ -127,6 +128,9 @@ logging:
   `filesystem.world-size-scan-concurrency`.
 - Phase 5 verwendet ausschließlich den bereits vorgesehenen gemeinsamen Schalter
   `collectors.events`. Es gibt keine einzelnen Schalter pro Eventfamilie.
+- Phase 6 verwendet `collectors.folia`, `collection.folia-interval` und die
+  abgegrenzte `folia`-Sektion. Die Capability-Prüfung erfolgt erst im Lifecycle,
+  nicht im serverunabhängigen Konfigurationsmodell.
 - Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
   Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
   und HTTP-Dienst.
@@ -195,8 +199,8 @@ beschleunigen, erhöht aber die konkurrierende I/O-Last. Die Option verändert
 weder den Namen noch die Labels von `minecraft_world_size_bytes`; interne
 Weltpfade werden niemals exportiert.
 
-`collection.region-interval`, `collection.entity-interval`, die Entity-, Folia-,
-Gameplay- und detaillierten Schalter sowie die übrigen
+`collection.entity-interval`, die Entity-, Gameplay- und detaillierten Schalter
+sowie die übrigen
 `filesystem.include-*`-Optionen bleiben für spätere Phasen in der Konfiguration.
 Sie lösen in Phase 4 keine zusätzliche Metrikerfassung aus.
 
@@ -216,3 +220,31 @@ Der Event-Collector besitzt bewusst keine Intervalle oder Timeouts. Seine
 Counter werden direkt beim jeweiligen Ereignis erhöht. Alle zehn Familien werden
 gemeinsam geschaltet; feinere Optionen würden in Phase 5 nur zusätzliche
 Konfigurationskomplexität ohne technische Notwendigkeit erzeugen.
+
+## Phase-6-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `collectors.folia` | `true` | aktiviert die capability-geschützte Folia-Gruppe |
+| `collection.folia-interval` | `5s` | Abstand vollständiger Beobachtungsläufe; mindestens `50ms` |
+| `folia.observation-sources.player-regions` | `true` | Spielerposition kurz auf dem Entity Scheduler als Anker lesen |
+| `folia.observation-sources.world-spawns` | `true` | Weltspawn als öffentlichen Anker verwenden |
+| `folia.observation-sources.force-loaded-chunks` | `false` | force-loaded Chunks zusätzlich als Anker verwenden |
+| `folia.observation-sources.configured-locations` | `[]` | in Phase 6 nur leer zulässig; freie Syntax ist nicht implementiert |
+| `folia.observation-ttl` | `60s` | Gültigkeit einer Observation; mindestens das Folia-Intervall |
+| `folia.tps-windows` | alle fünf API-Fenster | feste Teilmenge aus `5s`, `15s`, `1m`, `5m`, `15m` |
+| `folia.tps-statistics` | alle sechs Werte | feste Teilmenge aus `min`, `p05`, `p50`, `p95`, `max`, `average` |
+| `folia.tps-thresholds` | `19`, `18`, `15` | endliche eindeutige Werte in `(0,20]` |
+
+Mindestens eine öffentliche Beobachtungsquelle muss aktiv sein. Unbekannte oder
+doppelte Fenster und Statistiken werden abgelehnt. Schwellenwertduplikate werden
+ebenfalls abgelehnt statt normalisiert. Ausgabe und Aggregation sind unabhängig
+von der YAML-Reihenfolge deterministisch: Fenster folgen der API-Reihenfolge,
+Statistiken der obigen festen Reihenfolge und Schwellenwerte werden absteigend
+mit kanonischem Label formatiert.
+
+Alle Folia-Dauern müssen positiv und ohne Überlauf als Millisekunden darstellbar
+sein. Eine TTL unter dem Erfassungsintervall wird abgelehnt. Bei deaktiviertem
+Collector gibt es keine Capability-Warnung und keine Familie. Konfigurationswerte
+für Tickdauer, Tickverzögerung, Überlastung oder interne Provider existieren
+bewusst nicht.

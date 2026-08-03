@@ -61,12 +61,12 @@ public record ExporterConfiguration(
                 false
             ),
             new FoliaConfiguration(
-                new ObservationSourcesConfiguration(true, true, true, List.of()),
+                new ObservationSourcesConfiguration(true, true, false, List.of()),
                 Duration.ofSeconds(60),
                 new TpsConfiguration(
                     List.of("5s", "15s", "1m", "5m", "15m"),
                     List.of("min", "p05", "p50", "p95", "max", "average"),
-                    List.of(19.5, 18.0, 15.0, 10.0)
+                    List.of(19.0, 18.0, 15.0)
                 )
             ),
             new FilesystemConfiguration(true, 1, true, false, false),
@@ -111,6 +111,11 @@ public record ExporterConfiguration(
             Objects.requireNonNull(timeout, "timeout");
             Objects.requireNonNull(filesystemTimeout, "filesystemTimeout");
         }
+
+        /** Phase-6 name for the legacy {@code regionInterval} model field. */
+        public Duration foliaInterval() {
+            return regionInterval;
+        }
     }
 
     public record CollectorsConfiguration(
@@ -128,7 +133,13 @@ public record ExporterConfiguration(
         boolean pluginInfo,
         boolean detailedEntityTypes,
         boolean commands
-    ) {}
+    ) {
+
+        /** Phase-6 name for the legacy {@code foliaRegions} model field. */
+        public boolean folia() {
+            return foliaRegions;
+        }
+    }
 
     public record FoliaConfiguration(
         ObservationSourcesConfiguration observationSources,

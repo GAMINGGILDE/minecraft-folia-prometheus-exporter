@@ -224,9 +224,10 @@ unimplementiert.
 
 ## 2.8 Folia
 
-Diese Metrikgruppe ist Folia-spezifisch und wird später über einen isolierten,
-ausschließlich auf öffentlichen APIs basierenden Provider implementiert. Der
-Provider und seine Feature-Erkennung sind nicht Bestandteil von Phase 1.
+Phase 6 implementiert diese Metrikgruppe über einen isolierten, ausschließlich
+auf öffentlichen APIs basierenden Provider. Messquelle ist
+`Server#getRegionTPS(World,int,int)` aus
+`folia-api:26.1.2.build.8-stable`.
 
 | Metrik | Typ | Labels | Standard | Status |
 |---|---|---|---:|---|
@@ -236,10 +237,10 @@ Provider und seine Feature-Erkennung sind nicht Bestandteil von Phase 1.
 | `minecraft_folia_regions_with_players` | Gauge | `world` | an | Abgeleitet |
 | `minecraft_folia_players_per_region` | Gauge | `world`, `stat` | an | Abgeleitet |
 | `minecraft_folia_region_snapshot_age_seconds` | Gauge | `world` | an | Stabil |
-| `minecraft_folia_active_regions` | Gauge | `world` | aus | Experimentell |
-| `minecraft_folia_region_tick_duration_seconds` | Gauge/Histogram | `world`, `window`, `stat` | aus | Experimentell |
-| `minecraft_folia_overloaded_regions` | Gauge | `world`, `threshold_seconds` | aus | Experimentell |
-| `minecraft_folia_region_tick_delay_seconds` | Gauge | `world`, `window`, `stat` | aus | Experimentell |
+| `minecraft_folia_active_regions` | Gauge | `world` | aus | Nicht verfügbar |
+| `minecraft_folia_region_tick_duration_seconds` | Gauge/Histogram | `world`, `window`, `stat` | aus | Nicht verfügbar |
+| `minecraft_folia_overloaded_regions` | Gauge | `world`, `threshold_seconds` | aus | Nicht verfügbar |
+| `minecraft_folia_region_tick_delay_seconds` | Gauge | `world`, `window`, `stat` | aus | Nicht verfügbar |
 
 TPS-Fenster:
 
@@ -258,8 +259,40 @@ Statistiken:
 - `max`
 - `average`
 
-Wichtig: Ohne vollständige öffentliche Regionsauflistung bedeutet
-`observed_regions` nur die vom Plugin erkannten Messregionen.
+Die öffentliche API liefert keine vollständige Regionsauflistung und keine
+Regions-ID. Beobachtungsanker stammen aus Spielerpositionen, Weltspawns und
+optional force-loaded Chunks. Auf dem Region-Thread werden Anker derselben
+aktuellen Region mit `isOwnedByCurrentRegion` dedupliziert. Deshalb ist
+`minecraft_folia_observed_regions` ausschließlich die Anzahl aktuell gültiger,
+tatsächlich beobachteter Regionen je Welt und niemals die Zahl aller aktiven
+Regionen.
+
+`minecraft_folia_region_tps` aggregiert die gültigen Regionswerte exakt über
+`min`, `p05`, `p50`, `p95`, `max` und `average`. Quantile verwenden aufsteigend
+sortierte Werte und lineare Typ-7-Interpolation `h=(n-1)q`; es wird nicht
+gerundet. Ein Einzelwert ergibt für jede Statistik denselben Wert. Nichtfinite,
+negative oder über der öffentlichen maximalen Tickrate `10000` liegende Werte
+werden nicht publiziert. Ohne gültige Beobachtung fehlt die dynamische Reihe.
+
+`minecraft_folia_regions_below_tps` zählt mit einem strikt kleineren Vergleich.
+Schwellenwerte sind endlich, liegen in `(0,20]`, werden absteigend ausgegeben und
+kanonisch als beispielsweise `19`, `18` und `15` formatiert. Fenster und
+Statistiken besitzen ausschließlich die oben genannten festen Labelmengen.
+
+Regionale Spielerzahlen werden aus Positionsankern aggregiert, die zuvor auf dem
+Entity Scheduler gelesen wurden. `regions_with_players` zählt beobachtete
+Regionen mit mindestens einem solchen Anker; `players_per_region` verwendet
+dieselbe exakte Statistikdefinition. Es werden weder Playerobjekte noch Namen
+oder UUIDs gespeichert.
+
+`minecraft_folia_region_snapshot_age_seconds` ist je Welt das Alter der ältesten
+noch gültigen Beobachtung. Die Standard-TTL beträgt 60 Sekunden. Entladene
+Welten, entfernte Anker und abgelaufene Beobachtungen hinterlassen keine Reihen.
+
+Die öffentliche API stellt keine vollständige Zahl aktiver Regionen, regionale
+Tickdauer, Tickverzögerung oder einen Überlastungszustand bereit. Die vier als
+„Nicht verfügbar“ markierten Familien werden daher nicht registriert. Tickdauer
+wird insbesondere nicht aus `20 / TPS` geschätzt.
 
 ## 2.9 Aggregiertes Gameplay
 

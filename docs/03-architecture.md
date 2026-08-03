@@ -44,6 +44,31 @@ des Events nur primitive Werte, strukturierte Enumwerte und validierte
 Weltlabels. Er verwendet keine periodischen Tasks und speichert keine
 Minecraft-Objekte im Registryzustand.
 
+Phase 6 ergänzt auf Folia den capability-geschützten Snapshotpfad:
+
+```text
+öffentliche Global-/Entity-/Region-Scheduler
+                      │
+                      ▼
+       neutrale Spawn-/Chunk-/Spieleranker
+                      │
+                      ▼
+ öffentliche Ownership-Deduplizierung + getRegionTPS
+                      │
+                      ▼
+       transaktionale RegionObservationRegistry
+                      │
+                      ▼
+          ein immutable Folia-Snapshot
+                      │
+                      ▼
+       private PrometheusRegistry / MetricsEndpoint
+```
+
+Der konkrete Provider wird auf Paper nicht geladen. Ein Scrape liest die
+Observation-Liste genau einmal, filtert nur noch anhand der TTL und greift nicht
+auf Server, Welten, Spieler, Chunks oder Scheduler zu.
+
 Die JVM- und Prozessinstrumentierungen aus Phase 3 bilden einen getrennten,
 serverunabhängigen Datenpfad:
 
@@ -91,6 +116,9 @@ wurden bereits während öffentlicher Events erhöht.
   Server-Aktivierungszeitpunkt und erzeugt `PhaseFourRuntime`
 - erzeugt `PhaseFiveRuntime`, das den konfigurierten Event-Collector vor dem
   Core-Start beim vorhandenen Coordinator registriert
+- erzeugt `PhaseSixRuntime`, das nur die neutrale Capability- und Factory-Grenze
+  registriert; die konkrete Providerklasse wird erst beim Collectorstart nach
+  erfolgreicher Capability geladen
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
 - setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
@@ -280,27 +308,35 @@ automatisch unbereit.
 
 ### `RegionObservationRegistry`
 
-- verwaltet interne Beobachtungspunkte
-- keine Spieleridentitäten in Snapshots
-- Deduplizierung von Beobachtungen
-- Ablauf alter Beobachtungen
-- Aggregation je Welt
+- arbeitet threadsicher und transaktional mit genau einem aktiven Lauf
+- akzeptiert Updates nur für die aktuelle monotone Laufidentität
+- verwirft ältere, verspätete und nach Stop eintreffende Ergebnisse
+- ersetzt nach Erfolg die vollständige Beobachtungsmenge und behält nach Fehler
+  den letzten vollständigen Stand
+- entfernt ehemalige und abgelaufene Beobachtungen ohne wachsenden Labelcache
+- speichert nur Weltlabel, internen neutralen Chunkanker, Zeitpunkt, TPS-Fenster
+  und aggregierte Spielerzahl; keine Minecraft-Liveobjekte oder Identitäten
 
 ### Folia-spezifischer Provider
 
-- wird erst in Phase 6 eingeführt
+- ist in Phase 6 implementiert
 - ist vom allgemeinen, gegen `paper-api` kompilierten Code isoliert
+- liegt in einem getrennten Gradle-Source-Set unter `src/folia/java`
 - kompiliert gegen `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`
 - verwendet ausschließlich öffentliche Folia-APIs
-- wird nicht in Phase 1 auf Vorrat angelegt
-- wird auch nicht in Phase 2 implementiert
-- aktiviert sich ausschließlich anhand der konkret benötigten öffentlichen
-  Folia-API-Capability
+- aktiviert sich ausschließlich anhand von
+  `Server#getRegionTPS(World,int,int)` samt Rückgabetyp `double[]`
 - wird auf Paper vor der Capability-Prüfung weder referenziert noch geladen
 - verwendet weder Servername noch Versionsstring oder Scheduler-Verfügbarkeit als
   Plattformmerkmal
 - verwendet insbesondere nicht die interne Klasse
   `io.papermc.paper.threadedregions.RegionizedServer`
+- beobachtet nur Regionen mit öffentlichen Spieler-, Spawn- oder optionalen
+  Force-Load-Ankern und behauptet keine vollständige aktive Regionszahl
+- dedupliziert Anker auf dem Region-Thread mit
+  `Server#isOwnedByCurrentRegion(World,int,int)`
+- registriert sechs Folia-Familien gemeinsam in der privaten Registry; ohne
+  gültige Beobachtung fehlen dynamische Samples
 
 ## 3.4 Collector-Gruppen
 
@@ -323,8 +359,10 @@ GameplayCollector (optional)
 Registry gebunden. Seit Phase 5 ist `EventCollector` ebenfalls ein
 `ManagedCollector`, verwendet aber wegen seines fortlaufenden ereignisbasierten
 Zustands kein Snapshot-Repository und keinen Scheduler. Server, Welten, Chunks
-und Weltgrößen bleiben separate periodische Snapshot-Collector. Entity-, Folia-
-und Gameplay-Collector bleiben späteren Phasen vorbehalten.
+und Weltgrößen bleiben separate periodische Snapshot-Collector. Seit Phase 6
+ist `FoliaRegionCollector` ein capability-geschützter `ManagedCollector`, dessen
+Provider intern den vorhandenen periodischen Snapshot-Collector wiederverwendet.
+Entity- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 
 ## 3.5 Fehlerisolation
 
@@ -340,6 +378,9 @@ und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 - Ein konfigurierter, aber nicht unterstützter Folia-Collector wird nicht gestartet,
   einmalig verständlich als `unsupported` gemeldet und exportiert keine
   Folia-Nullwerte.
+- Ein Fehler eines Folia-Ankers verwirft nur den unvollständigen Lauf; der letzte
+  vollständige Regionssnapshot bleibt bis zur TTL verfügbar und andere
+  Collector laufen weiter.
 - Experimentelle oder interne Provider sind kein Bestandteil von Version 1.
 
 ## 3.6 Abhängigkeitsisolation
@@ -357,6 +398,13 @@ deaktiviert das ungeschattete Standard-JAR und erzeugt genau ein Artefakt ohne
 Abhängigkeitssignaturen. Eine Buildprüfung kontrolliert Descriptor, Hauptklasse,
 Relocation und den Ausschluss von Paper-, Folia-, Bukkit- und Minecraft-Klassen.
 
+Phase 6 ergänzt getrennte `folia`- und `foliaTest`-Source-Sets. Die allgemeine
+Compile-Classpath enthält keine Folia-API; die Provider-Classpath enthält die
+Folia-API ausschließlich zum Kompilieren. `check` prüft diese Trennung, den
+Ausschluss der Folia-API aus der Runtime, das Vorhandensein des Providers im
+gemeinsamen JAR, verbotene interne Bytecodereferenzen und das Fehlen einer
+statischen Providerreferenz im gemeinsamen Bootstrap.
+
 Jede `MetricsCore` erzeugt genau eine eigene `PrometheusRegistry` und unmittelbar
 danach genau einen instanzgebundenen `JvmMetricsRegistrar` und eine
 `ExporterMetrics`. Die Registry wird nicht geteilt; daher ist kein statischer
@@ -369,7 +417,7 @@ Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-5-Lifecycle
+## 3.7 Phase-6-Lifecycle
 
 ```text
 onEnable
@@ -382,8 +430,12 @@ onEnable
   → Phase-4-Metrikfamilien registrieren
   → Phase-4-Collector beim Coordinator registrieren
   → Event-Collector beim Coordinator registrieren
+  → neutralen Folia-Collector beim Coordinator registrieren
   → CollectorCoordinator starten
     → bei aktiviertem Event-Collector Counter und einen Listener registrieren
+    → Folia-Capability prüfen
+      → Paper: einmal warnen, unsupported, keine Providerklasse/Familie laden
+      → Folia: eigene Providerklasse laden, Familien registrieren, Capture starten
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1
 
@@ -392,7 +444,8 @@ onDisable oder Startfehler
   → HTTP-Server und Workerpool stoppen
   → gestartete Collector rückwärts stoppen
     → Eventannahme sperren und Listener abmelden
-  → alle verbliebenen Phase-4-Schedulertasks abbrechen
+    → Folia-Capture invalidieren und keine Registryupdates mehr annehmen
+  → alle verbliebenen Phase-4-/Phase-6-Schedulertasks abbrechen
   → Registry und Core-Zustand freigeben
 ```
 

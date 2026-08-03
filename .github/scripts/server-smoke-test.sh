@@ -7,6 +7,7 @@ activation_marker="FoliaPrometheusExporter started."
 failure_pattern="(Could not load|Failed to load|Error occurred while (loading|enabling)|Could not pass event).*FoliaPrometheusExporter|Task .*FoliaPrometheusExporter.*exception|FoliaPrometheusExporter.*(Exception|ERROR|SEVERE)|Exception.*FoliaPrometheusExporter"
 thread_failure_pattern="(AsyncCatcher|Thread check failed|not (the )?tick thread|not owned by (the )?current region|IllegalStateException:.*(region|thread))"
 event_failure_pattern="Could not pass event|EventException|IllegalPluginAccessException|(Unable|Failed|Could not) to register event|duplicate(d)? listener|listener.*already registered|(deprecated|deprecation).*(exception|error|fail)|(exception|error|fail).*(deprecated|deprecation)"
+folia_unsupported_warning="The Folia collector is enabled, but the public Server#getRegionTPS(World,int,int) capability is unavailable; the collector is unsupported and no Folia metrics will be registered."
 startup_timeout_seconds=240
 shutdown_timeout_seconds=120
 snapshot_timeout_seconds=90
@@ -232,13 +233,63 @@ fi
 for forbidden_prefix in \
   minecraft_world_entities \
   minecraft_commands_total \
-  minecraft_chunk_load_failures_total \
-  minecraft_folia_; do
+  minecraft_chunk_load_failures_total; do
   if grep -Fq "$forbidden_prefix" <<<"$metrics_response"; then
     echo "Out-of-scope metric unexpectedly exposed: $forbidden_prefix" >&2
     exit 1
   fi
 done
+
+if [[ "${EXPECTED_PLATFORM:-}" == "Paper" ]]; then
+  if grep -Fq 'minecraft_folia_' <<<"$metrics_response"; then
+    echo "Paper unexpectedly exposed Folia metric families." >&2
+    exit 1
+  fi
+  if ! grep -Eq '^minecraft_exporter_collector_state\{collector="folia",state="unsupported"\}[[:space:]]1' <<<"$metrics_response"; then
+    echo "Paper Folia collector is not in the unsupported state." >&2
+    exit 1
+  fi
+  warning_count="$(grep -Fc "$folia_unsupported_warning" "$server_log" || true)"
+  if [[ "$warning_count" -ne 1 ]]; then
+    echo "Expected exactly one Folia capability warning on Paper, found $warning_count." >&2
+    grep -Fn "$folia_unsupported_warning" "$server_log" >&2 || true
+    exit 1
+  fi
+elif [[ "${EXPECTED_PLATFORM:-}" == "Folia" ]]; then
+  if ! grep -Eq '^minecraft_exporter_collector_state\{collector="folia",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
+    echo "Folia collector did not reach running state." >&2
+    exit 1
+  fi
+  folia_snapshot_deadline=$((SECONDS + snapshot_timeout_seconds))
+  while ! grep -Eq '^minecraft_folia_observed_regions\{world="[^"]+"\}[[:space:]][1-9][0-9]*(\.0)?$' <<<"$metrics_response" \
+    && ((SECONDS < folia_snapshot_deadline)); do
+    sleep 1
+    metrics_response="$(curl --fail --silent --show-error --max-time 10 \
+      "$exporter_base_url/metrics")"
+  done
+  for folia_metric in \
+    minecraft_folia_observed_regions \
+    minecraft_folia_region_tps \
+    minecraft_folia_regions_below_tps \
+    minecraft_folia_regions_with_players \
+    minecraft_folia_players_per_region \
+    minecraft_folia_region_snapshot_age_seconds; do
+    if ! grep -Eq "^# HELP ${folia_metric} " <<<"$metrics_response" \
+      || ! grep -Eq "^# TYPE ${folia_metric} gauge$" <<<"$metrics_response" \
+      || ! grep -Eq "^${folia_metric}\\{" <<<"$metrics_response"; then
+      echo "Missing, invalid, or empty Phase-6 Prometheus family: $folia_metric" >&2
+      exit 1
+    fi
+  done
+  if grep -Fq "$folia_unsupported_warning" "$server_log"; then
+    echo "Folia logged the Paper-only capability warning." >&2
+    exit 1
+  fi
+  if grep -Eq '^minecraft_folia_.*[[:space:]](NaN|[+-]Inf|-([0-9]|\.))' <<<"$metrics_response"; then
+    echo "Folia exposed a non-finite or negative Phase-6 sample." >&2
+    exit 1
+  fi
+fi
 
 if grep -Eiq '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' <<<"$metrics_response"; then
   echo "A UUID-like value appeared in the metrics output." >&2

@@ -66,7 +66,12 @@ public final class ConfigurationLoader {
         return new CollectionConfiguration(
             durationValue(source, "collection.server-interval", defaults.serverInterval()),
             durationValue(source, "collection.world-interval", defaults.worldInterval()),
-            durationValue(source, "collection.region-interval", defaults.regionInterval()),
+            durationValue(
+                source,
+                "collection.folia-interval",
+                "collection.region-interval",
+                defaults.foliaInterval()
+            ),
             durationValue(source, "collection.entity-interval", defaults.entityInterval()),
             durationValue(
                 source,
@@ -92,7 +97,12 @@ public final class ConfigurationLoader {
             booleanValue(source, "collectors.worlds", defaults.worlds()),
             booleanValue(source, "collectors.chunks", defaults.chunks()),
             booleanValue(source, "collectors.entities", defaults.entities()),
-            booleanValue(source, "collectors.folia-regions", defaults.foliaRegions()),
+            booleanValue(
+                source,
+                "collectors.folia",
+                "collectors.folia-regions",
+                defaults.folia()
+            ),
             booleanValue(source, "collectors.jvm", defaults.jvm()),
             booleanValue(source, "collectors.process", defaults.process()),
             booleanValue(source, "collectors.filesystem", defaults.filesystem()),
@@ -140,9 +150,24 @@ public final class ConfigurationLoader {
             ),
             durationValue(source, "folia.observation-ttl", defaults.observationTtl()),
             new TpsConfiguration(
-                stringList(source, "folia.tps.windows", tpsDefaults.windows()),
-                stringList(source, "folia.tps.statistics", tpsDefaults.statistics()),
-                doubleList(source, "folia.tps.thresholds", tpsDefaults.thresholds())
+                stringList(
+                    source,
+                    "folia.tps-windows",
+                    "folia.tps.windows",
+                    tpsDefaults.windows()
+                ),
+                stringList(
+                    source,
+                    "folia.tps-statistics",
+                    "folia.tps.statistics",
+                    tpsDefaults.statistics()
+                ),
+                doubleList(
+                    source,
+                    "folia.tps-thresholds",
+                    "folia.tps.thresholds",
+                    tpsDefaults.thresholds()
+                )
             )
         );
     }
@@ -233,6 +258,18 @@ public final class ConfigurationLoader {
         throw typeError(path, "boolean", value);
     }
 
+    private static boolean booleanValue(
+        ConfigurationSource source,
+        String path,
+        String legacyPath,
+        boolean defaultValue
+    ) {
+        if (source.get(path) != null) {
+            return booleanValue(source, path, defaultValue);
+        }
+        return booleanValue(source, legacyPath, defaultValue);
+    }
+
     private static Duration durationValue(
         ConfigurationSource source,
         String path,
@@ -246,6 +283,18 @@ public final class ConfigurationLoader {
             return DurationParser.parse(path, string);
         }
         throw typeError(path, "duration string", value);
+    }
+
+    private static Duration durationValue(
+        ConfigurationSource source,
+        String path,
+        String legacyPath,
+        Duration defaultValue
+    ) {
+        if (source.get(path) != null) {
+            return durationValue(source, path, defaultValue);
+        }
+        return durationValue(source, legacyPath, defaultValue);
     }
 
     private static List<String> stringList(
@@ -271,6 +320,18 @@ public final class ConfigurationLoader {
         return List.copyOf(result);
     }
 
+    private static List<String> stringList(
+        ConfigurationSource source,
+        String path,
+        String legacyPath,
+        List<String> defaultValue
+    ) {
+        if (source.get(path) != null) {
+            return stringList(source, path, defaultValue);
+        }
+        return stringList(source, legacyPath, defaultValue);
+    }
+
     private static List<Double> doubleList(
         ConfigurationSource source,
         String path,
@@ -292,6 +353,18 @@ public final class ConfigurationLoader {
             result.add(number.doubleValue());
         }
         return List.copyOf(result);
+    }
+
+    private static List<Double> doubleList(
+        ConfigurationSource source,
+        String path,
+        String legacyPath,
+        List<Double> defaultValue
+    ) {
+        if (source.get(path) != null) {
+            return doubleList(source, path, defaultValue);
+        }
+        return doubleList(source, legacyPath, defaultValue);
     }
 
     private static ConfigurationException typeError(

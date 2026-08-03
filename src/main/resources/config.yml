@@ -9,7 +9,7 @@ http:
 collection:
   server-interval: "5s"
   world-interval: "10s"
-  region-interval: "5s"
+  folia-interval: "5s"
   entity-interval: "30s"
   filesystem-interval: "30m"
   timeout: "10s"
@@ -21,7 +21,7 @@ collectors:
   worlds: true
   chunks: true
   entities: true
-  folia-regions: true
+  folia: true
   jvm: true
   process: true
   filesystem: true
@@ -35,30 +35,27 @@ folia:
   observation-sources:
     player-regions: true
     world-spawns: true
-    force-loaded-chunks: true
+    force-loaded-chunks: false
     configured-locations: []
 
   observation-ttl: "60s"
-
-  tps:
-    windows:
-      - "5s"
-      - "15s"
-      - "1m"
-      - "5m"
-      - "15m"
-    statistics:
-      - "min"
-      - "p05"
-      - "p50"
-      - "p95"
-      - "max"
-      - "average"
-    thresholds:
-      - 19.5
-      - 18.0
-      - 15.0
-      - 10.0
+  tps-windows:
+    - "5s"
+    - "15s"
+    - "1m"
+    - "5m"
+    - "15m"
+  tps-statistics:
+    - "min"
+    - "p05"
+    - "p50"
+    - "p95"
+    - "max"
+    - "average"
+  tps-thresholds:
+    - 19.0
+    - 18.0
+    - 15.0
 
 filesystem:
   include-world-sizes: true

@@ -104,6 +104,7 @@ jobs:
         env:
           SERVER_DIRECTORY: smoke/${{ matrix.project }}
           EXPECTED_GIT_COMMIT: ${{ github.sha }}
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
         run: .github/scripts/server-smoke-test.sh "$SERVER_DIRECTORY"
 
       - name: Upload server log

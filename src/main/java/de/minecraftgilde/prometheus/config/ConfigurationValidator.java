@@ -18,12 +18,28 @@ public final class ConfigurationValidator {
         "max",
         "average"
     );
+    private static final Set<String> ALLOWED_TPS_WINDOWS = Set.of(
+        "5s",
+        "15s",
+        "1m",
+        "5m",
+        "15m"
+    );
 
     public void validate(ExporterConfiguration configuration) {
         validateHttp(configuration.http());
         validateCollection(configuration.collection());
         validateFilesystem(configuration.filesystem());
         validateFolia(configuration.folia());
+        if (
+            configuration.folia().observationTtl().compareTo(
+                configuration.collection().foliaInterval()
+            ) < 0
+        ) {
+            throw new ConfigurationException(
+                "folia.observation-ttl must be at least collection.folia-interval"
+            );
+        }
 
         if (configuration.privacy().individualPlayerMetricsSupported()) {
             throw new ConfigurationException(
@@ -68,8 +84,8 @@ public final class ConfigurationValidator {
             collection.worldInterval()
         );
         requireTickInterval(
-            "collection.region-interval",
-            collection.regionInterval()
+            "collection.folia-interval",
+            collection.foliaInterval()
         );
         requireTickInterval(
             "collection.entity-interval",
@@ -100,37 +116,74 @@ public final class ConfigurationValidator {
     private static void validateFolia(
         ExporterConfiguration.FoliaConfiguration folia
     ) {
-        requirePositive("folia.observation-ttl", folia.observationTtl());
+        requireMillisecondDuration(
+            "folia.observation-ttl",
+            folia.observationTtl()
+        );
 
-        for (String location : folia.observationSources().configuredLocations()) {
-            requireNotBlank("folia.observation-sources.configured-locations", location);
+        if (
+            !folia.observationSources().playerRegions()
+                && !folia.observationSources().worldSpawns()
+                && !folia.observationSources().forceLoadedChunks()
+        ) {
+            throw new ConfigurationException(
+                "At least one public folia.observation-sources source must be enabled"
+            );
+        }
+
+        if (!folia.observationSources().configuredLocations().isEmpty()) {
+            throw new ConfigurationException(
+                "folia.observation-sources.configured-locations is not supported in Phase 6"
+            );
         }
 
         if (folia.tps().windows().isEmpty()) {
-            throw new ConfigurationException("folia.tps.windows must not be empty");
+            throw new ConfigurationException("folia.tps-windows must not be empty");
         }
+        Set<String> windows = new HashSet<>();
         for (String window : folia.tps().windows()) {
-            DurationParser.parse("folia.tps.windows", window);
+            if (!ALLOWED_TPS_WINDOWS.contains(window)) {
+                throw new ConfigurationException(
+                    "Unsupported folia.tps-windows value: " + window
+                );
+            }
+            if (!windows.add(window)) {
+                throw new ConfigurationException(
+                    "Duplicate folia.tps-windows value: " + window
+                );
+            }
         }
 
         if (folia.tps().statistics().isEmpty()) {
-            throw new ConfigurationException("folia.tps.statistics must not be empty");
+            throw new ConfigurationException("folia.tps-statistics must not be empty");
         }
+        Set<String> statistics = new HashSet<>();
         for (String statistic : folia.tps().statistics()) {
             if (!ALLOWED_TPS_STATISTICS.contains(statistic)) {
                 throw new ConfigurationException(
-                    "Unsupported folia.tps statistic: " + statistic
+                    "Unsupported folia.tps-statistics value: " + statistic
+                );
+            }
+            if (!statistics.add(statistic)) {
+                throw new ConfigurationException(
+                    "Duplicate folia.tps-statistics value: " + statistic
                 );
             }
         }
 
         if (folia.tps().thresholds().isEmpty()) {
-            throw new ConfigurationException("folia.tps.thresholds must not be empty");
+            throw new ConfigurationException("folia.tps-thresholds must not be empty");
         }
+        Set<Double> thresholds = new HashSet<>();
         for (double threshold : folia.tps().thresholds()) {
             if (!Double.isFinite(threshold) || threshold <= 0.0 || threshold > 20.0) {
                 throw new ConfigurationException(
-                    "folia.tps.thresholds must be finite and between 0 and 20"
+                    "folia.tps-thresholds must be finite and between 0 and 20"
+                );
+            }
+            if (!thresholds.add(threshold)) {
+                throw new ConfigurationException(
+                    "folia.tps-thresholds must not contain duplicates"
                 );
             }
         }

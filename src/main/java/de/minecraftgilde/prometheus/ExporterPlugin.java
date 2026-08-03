@@ -3,6 +3,7 @@ package de.minecraftgilde.prometheus;
 import de.minecraftgilde.prometheus.config.ConfigurationLoader;
 import de.minecraftgilde.prometheus.config.ConfigurationValidator;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration;
+import de.minecraftgilde.prometheus.folia.PhaseSixRuntime;
 import de.minecraftgilde.prometheus.minecraft.PhaseFourRuntime;
 import de.minecraftgilde.prometheus.minecraft.event.PhaseFiveRuntime;
 import java.time.Clock;
@@ -19,6 +20,7 @@ public final class ExporterPlugin extends JavaPlugin {
     private ExporterConfiguration configuration;
     private MetricsCore metricsCore;
     private PhaseFourRuntime phaseFourRuntime;
+    private PhaseSixRuntime phaseSixRuntime;
 
     public ExporterPlugin() {
         this(new ConfigurationLoader(), new ConfigurationValidator());
@@ -43,6 +45,7 @@ public final class ExporterPlugin extends JavaPlugin {
         Instant activationTime = Instant.now();
         MetricsCore initializingCore = null;
         PhaseFourRuntime initializingPhaseFour = null;
+        PhaseSixRuntime initializingPhaseSix = null;
         try {
             saveDefaultConfig();
             ExporterConfiguration loaded = configurationLoader.load(
@@ -77,14 +80,23 @@ public final class ExporterPlugin extends JavaPlugin {
                 loaded,
                 Clock.systemUTC()
             );
+            initializingPhaseSix = new PhaseSixRuntime(
+                initializingCore,
+                this,
+                loaded,
+                Clock.systemUTC()
+            );
             metricsCore = initializingCore;
             phaseFourRuntime = initializingPhaseFour;
+            phaseSixRuntime = initializingPhaseSix;
             initializingCore.start(loaded.http());
         } catch (Exception exception) {
             closeQuietly(initializingCore);
+            closeQuietly(initializingPhaseSix);
             closeQuietly(initializingPhaseFour);
             metricsCore = null;
             phaseFourRuntime = null;
+            phaseSixRuntime = null;
             getLogger().log(
                 Level.SEVERE,
                 "FoliaPrometheusExporter could not start: " + exception.getMessage(),
@@ -101,9 +113,12 @@ public final class ExporterPlugin extends JavaPlugin {
     public void onDisable() {
         MetricsCore core = metricsCore;
         PhaseFourRuntime runtime = phaseFourRuntime;
+        PhaseSixRuntime foliaRuntime = phaseSixRuntime;
         metricsCore = null;
         phaseFourRuntime = null;
+        phaseSixRuntime = null;
         closeQuietly(core);
+        closeQuietly(foliaRuntime);
         closeQuietly(runtime);
         configuration = null;
         getLogger().info("FoliaPrometheusExporter stopped.");
@@ -116,6 +131,12 @@ public final class ExporterPlugin extends JavaPlugin {
     }
 
     private static void closeQuietly(PhaseFourRuntime runtime) {
+        if (runtime != null) {
+            runtime.close();
+        }
+    }
+
+    private static void closeQuietly(PhaseSixRuntime runtime) {
         if (runtime != null) {
             runtime.close();
         }

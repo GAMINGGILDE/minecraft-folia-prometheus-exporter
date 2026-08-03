@@ -72,6 +72,25 @@ muss erfolgreich sein.
   Endstand aller zehn Counterfamilien
 - Phase-5-`HELP`-, `TYPE`-, Counter-Suffix-, Sample- und Labelausgabe über den
   realen lokalen HTTP-Endpunkt, einschließlich paralleler Scrapes und Events
+- Capability-Erkennung anhand der exakten öffentlichen
+  `Server#getRegionTPS(World,int,int)`-Signatur; Paper ist `unsupported`, warnt
+  genau einmal, lädt die Providerklasse nicht und registriert keine
+  `minecraft_folia_*`-Familie
+- deaktivierter Folia-Collector ohne Capability-Prüfung, Warnung, Providerload
+  oder Familie; unterstützter Provider mit idempotentem Start und Stop
+- transaktionale `RegionObservationRegistry`: parallele Updates, deterministische
+  Ordnung, Laufidentität, ältere und verspätete Ergebnisse, Ablauf, vollständiger
+  Ersatz, Fehlererhalt und Annahmestopp
+- öffentliche Ankerdeduplizierung über aktuelle Regionsownership sowie
+  aggregierte Spielerzahl ohne Identität; nichtfinite API-Werte und
+  Einzelfehler publizieren keinen unvollständigen Snapshot
+- exakte Typ-7-Quantile für leere, einzelne, gerade und ungerade Datenmengen,
+  Ausschluss ungültiger Werte sowie kanonische und deterministische Thresholds
+- alle sechs Folia-Familien mit `HELP`, `TYPE`, erlaubten Labels, dynamischem
+  Ablauf, ältester Observation als Alterssemantik und fehlenden Samples statt
+  künstlicher Nullwerte
+- getrennte allgemeine und Folia-Compile-Classpaths, Folia-Provider-Suite gegen
+  die gepinnte Folia-API und Bytecode-/JAR-Prüfungen ohne interne APIs
 
 ## 7.3 Integrationsprüfungen
 
@@ -134,6 +153,16 @@ Hinweise auf doppelte Listener sowie Deprecation-bedingte Laufzeitfehler geprüf
 Die bekannte dokumentierte `PlayerLoginEvent`-Deprecation allein ist kein
 Laufzeitfehler; ihre Einmaligkeit wird ergänzend im Unit-Test erzwungen.
 
+Seit Phase 6 unterscheidet der Smoke-Test die Plattformen. Paper erwartet den
+Collectorstatus `unsupported`, genau eine Capability-Warnung, erfolgreiche
+Health/Readiness, keine Provider-Linkagefehler und keine
+`minecraft_folia_*`-Familie. Folia erwartet `running`. Existiert mindestens eine
+beobachtbare Region, werden alle sechs Familien samt `HELP`, `TYPE` und gültigen
+Samples geprüft. Ohne beobachtbare Region dürfen die dynamischen Familien im
+Textformat vollständig fehlen; der laufende Collector, fehlerfreie Start und
+Registrierung sowie das Fehlen nichtfiniter oder negativer Samples bleiben dann
+die Abnahme.
+
 ## 7.4 Threading-Prüfungen
 
 - keine Weltzugriffe aus HTTP-Threads
@@ -145,6 +174,11 @@ Laufzeitfehler; ihre Einmaligkeit wird ergänzend im Unit-Test erzwungen.
 - direkte threadsichere Eventinkremente ohne Schedulerwechsel
 - Chat-, Login-, Ping- und Chunkhandler dürfen auf unterschiedlichen Threads
   parallel laufen; Stop wartet kurze laufende Inkremente ab
+- Folia-Ankerlisten und Spawn-/Force-Load-Werte nur auf dem Global Region
+  Scheduler, Spielerpositionen nur auf dem Entity Scheduler und Ownership/TPS
+  nur auf dem Region Scheduler
+- Folia-Regionthreads warten niemals blockierend auf andere Anker; Timeout und
+  Scrape laufen außerhalb der Regionthreads
 
 ## 7.5 Performance-Ziele
 
@@ -317,3 +351,32 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
   `rate()` beziehungsweise `increase()` vorgesehen.
 - Der gepinnte Paper-/Folia-Smoke-Test bestätigt Familienregistrierung,
   Collectorstatus und sauberen Listener-Lifecycle auf beiden Plattformen.
+
+## 7.13 Abnahme Phase 6
+
+- Das tatsächliche Folia-API-Artefakt 26.1.2 Build 8 ist untersucht und in
+  ADR 0015 dokumentiert. Einzige Mess-Capability ist die öffentliche Signatur
+  `Server#getRegionTPS(World,int,int)` mit fünf festen Fenstern.
+- Allgemeiner Code kompiliert ohne Folia-API gegen Paper. Der konkrete Provider
+  kompiliert in einem getrennten Source-Set gegen Folia als `compileOnly`; beide
+  Ausgaben landen in genau einem Shadow-JAR, die Folia-API selbst nicht.
+- Paper löst die Capability nicht auf, lädt den konkreten Provider nicht, setzt
+  den Collector auf `unsupported`, warnt einmal und lässt Plugin, Health und
+  Readiness weiterlaufen. Deaktivierung bleibt warnungsfrei `disabled`.
+- Beobachtungsanker stammen nur aus öffentlichen Spieler-, Spawn- und optionalen
+  Force-Load-Quellen. Aktuelle Ownership dedupliziert sie je Region; es wird
+  keine vollständige aktive Regionszahl behauptet.
+- Registry, periodischer Collector und Snapshot besitzen Überlappungsschutz,
+  Timeout, Laufidentität, verspätete-Ergebnis-Unterdrückung, Stale-Ablauf und
+  idempotenten Stop. Fehler behalten den letzten vollständigen Snapshot.
+- Die sechs implementierten Familien verwenden nur `world`, `window`, `stat`
+  und `threshold`. Spieleridentitäten sowie Chunk-/Regionskoordinaten fehlen in
+  Labels, Samples und Logs.
+- Quantile verwenden deterministische Typ-7-Interpolation ohne Rundung;
+  Schwellenwerte sind eindeutig, absteigend und kanonisch formatiert. Leere oder
+  ungültige Daten erzeugen keine erfundenen Samples.
+- Aktive Regionsgesamtzahl, regionale Tickdauer, Überlastung und Tickverzögerung
+  werden mangels öffentlicher API nicht registriert.
+- `./gradlew clean build`, `./gradlew test`, `./gradlew foliaTest` sowie die
+  Architektur-, Dependency-, Shadow-JAR- und gepinnten Smoke-Prüfungen sind die
+  vollständige Abnahme.

@@ -183,28 +183,42 @@ Nicht Bestandteil von Phase 5:
 - freie Reason-Texte
 - Counter-Persistenz
 
-Abnahme: Phase 5 ist abgeschlossen. Phase 6 „Folia Regions-TPS“ ist der nächste
-Umfang.
+Abnahme: Phase 5 ist abgeschlossen.
 
 ## Phase 6 – Folia Regions-TPS
 
-- isolierter Folia-Provider im eigenen Package
-- `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`
-- Capability-Erkennung ausschließlich über die konkret benötigte öffentliche
-  Folia-API; keine Servernamen oder Versionsstrings
-- keine Verwendung von NMS, internen Klassen oder
-  `io.papermc.paper.threadedregions.RegionizedServer`
-- Providerklasse wird auf Paper vor erfolgreicher Capability-Prüfung nicht geladen
-- aktivierter Folia-Collector auf Paper: einmalige Warnung, Status `unsupported`,
-  kein Start des Collectors, fortgesetzter Pluginstart und keine Folia-Nullwerte
-- RegionObservationRegistry
-- Beobachtungsquellen
-- TPS-Abfrage
-- Fenster
-- Quantile
-- Schwellenwerte
-- Snapshot-Alter
-- keine Spieleridentitäten im Output
+Status: abgeschlossen.
+
+- tatsächliche Untersuchung der gepinnten Paper-/Folia-API-Artefakte und
+  Dokumentation in ADR 0015
+- exakte Capability `Server#getRegionTPS(World,int,int)` mit den festen Fenstern
+  `5s`, `15s`, `1m`, `5m`, `15m`
+- isolierter Provider unter `de.minecraftgilde.prometheus.folia.provider` in
+  einem getrennten Source-Set
+- `dev.folia:folia-api:26.1.2.build.8-stable` ausschließlich als `compileOnly`
+  für dieses Source-Set; allgemeiner Code bleibt auf der Paper-API
+- ein gemeinsames Shadow-JAR ohne eingebettete Folia-API, NMS oder interne
+  `RegionizedServer`-Klassen
+- reflektive Capability-/Factory-Grenze ohne statische Providerreferenz im
+  gemeinsamen Bootstrap
+- Paper: genau eine Warnung, Status `unsupported`, keine Providerladung oder
+  Folia-Familie; deaktiviert warnungsfrei `disabled`
+- öffentliche Spieler-, Spawn- und optionale Force-Load-Beobachtungsanker mit
+  Ownership-Deduplizierung auf Region-Threads
+- transaktionale `RegionObservationRegistry` mit Laufidentität, Parallelität,
+  Ablauf, Stop-Grenze und Erhalt des letzten vollständigen Snapshots
+- exakte Typ-7-Quantile, feste Statistik- und Fenstermengen sowie kanonische
+  Schwellenwerte
+- implementierte Familien für beobachtete Regionen, TPS-Verteilung, Regionen
+  unter Schwellen, Regionen mit Spielern, Spieler je Region und Alter der
+  ältesten gültigen Observation
+- keine vollständige aktive Regionszahl, Tickdauer, Überlastung oder
+  Tickverzögerung mangels öffentlicher API; keine künstlichen Nullwerte
+- Unit-, Parallelitäts-, Konfigurations-, Prometheus-, Classpath-, Bytecode-,
+  Shadow-JAR- und getrennte Paper-/Folia-Smoke-Prüfungen
+- keine Spieleridentitäten oder Chunk-/Regionskoordinaten im Output oder Log
+
+Abnahme: Phase 6 ist abgeschlossen. Phase 7 „Entities“ ist der nächste Umfang.
 
 ## Phase 7 – Entities
 

@@ -15,6 +15,11 @@ threadsichere Counter. Der Collector verschiebt insbesondere Async-Login,
 Async-Chat, Ping- oder regionsgebundene Chunkereignisse nicht künstlich auf einen
 anderen Scheduler.
 
+Phase 6 verwendet den Region Scheduler erstmals für positionsgebundene
+Messungen. Die Folia-Capability ist ausschließlich
+`Server#getRegionTPS(World,int,int)`; die gemeinsamen Scheduler selbst bleiben
+ausdrücklich kein Erkennungsmerkmal.
+
 ## 4.1 Scheduler-Zuordnung
 
 | Aufgabe | Scheduler |
@@ -53,6 +58,17 @@ Für Phase 5 gilt zusätzlich:
 | `ChunkLoadEvent`/`ChunkUnloadEvent` | besitzender Region-/Tickthread; nur Weltname und `isNewChunk()` lesen |
 | `ServerLoadEvent`/`WorldLoadEvent` | globaler beziehungsweise besitzender Eventthread; nur geladene Weltnamen für Nullinitialisierung übernehmen |
 | Prometheus-Scrape | HTTP-Thread; nur bereits akkumulierten Counterzustand serialisieren |
+
+Für Phase 6 gilt zusätzlich:
+
+| Öffentlicher API-Zugriff | Ausführung |
+|---|---|
+| Liste geladener Welten, Weltspawn, force-loaded Chunks und Online-Spieler-Sicht | Global Region Scheduler; Liveobjekte nur im laufenden Capture |
+| `Player#getLocation()` | Entity Scheduler des jeweiligen Spielers; sofortige Reduktion auf Weltlabel und Chunkanker |
+| `isOwnedByCurrentRegion(World,int,int)` | Region Scheduler des aktuellen Beobachtungsankers |
+| `getRegionTPS(World,int,int)` | derselbe besitzende Region Scheduler |
+| Timeout-Wächter | Async Scheduler |
+| Prometheus-Scrape | HTTP-Thread; genau ein immutable Folia-Snapshot und eine Zeitablesung |
 
 Alle Eventhandler sind kurz und nicht blockierend. Sie führen keine Datei- oder
 Netzwerkoperation aus, speichern kein Event- oder Minecraft-Objekt und lesen
@@ -195,15 +211,30 @@ den threadsicheren Counterimplementierungen des Prometheus Java Client
 akkumuliert. Der HTTP-Thread besitzt keine Referenz auf Listener, Events,
 Connections, Spieler, Welten oder Chunks und löst keine Eventarbeit aus.
 
+Der Phase-6-Callback liest den Folia-Snapshot genau einmal. TTL-Filterung,
+Aggregation und Snapshot-Alter verwenden nur dessen primitive beziehungsweise
+immutable Werte. Weder Capability-Prüfung noch Provider, Scheduler oder
+Minecraft-Liveobjekte sind vom HTTP-Thread aus erreichbar.
+
 ## 4.6 Regionsbeobachtung
 
-Dieser Abschnitt betrifft den späteren isolierten Folia-Provider und ist nicht
-Bestandteil von Phase 4.
+Spielerpositionen werden ausschließlich auf dem jeweiligen Entity Scheduler
+gelesen. Player und `Location` bleiben temporär im Capture; danach existieren nur
+Weltlabel, Chunk-X/Z und ein aggregierter Zähler. Weltspawn und optional
+force-loaded Chunks werden auf dem Global Region Scheduler ebenfalls zu solchen
+Ankern reduziert. Die Registry hält weder Player, World, Entity, Chunk, Location
+noch Scheduler-Handle.
 
-Spielerpositionen dürfen intern als temporäre Beobachtungsquelle dienen. Dabei gilt:
+Jeder neutrale Anker wird auf dem Region Scheduler ausgeführt. Dort prüft
+`Server#isOwnedByCurrentRegion(World,int,int)`, welche lexikografisch früheren
+Anker derselben Region gehören. Nur der erste Anker fragt TPS ab; damit entsteht
+keine Reihe pro Spieler oder Chunk und keine interne Regions-ID. Spielerzahlen
+werden auf demselben Thread als Summe der aktuell derselben Region gehörenden
+Spieleranker gebildet.
 
-- keine Speicherung von Spielername oder UUID im Metriksnapshot
-- keine Ausgabe einer Beobachtung pro Spieler
-- nur aggregierte TPS-Verteilungen pro Welt
-- Messpunkte nach Ablauf entfernen
-- dynamische Regionsänderungen berücksichtigen
+Es gibt keine öffentliche vollständige Regionsauflistung und keine Create-,
+Split-, Merge- oder Destroy-Events. Die Ankerliste und Ownership werden deshalb
+in jedem Lauf neu aufgebaut. Erfolgreiche Läufe ersetzen die gesamte Registry;
+Fehler und Timeout behalten den letzten vollständigen Snapshot. Die TTL entfernt
+alte Messpunkte auch bei anhaltenden Fehlern. Region-Threads warten niemals
+blockierend auf andere Callbacks.

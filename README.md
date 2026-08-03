@@ -7,7 +7,8 @@ Prometheus-Exporter. Neben HTTP-Dienst und Exporter-Eigenüberwachung liefert er
 standardisierte JVM-/Prozessmetriken sowie immutable Snapshots für aggregierte
 Server-, Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken. Phase 5 ergänzt
 direkte, aggregierte Event-Counter für Verbindungen, Spieleraktionen und den
-Chunk-Lifecycle.
+Chunk-Lifecycle. Phase 6 liefert auf Folia aggregierte TPS-Verteilungen für
+tatsächlich über öffentliche Anker beobachtete Regionen.
 
 ## Verbindliche Eckdaten
 
@@ -51,6 +52,7 @@ Gradle Wrapper:
 ```bash
 ./gradlew clean build
 ./gradlew test
+./gradlew foliaTest
 ```
 
 Das einzige auslieferbare, schattierte Plugin-JAR wird unter `build/libs/`
@@ -87,6 +89,7 @@ collectors:
   events: true
   worlds: true
   chunks: true
+  folia: true
   jvm: true
   process: true
   filesystem: true
@@ -95,6 +98,7 @@ collectors:
 collection:
   server-interval: "5s"
   world-interval: "10s"
+  folia-interval: "5s"
   filesystem-interval: "30m"
   timeout: "10s"
   filesystem-timeout: "15m"
@@ -102,6 +106,17 @@ collection:
 filesystem:
   include-world-sizes: true
   world-size-scan-concurrency: 1
+
+folia:
+  observation-sources:
+    player-regions: true
+    world-spawns: true
+    force-loaded-chunks: false
+    configured-locations: []
+  observation-ttl: "60s"
+  tps-windows: ["5s", "15s", "1m", "5m", "15m"]
+  tps-statistics: ["min", "p05", "p50", "p95", "max", "average"]
+  tps-thresholds: [19.0, 18.0, 15.0]
 ```
 
 Lokale Prüfung bei laufendem Server:
@@ -236,7 +251,31 @@ Alle Event-Counter beginnen bei jedem Plugin- beziehungsweise Serverstart bei
 null. Es gibt keine Persistenz; auch ein Plugin-Reload kann einen Reset erzeugen.
 Prometheus-Abfragen sollten deshalb `rate()` oder `increase()` verwenden.
 
+## Folia-Regions-TPS
+
+Phase 6 verwendet ausschließlich die öffentliche Folia-Methode
+`Server#getRegionTPS(World,int,int)` mit den festen Fenstern `5s`, `15s`, `1m`,
+`5m` und `15m`. Online-Spielerpositionen, Weltspawns und optional force-loaded
+Chunks dienen nur als Beobachtungsanker. Auf dem jeweiligen Region-Thread werden
+Anker derselben aktuellen Region über die öffentliche Ownership-Prüfung
+dedupliziert. Deshalb bedeutet `minecraft_folia_observed_regions` ausdrücklich
+nur beobachtete und nicht alle aktiven Regionen.
+
+Implementiert sind `minecraft_folia_observed_regions`,
+`minecraft_folia_region_tps`, `minecraft_folia_regions_below_tps`,
+`minecraft_folia_regions_with_players`, `minecraft_folia_players_per_region`
+und `minecraft_folia_region_snapshot_age_seconds`. Ohne gültige Beobachtung
+fehlen dynamische Samples; es werden keine Nullwerte erfunden. Regionale
+Tickdauer, Tickverzögerung, Überlastung und eine vollständige Zahl aktiver
+Regionen bleiben mangels öffentlicher API unimplementiert.
+
+Der konkrete Provider wird in einem getrennten Source-Set gegen
+`folia-api:26.1.2.build.8-stable` als `compileOnly` gebaut und erst nach
+Capability-Erfolg geladen. Auf Paper bleibt ein aktivierter Collector
+`unsupported`, protokolliert genau eine Warnung und registriert keine
+Folia-Familie; Health und Readiness bleiben normal verfügbar.
+
 ## Status
 
-Phase 5 „Events“ ist implementiert. Phase 6 „Folia Regions-TPS“ ist der nächste
-Umfang.
+Phase 6 „Folia Regions-TPS“ ist implementiert. Phase 7 „Entities“ ist der
+nächste Umfang.

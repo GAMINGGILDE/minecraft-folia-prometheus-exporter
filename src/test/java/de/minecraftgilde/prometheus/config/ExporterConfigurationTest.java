@@ -29,6 +29,8 @@ class ExporterConfigurationTest {
         assertTrue(configuration.collectors().events());
         assertTrue(configuration.collectors().worlds());
         assertTrue(configuration.collectors().chunks());
+        assertTrue(configuration.collectors().folia());
+        assertEquals(Duration.ofSeconds(5), configuration.collection().foliaInterval());
         assertFalse(configuration.collectors().pluginInfo());
         assertTrue(configuration.filesystem().includeWorldSizes());
         assertEquals(
@@ -314,5 +316,106 @@ class ExporterConfigurationTest {
             ConfigurationException.class,
             () -> validator.validate(configuration)
         );
+    }
+
+    @Test
+    void loadsPhaseSixKeysAndPrefersThemOverLegacyAliases() {
+        Map<String, Object> values = new HashMap<>();
+        values.put("collectors.folia", false);
+        values.put("collectors.folia-regions", true);
+        values.put("collection.folia-interval", "7s");
+        values.put("collection.region-interval", "9s");
+        values.put("folia.tps-windows", List.of("15s", "1m"));
+        values.put("folia.tps.windows", List.of("5s"));
+        values.put("folia.tps-thresholds", List.of(19, 17.5));
+        values.put("folia.tps.thresholds", List.of(10));
+
+        ExporterConfiguration configuration = loader.load(values::get);
+
+        assertFalse(configuration.collectors().folia());
+        assertEquals(Duration.ofSeconds(7), configuration.collection().foliaInterval());
+        assertEquals(List.of("15s", "1m"), configuration.folia().tps().windows());
+        assertEquals(List.of(19.0, 17.5), configuration.folia().tps().thresholds());
+        assertDoesNotThrow(() -> validator.validate(configuration));
+    }
+
+    @Test
+    void legacyPhaseSixKeysRemainCompatible() {
+        Map<String, Object> values = Map.of(
+            "collectors.folia-regions",
+            false,
+            "collection.region-interval",
+            "6s",
+            "folia.tps.windows",
+            List.of("5s", "5m"),
+            "folia.tps.thresholds",
+            List.of(18)
+        );
+
+        ExporterConfiguration configuration = loader.load(values::get);
+
+        assertFalse(configuration.collectors().folia());
+        assertEquals(Duration.ofSeconds(6), configuration.collection().foliaInterval());
+        assertDoesNotThrow(() -> validator.validate(configuration));
+    }
+
+    @Test
+    void rejectsUnsupportedAndDuplicateFoliaWindows() {
+        for (List<String> windows : List.of(
+            List.of("30s"),
+            List.of("5s", "5s")
+        )) {
+            ExporterConfiguration configuration = loader.load(
+                Map.<String, Object>of("folia.tps-windows", windows)::get
+            );
+            ConfigurationException failure = assertThrows(
+                ConfigurationException.class,
+                () -> validator.validate(configuration)
+            );
+            assertTrue(failure.getMessage().contains("folia.tps-windows"));
+        }
+    }
+
+    @Test
+    void rejectsDuplicateNonFiniteAndOutOfRangeFoliaThresholds() {
+        for (List<Double> thresholds : List.of(
+            List.of(18.0, 18.0),
+            List.of(Double.NaN),
+            List.of(Double.POSITIVE_INFINITY),
+            List.of(0.0),
+            List.of(20.1)
+        )) {
+            ExporterConfiguration configuration = loader.load(
+                Map.<String, Object>of(
+                    "folia.tps-thresholds",
+                    thresholds
+                )::get
+            );
+            ConfigurationException failure = assertThrows(
+                ConfigurationException.class,
+                () -> validator.validate(configuration)
+            );
+            assertTrue(failure.getMessage().contains("folia.tps-thresholds"));
+        }
+    }
+
+    @Test
+    void rejectsFoliaTtlShorterThanCollectionIntervalAndOverflow() {
+        ExporterConfiguration shortTtl = loader.load(
+            Map.<String, Object>of("folia.observation-ttl", "4s")::get
+        );
+        ExporterConfiguration overflow = loader.load(
+            Map.<String, Object>of(
+                "folia.observation-ttl",
+                "9223372036854775807s"
+            )::get
+        );
+
+        assertThrows(ConfigurationException.class, () -> validator.validate(shortTtl));
+        ConfigurationException failure = assertThrows(
+            ConfigurationException.class,
+            () -> validator.validate(overflow)
+        );
+        assertTrue(failure.getMessage().contains("folia.observation-ttl"));
     }
 }
