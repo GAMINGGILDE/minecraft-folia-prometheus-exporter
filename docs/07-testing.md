@@ -80,10 +80,26 @@ muss erfolgreich sein.
   oder Familie; unterstützter Provider mit idempotentem Start und Stop
 - transaktionale `RegionObservationRegistry`: parallele Updates, deterministische
   Ordnung, Laufidentität, ältere und verspätete Ergebnisse, Ablauf, vollständiger
-  Ersatz, Fehlererhalt und Annahmestopp
+  Ersatz einschließlich leerer erfolgreicher Generation, systemischer
+  Fehlererhalt und Annahmestopp
 - öffentliche Ankerdeduplizierung über aktuelle Regionsownership sowie
-  aggregierte Spielerzahl ohne Identität; nichtfinite API-Werte und
-  Einzelfehler publizieren keinen unvollständigen Snapshot
+  aggregierte Spielerzahl ohne Identität
+- lokale Spielerfehler bei Positionszugriff, Scheduling und konkurrierendem
+  Retire-Callback: genau einmaliger Abschluss, kein Hängen und Fortsetzung mit
+  allen gültigen Spieler-, Spawn- und Force-Load-Ankern
+- lokale Regionsfehler für `null`, zu kurze Arrays, nichtfinite oder negative
+  TPS-Werte, API-Exceptions, fehlende Ownership und Scheduling-Ablehnung:
+  erfolgreiche übrige Observationen werden als Teilsnapshot publiziert und
+  andere Regiontasks nicht storniert
+- erfolgreicher leerer Folia-Snapshot ersetzt einen vorherigen Stand und entfernt
+  alte Prometheus-Reihen ohne künstliche Nullwerte
+- systemische Weltlisten-, Stop- und Timeoutfehler erhalten den vorherigen
+  Snapshot, stornieren ausstehende Tasks und unterdrücken verspätete Publikation
+- Parallelitätsrennen zwischen lokalem Regionsfehler, letztem Erfolg und Abbruch:
+  kein negativer Restzähler, kein doppelter Completion-Aufruf und keine Updates
+  nach Abbruch
+- lokale Reporteraufrufe sind neutral, enthalten keine Identitäten oder
+  Koordinaten und lassen auch bei eigener Exception keinen Schedulerthread werfen
 - exakte Typ-7-Quantile für leere, einzelne, gerade und ungerade Datenmengen,
   Ausschluss ungültiger Werte sowie kanonische und deterministische Thresholds
 - alle sechs Folia-Familien mit `HELP`, `TYPE`, erlaubten Labels, dynamischem
@@ -159,9 +175,13 @@ Health/Readiness, keine Provider-Linkagefehler und keine
 `minecraft_folia_*`-Familie. Folia erwartet `running`. Existiert mindestens eine
 beobachtbare Region, werden alle sechs Familien samt `HELP`, `TYPE` und gültigen
 Samples geprüft. Ohne beobachtbare Region dürfen die dynamischen Familien im
-Textformat vollständig fehlen; der laufende Collector, fehlerfreie Start und
-Registrierung sowie das Fehlen nichtfiniter oder negativer Samples bleiben dann
-die Abnahme.
+Textformat vollständig fehlen. Dies schließt beim Prometheus Java Client 1.8.0
+auch `HELP` und `TYPE` ein; die Registrierung aller sechs Descriptoren wird
+stattdessen im Provider-/Prometheus-Integrationstest erzwungen. Der Smoke-Test
+verlangt ausdrücklich keinen Wert `minecraft_folia_observed_regions > 0`.
+Laufender Collector, fehlerfreier Start, Health/Readiness, erlaubte Labels,
+fehlende experimentelle Familien sowie das Fehlen nichtfiniter oder negativer
+Samples bleiben auch beim leeren Snapshot die Abnahme.
 
 ## 7.4 Threading-Prüfungen
 
@@ -368,13 +388,20 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
   keine vollständige aktive Regionszahl behauptet.
 - Registry, periodischer Collector und Snapshot besitzen Überlappungsschutz,
   Timeout, Laufidentität, verspätete-Ergebnis-Unterdrückung, Stale-Ablauf und
-  idempotenten Stop. Fehler behalten den letzten vollständigen Snapshot.
+  idempotenten Stop. Lokale Spieler- und Regionsfehler werden einzeln
+  abgeschlossen und übersprungen; ein erfolgreicher Teil- oder Leersnapshot
+  ersetzt den vorherigen Stand. Nur systemische Laufabbrüche behalten den
+  letzten vollständigen Snapshot.
 - Die sechs implementierten Familien verwenden nur `world`, `window`, `stat`
   und `threshold`. Spieleridentitäten sowie Chunk-/Regionskoordinaten fehlen in
   Labels, Samples und Logs.
 - Quantile verwenden deterministische Typ-7-Interpolation ohne Rundung;
   Schwellenwerte sind eindeutig, absteigend und kanonisch formatiert. Leere oder
   ungültige Daten erzeugen keine erfundenen Samples.
+- Ein erfolgreicher leerer Snapshot entfernt alte dynamische Folia-Reihen,
+  während Collectorstatus `running`, Health und Readiness unverändert bleiben.
+- Der Folia-Smoke-Test verlangt keine beobachtete Region; erst bei einem Wert
+  größer null sind Samples aller sechs implementierten Familien verpflichtend.
 - Aktive Regionsgesamtzahl, regionale Tickdauer, Überlastung und Tickverzögerung
   werden mangels öffentlicher API nicht registriert.
 - `./gradlew clean build`, `./gradlew test`, `./gradlew foliaTest` sowie die

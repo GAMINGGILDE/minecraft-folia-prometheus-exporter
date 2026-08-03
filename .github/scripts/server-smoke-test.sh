@@ -7,6 +7,7 @@ activation_marker="FoliaPrometheusExporter started."
 failure_pattern="(Could not load|Failed to load|Error occurred while (loading|enabling)|Could not pass event).*FoliaPrometheusExporter|Task .*FoliaPrometheusExporter.*exception|FoliaPrometheusExporter.*(Exception|ERROR|SEVERE)|Exception.*FoliaPrometheusExporter"
 thread_failure_pattern="(AsyncCatcher|Thread check failed|not (the )?tick thread|not owned by (the )?current region|IllegalStateException:.*(region|thread))"
 event_failure_pattern="Could not pass event|EventException|IllegalPluginAccessException|(Unable|Failed|Could not) to register event|duplicate(d)? listener|listener.*already registered|(deprecated|deprecation).*(exception|error|fail)|(exception|error|fail).*(deprecated|deprecation)"
+linkage_failure_pattern="(NoClassDefFoundError|ClassNotFoundException|LinkageError).*(FoliaPrometheusExporter|de\\.minecraftgilde\\.prometheus)|(FoliaPrometheusExporter|de\\.minecraftgilde\\.prometheus).*(NoClassDefFoundError|ClassNotFoundException|LinkageError)"
 folia_unsupported_warning="The Folia collector is enabled, but the public Server#getRegionTPS(World,int,int) capability is unavailable; the collector is unsupported and no Folia metrics will be registered."
 startup_timeout_seconds=240
 shutdown_timeout_seconds=120
@@ -81,6 +82,12 @@ while ((SECONDS < startup_deadline)); do
     exit 1
   fi
 
+  if grep -Eiq "$linkage_failure_pattern" "$server_log" 2>/dev/null; then
+    echo "Plugin class-loading or linkage failure detected." >&2
+    grep -Ein "$linkage_failure_pattern" "$server_log" >&2 || true
+    exit 1
+  fi
+
   if ! kill -0 "$server_pid" 2>/dev/null; then
     wait "$server_pid" || true
     server_pid=""
@@ -105,6 +112,12 @@ fi
 if grep -Eiq "$event_failure_pattern" "$server_log"; then
   echo "Event registration, listener, handler, or deprecation runtime failure was logged during activation." >&2
   grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if grep -Eiq "$linkage_failure_pattern" "$server_log"; then
+  echo "Plugin class-loading or linkage failure was logged during activation." >&2
+  grep -Ein "$linkage_failure_pattern" "$server_log" >&2 || true
   exit 1
 fi
 
@@ -233,7 +246,11 @@ fi
 for forbidden_prefix in \
   minecraft_world_entities \
   minecraft_commands_total \
-  minecraft_chunk_load_failures_total; do
+  minecraft_chunk_load_failures_total \
+  minecraft_folia_active_regions \
+  minecraft_folia_region_tick_duration_seconds \
+  minecraft_folia_overloaded_regions \
+  minecraft_folia_region_tick_delay_seconds; do
   if grep -Fq "$forbidden_prefix" <<<"$metrics_response"; then
     echo "Out-of-scope metric unexpectedly exposed: $forbidden_prefix" >&2
     exit 1
@@ -260,27 +277,6 @@ elif [[ "${EXPECTED_PLATFORM:-}" == "Folia" ]]; then
     echo "Folia collector did not reach running state." >&2
     exit 1
   fi
-  folia_snapshot_deadline=$((SECONDS + snapshot_timeout_seconds))
-  while ! grep -Eq '^minecraft_folia_observed_regions\{world="[^"]+"\}[[:space:]][1-9][0-9]*(\.0)?$' <<<"$metrics_response" \
-    && ((SECONDS < folia_snapshot_deadline)); do
-    sleep 1
-    metrics_response="$(curl --fail --silent --show-error --max-time 10 \
-      "$exporter_base_url/metrics")"
-  done
-  for folia_metric in \
-    minecraft_folia_observed_regions \
-    minecraft_folia_region_tps \
-    minecraft_folia_regions_below_tps \
-    minecraft_folia_regions_with_players \
-    minecraft_folia_players_per_region \
-    minecraft_folia_region_snapshot_age_seconds; do
-    if ! grep -Eq "^# HELP ${folia_metric} " <<<"$metrics_response" \
-      || ! grep -Eq "^# TYPE ${folia_metric} gauge$" <<<"$metrics_response" \
-      || ! grep -Eq "^${folia_metric}\\{" <<<"$metrics_response"; then
-      echo "Missing, invalid, or empty Phase-6 Prometheus family: $folia_metric" >&2
-      exit 1
-    fi
-  done
   if grep -Fq "$folia_unsupported_warning" "$server_log"; then
     echo "Folia logged the Paper-only capability warning." >&2
     exit 1
@@ -288,6 +284,42 @@ elif [[ "${EXPECTED_PLATFORM:-}" == "Folia" ]]; then
   if grep -Eq '^minecraft_folia_.*[[:space:]](NaN|[+-]Inf|-([0-9]|\.))' <<<"$metrics_response"; then
     echo "Folia exposed a non-finite or negative Phase-6 sample." >&2
     exit 1
+  fi
+  unexpected_folia_labels="$(
+    grep -E '^minecraft_folia_[a-z0-9_]+\{' <<<"$metrics_response" \
+      | grep -Eo '[,{][a-zA-Z_][a-zA-Z0-9_]*="' \
+      | sed -E 's/^[,{]//; s/="$//' \
+      | grep -Ev '^(world|window|stat|threshold)$' || true
+  )"
+  if [[ -n "$unexpected_folia_labels" ]]; then
+    echo "Folia exposed an unexpected or identifying label: $unexpected_folia_labels" >&2
+    exit 1
+  fi
+  if awk '
+    /^minecraft_folia_observed_regions\{/ && ($NF + 0) == 0 { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' <<<"$metrics_response"; then
+    echo "Folia exposed an invented zero-valued observed-region sample." >&2
+    exit 1
+  fi
+  if awk '
+    /^minecraft_folia_observed_regions\{/ && ($NF + 0) > 0 { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' <<<"$metrics_response"; then
+    for folia_metric in \
+      minecraft_folia_observed_regions \
+      minecraft_folia_region_tps \
+      minecraft_folia_regions_below_tps \
+      minecraft_folia_regions_with_players \
+      minecraft_folia_players_per_region \
+      minecraft_folia_region_snapshot_age_seconds; do
+      if ! grep -Eq "^# HELP ${folia_metric} " <<<"$metrics_response" \
+        || ! grep -Eq "^# TYPE ${folia_metric} gauge$" <<<"$metrics_response" \
+        || ! grep -Eq "^${folia_metric}\\{" <<<"$metrics_response"; then
+        echo "Observed Folia regions require a complete Phase-6 family: $folia_metric" >&2
+        exit 1
+      fi
+    done
   fi
 fi
 
@@ -305,6 +337,12 @@ fi
 if grep -Eiq "$event_failure_pattern" "$server_log"; then
   echo "Event registration, listener, handler, or deprecation runtime failure was logged." >&2
   grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if grep -Eiq "$linkage_failure_pattern" "$server_log"; then
+  echo "Plugin class-loading or linkage failure was logged before shutdown completed." >&2
+  grep -Ein "$linkage_failure_pattern" "$server_log" >&2 || true
   exit 1
 fi
 
@@ -367,6 +405,12 @@ fi
 if grep -Eiq "$event_failure_pattern" "$server_log"; then
   echo "Event registration, listener, handler, or deprecation runtime failure was logged before shutdown completed." >&2
   grep -Ein "$event_failure_pattern" "$server_log" >&2 || true
+  exit 1
+fi
+
+if grep -Eiq "$linkage_failure_pattern" "$server_log"; then
+  echo "Plugin class-loading or linkage failure was logged before shutdown completed." >&2
+  grep -Ein "$linkage_failure_pattern" "$server_log" >&2 || true
   exit 1
 fi
 

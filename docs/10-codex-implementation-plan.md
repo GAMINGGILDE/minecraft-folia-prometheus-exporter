@@ -207,6 +207,14 @@ Status: abgeschlossen.
   Ownership-Deduplizierung auf Region-Threads
 - transaktionale `RegionObservationRegistry` mit Laufidentität, Parallelität,
   Ablauf, Stop-Grenze und Erhalt des letzten vollständigen Snapshots
+- lokale Fehlerisolation je Spieleranker und Regionsbeobachtung mit genau
+  einmaligem Abschluss, neutraler rate-limitierter Meldung und fortgesetzten
+  übrigen Scheduler-Tasks
+- erfolgreiche Teilsnapshots aus allen gültigen Observationen sowie erfolgreiche
+  leere Snapshots, die den vorherigen Stand ersetzen und alte Reihen entfernen;
+  nur systemische Laufabbrüche erhalten den letzten gültigen Snapshot
+- atomare Kopplung von Registry-Commit und Collector-Erfolgsannahme gegen Rennen
+  mit Timeout, Stop und verspäteten Callbacks
 - exakte Typ-7-Quantile, feste Statistik- und Fenstermengen sowie kanonische
   Schwellenwerte
 - implementierte Familien für beobachtete Regionen, TPS-Verteilung, Regionen
@@ -216,6 +224,8 @@ Status: abgeschlossen.
   Tickverzögerung mangels öffentlicher API; keine künstlichen Nullwerte
 - Unit-, Parallelitäts-, Konfigurations-, Prometheus-, Classpath-, Bytecode-,
   Shadow-JAR- und getrennte Paper-/Folia-Smoke-Prüfungen
+- Folia-Smoke-Test ohne Pflicht zu einer existierenden beobachtbaren Region;
+  fehlende Textfamilien bei leerem Client-Snapshot sind gültig
 - keine Spieleridentitäten oder Chunk-/Regionskoordinaten im Output oder Log
 
 Abnahme: Phase 6 ist abgeschlossen. Phase 7 „Entities“ ist der nächste Umfang.

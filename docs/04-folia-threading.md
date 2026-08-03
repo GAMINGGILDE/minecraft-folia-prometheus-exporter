@@ -160,8 +160,10 @@ Paper nicht vorzeitig.
 
 ## 4.4 Snapshot-Regel
 
-Jeder Scheduler-Task erzeugt nur lokale Werte. Erst nach vollständiger Erfassung wird
-ein unveränderlicher Snapshot veröffentlicht.
+Jeder Scheduler-Task erzeugt nur lokale Werte. Erst nach Abschluss aller nicht
+abgebrochenen Observationen eines erfolgreichen Laufs wird ein unveränderlicher
+Snapshot veröffentlicht. Lokal fehlerhafte Spieler- oder Regionsobservationen
+fehlen darin; ihre erfolgreichen Nachbarn bleiben enthalten.
 
 Unvollständige Zwischenstände dürfen nicht sichtbar werden. Pro Collector ist
 nur ein Lauf aktiv. Ein Timeout entfernt diesen Lauf atomar; ein später Callback
@@ -234,7 +236,12 @@ Spieleranker gebildet.
 
 Es gibt keine öffentliche vollständige Regionsauflistung und keine Create-,
 Split-, Merge- oder Destroy-Events. Die Ankerliste und Ownership werden deshalb
-in jedem Lauf neu aufgebaut. Erfolgreiche Läufe ersetzen die gesamte Registry;
-Fehler und Timeout behalten den letzten vollständigen Snapshot. Die TTL entfernt
-alte Messpunkte auch bei anhaltenden Fehlern. Region-Threads warten niemals
-blockierend auf andere Callbacks.
+in jedem Lauf neu aufgebaut. Fehler eines Spielerankers oder einer Region werden
+genau einmal abgeschlossen, neutral rate-limitiert gemeldet und übersprungen;
+andere Scheduler-Tasks werden dafür nicht storniert. Erfolgreiche Läufe ersetzen
+die gesamte Registry durch den Teilstand der gültigen Observationen oder durch
+eine leere Liste. Nur systemische Fehler, Timeout und Stop behalten den letzten
+vollständigen Snapshot. Die Erfolgsannahme koppelt Registry-Commit und
+Snapshot-Publikation gegen konkurrierenden Timeout beziehungsweise Stop. Die TTL
+entfernt alte Messpunkte auch bei anhaltenden systemischen Fehlern.
+Region-Threads warten niemals blockierend auf andere Callbacks.

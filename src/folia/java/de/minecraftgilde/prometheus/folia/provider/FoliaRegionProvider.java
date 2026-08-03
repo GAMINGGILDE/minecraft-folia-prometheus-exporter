@@ -43,7 +43,8 @@ public final class FoliaRegionProvider implements FoliaProvider {
             context.clock(),
             configuration.folia().observationTtl(),
             configuration.folia().observationSources(),
-            windows
+            windows,
+            context.failureListener()
         );
         collector = new PeriodicSnapshotCollector<>(
             "folia",

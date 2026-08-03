@@ -193,6 +193,9 @@ Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil di
   nicht gestartete Arbeit verwerfen
 - veröffentlicht nur vollständig erfolgreiche immutable Snapshots
 - behält bei Fehler oder Timeout den letzten gültigen Snapshot
+- kann transaktionale Capture-Werte erst innerhalb seiner atomaren
+  Erfolgsannahme materialisieren, sodass Stop oder Timeout keinen verspäteten
+  Registry-Commit zulassen
 - verwirft Ergebnisse nach `stop()` und beendet periodischen Task und
   Timeout-Wächter idempotent
 
@@ -313,6 +316,8 @@ automatisch unbereit.
 - verwirft ältere, verspätete und nach Stop eintreffende Ergebnisse
 - ersetzt nach Erfolg die vollständige Beobachtungsmenge und behält nach Fehler
   den letzten vollständigen Stand
+- ersetzt den vorherigen Stand auch bei einem erfolgreichen Lauf ohne gültige
+  Beobachtung ausdrücklich durch eine leere immutable Liste
 - entfernt ehemalige und abgelaufene Beobachtungen ohne wachsenden Labelcache
 - speichert nur Weltlabel, internen neutralen Chunkanker, Zeitpunkt, TPS-Fenster
   und aggregierte Spielerzahl; keine Minecraft-Liveobjekte oder Identitäten
@@ -378,9 +383,11 @@ Entity- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 - Ein konfigurierter, aber nicht unterstützter Folia-Collector wird nicht gestartet,
   einmalig verständlich als `unsupported` gemeldet und exportiert keine
   Folia-Nullwerte.
-- Ein Fehler eines Folia-Ankers verwirft nur den unvollständigen Lauf; der letzte
-  vollständige Regionssnapshot bleibt bis zur TTL verfügbar und andere
-  Collector laufen weiter.
+- Ein Fehler eines Folia-Spielerankers oder einer einzelnen Regionsbeobachtung
+  überspringt nur diese Observation. Die übrigen Aufgaben laufen weiter und ein
+  erfolgreicher Teil- oder Leersnapshot ersetzt den vorherigen Regionssnapshot.
+- Nur systemische Folia-Lauffehler, Timeout und Stop verwerfen den gesamten Lauf
+  und erhalten den letzten gültigen Snapshot bis zur TTL.
 - Experimentelle oder interne Provider sind kein Bestandteil von Version 1.
 
 ## 3.6 Abhängigkeitsisolation

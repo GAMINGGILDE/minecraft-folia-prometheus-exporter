@@ -102,6 +102,35 @@ class FoliaRegionMetricsCollectorTest {
         assertTrue(output.lines().noneMatch(line -> line.startsWith(
             "minecraft_folia_observed_regions{"
         )));
+        assertFalse(output.contains("minecraft_folia_observed_regions"));
+    }
+
+    @Test
+    void successfulEmptySnapshotRemovesPreviouslyExposedDynamicSeries()
+        throws Exception {
+        PrometheusRegistry registry = new PrometheusRegistry();
+        FoliaMetrics metrics = metrics(registry);
+        metrics.register();
+        metrics.repository().publish(
+            new ImmutableSnapshot<>(
+                NOW,
+                List.of(observation(0, NOW, 20.0, 1))
+            )
+        );
+        assertTrue(exposition(registry).contains(
+            "minecraft_folia_region_tps{"
+        ));
+
+        metrics.repository().publish(new ImmutableSnapshot<>(NOW, List.of()));
+        String emptyOutput = exposition(registry);
+
+        assertTrue(emptyOutput.lines().noneMatch(line -> line.startsWith(
+            "minecraft_folia_region_tps{"
+        )));
+        assertTrue(emptyOutput.lines().noneMatch(line -> line.startsWith(
+            "minecraft_folia_observed_regions{"
+        )));
+        assertFalse(emptyOutput.contains("minecraft_folia_region_tps"));
     }
 
     private static FoliaMetrics metrics(PrometheusRegistry registry) {

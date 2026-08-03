@@ -57,8 +57,7 @@ public final class RateLimitedFailureReporter
         if (decision.log) {
             logger.log(
                 Level.WARNING,
-                "Collector '" + collector
-                    + "' could not publish fresh data; its last complete snapshot is retained.",
+                "Collection source '" + collector + "' reported a failure.",
                 failure
             );
         }

@@ -13,6 +13,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 /**
  * Periodic global capture with timeout, overlap prevention, and run-identity guards.
@@ -121,19 +122,40 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
         }
     }
 
-    private void finishSuccess(CaptureRun run, List<T> values) {
-        Objects.requireNonNull(values, "values");
+    private boolean finishSuccess(
+        CaptureRun run,
+        Supplier<List<T>> valuesSupplier
+    ) {
+        Objects.requireNonNull(valuesSupplier, "valuesSupplier");
+        Throwable completionFailure = null;
         synchronized (runLock) {
             if (
                 !acceptingResults.get()
-                    || !activeRun.compareAndSet(run, null)
+                    || activeRun.get() != run
             ) {
-                return;
+                return false;
             }
-            run.cancelTimeout();
-            run.invalidate();
-            repository.publish(new ImmutableSnapshot<>(clock.instant(), values));
+            try {
+                List<T> values = Objects.requireNonNull(
+                    valuesSupplier.get(),
+                    "values"
+                );
+                activeRun.set(null);
+                run.cancelTimeout();
+                run.invalidate();
+                repository.publish(
+                    new ImmutableSnapshot<>(clock.instant(), values)
+                );
+                return true;
+            } catch (Throwable failure) {
+                activeRun.set(null);
+                run.cancelTimeout();
+                run.invalidate();
+                completionFailure = failure;
+            }
         }
+        failureListener.accept(name(), completionFailure);
+        return false;
     }
 
     private void finishFailure(CaptureRun run, Throwable failure) {
@@ -161,7 +183,12 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
 
         @Override
         public void success(List<T> values) {
-            finishSuccess(run, values);
+            finishSuccess(run, () -> values);
+        }
+
+        @Override
+        public boolean successIfActive(Supplier<List<T>> values) {
+            return finishSuccess(run, values);
         }
 
         @Override

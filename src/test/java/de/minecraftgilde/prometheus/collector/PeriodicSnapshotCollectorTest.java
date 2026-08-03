@@ -121,6 +121,34 @@ class PeriodicSnapshotCollectorTest {
     }
 
     @Test
+    void timeoutDoesNotEvaluateTransactionalSuccessValues() throws Exception {
+        ManualCollectionScheduler scheduler = new ManualCollectionScheduler();
+        List<SnapshotCompletion<Integer>> completions = new ArrayList<>();
+        SnapshotRepository<Integer> repository = new SnapshotRepository<>();
+        PeriodicSnapshotCollector<Integer> collector = collector(
+            "transactional-timeout",
+            true,
+            scheduler,
+            completions::add,
+            repository,
+            new ArrayList<>()
+        );
+        collector.start();
+        scheduler.runGlobal();
+        scheduler.runDelayed();
+        AtomicInteger evaluations = new AtomicInteger();
+
+        boolean accepted = completions.getFirst().successIfActive(() -> {
+            evaluations.incrementAndGet();
+            return List.of(1);
+        });
+
+        assertFalse(accepted);
+        assertEquals(0, evaluations.get());
+        assertFalse(repository.hasSnapshot());
+    }
+
+    @Test
     void neverPublishesAfterStop() throws Exception {
         ManualCollectionScheduler scheduler = new ManualCollectionScheduler();
         List<SnapshotCompletion<Integer>> completions = new ArrayList<>();

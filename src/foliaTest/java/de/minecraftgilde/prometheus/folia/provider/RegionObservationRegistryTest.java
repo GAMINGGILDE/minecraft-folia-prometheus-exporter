@@ -87,6 +87,20 @@ class RegionObservationRegistryTest {
         assertFalse(registry.update(second, observation(3, NOW)));
     }
 
+    @Test
+    void successfulEmptyRunReplacesThePreviousGeneration() {
+        RegionObservationRegistry registry = new RegionObservationRegistry();
+        registry.start();
+        long first = registry.beginRun().orElseThrow();
+        registry.update(first, observation(1, NOW));
+        registry.completeRun(first).orElseThrow();
+
+        long empty = registry.beginRun().orElseThrow();
+        assertTrue(registry.completeRun(empty).orElseThrow().isEmpty());
+
+        assertTrue(registry.current(NOW, Duration.ofMinutes(1)).isEmpty());
+    }
+
     private static RegionObservation observation(int chunkX, Instant time) {
         return new RegionObservation(
             new RegionObservationKey("world", chunkX, 0),

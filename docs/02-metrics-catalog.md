@@ -289,6 +289,13 @@ oder UUIDs gespeichert.
 noch gültigen Beobachtung. Die Standard-TTL beträgt 60 Sekunden. Entladene
 Welten, entfernte Anker und abgelaufene Beobachtungen hinterlassen keine Reihen.
 
+Fehler einzelner Spieleranker und Regionsbeobachtungen werden isoliert; ein
+erfolgreicher Lauf publiziert die übrigen gültigen Beobachtungen als
+Teilsnapshot. Sind keine gültigen Regionen übrig, ersetzt ein erfolgreicher
+leerer Snapshot den vorherigen Stand und entfernt alte dynamische Reihen. Es
+entstehen weder `null`-Samples noch nullwertige Ersatzreihen. Nur ein systemischer
+Laufabbruch behält den letzten gültigen Snapshot.
+
 Die öffentliche API stellt keine vollständige Zahl aktiver Regionen, regionale
 Tickdauer, Tickverzögerung oder einen Überlastungszustand bereit. Die vier als
 „Nicht verfügbar“ markierten Familien werden daher nicht registriert. Tickdauer

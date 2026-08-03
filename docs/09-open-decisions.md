@@ -65,7 +65,8 @@ Eventfamilien und den laufenden Listener-Collector; Entity- und Folia-Familien
 bleiben dort ausgeschlossen. Seit Phase 6 erwartet Paper den Folia-Status
 `unsupported`, genau eine Warnung und keine Folia-Familie. Folia erwartet
 `running` und prüft bei vorhandenen Beobachtungen die sechs Phase-6-Familien;
-ohne Beobachtung sind fehlende dynamische Samples ausdrücklich zulässig.
+ohne Beobachtung sind vollständig fehlende dynamische Textfamilien einschließlich
+`HELP` und `TYPE` ausdrücklich zulässig und es wird keine Region erzwungen.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -239,9 +240,11 @@ Details stehen in ADR 0014.
 - Paper bleibt bei aktivem Collector nach genau einer Warnung `unsupported` und
   registriert keine Folia-Familie. Deaktiviert bleibt der Collector ohne Warnung
   `disabled`. Health und Readiness sind von diesem optionalen Zustand unabhängig.
-- Die Registry ersetzt erfolgreiche Generationen vollständig, verwirft
-  verspätete Updates, akzeptiert nach Stop nichts und bewahrt bei Fehler/Timeout
-  den letzten vollständigen Snapshot bis zur TTL.
+- Die Registry ersetzt erfolgreiche Generationen vollständig, auch durch eine
+  leere Liste, verwirft verspätete Updates und akzeptiert nach Stop nichts.
+  Spieler- und Regionsfehler werden lokal übersprungen; die übrigen gültigen
+  Observationen werden als Teilsnapshot publiziert. Nur systemische Fehler,
+  Timeout und Stop bewahren den letzten vollständigen Snapshot bis zur TTL.
 - Implementiert sind beobachtete Regionen, TPS-Verteilung, Regionen unter
   Schwellen, Regionen mit Spielern, Spieler pro Region und Alter der ältesten
   gültigen Observation.

@@ -265,7 +265,22 @@ Implementiert sind `minecraft_folia_observed_regions`,
 `minecraft_folia_region_tps`, `minecraft_folia_regions_below_tps`,
 `minecraft_folia_regions_with_players`, `minecraft_folia_players_per_region`
 und `minecraft_folia_region_snapshot_age_seconds`. Ohne gültige Beobachtung
-fehlen dynamische Samples; es werden keine Nullwerte erfunden. Regionale
+fehlen dynamische Samples; es werden keine Nullwerte erfunden. Der Prometheus-
+Client unterdrückt bei einem leeren Snapshot die leeren dynamischen Familien im
+Textformat vollständig, einschließlich `HELP` und `TYPE`. Das ist bei null
+beobachteten Regionen korrekt und keine Fehlfunktion.
+
+Fehler eines einzelnen Spielerankers oder einer einzelnen Regionsbeobachtung
+werden neutral und rate-limitiert gemeldet und überspringen nur diesen Anker.
+Alle übrigen Tasks laufen weiter; ein erfolgreicher Teilsnapshot enthält genau
+die gültigen Beobachtungen. Auch ein erfolgreicher Lauf ohne einzige gültige
+Region publiziert einen leeren immutable Snapshot und entfernt dadurch alte
+dynamische Folia-Reihen. Der Collector bleibt dabei `running`; `/health` und
+`/ready` ändern ihren Zustand nicht. Nur systemische Laufabbrüche wie eine
+fehlgeschlagene globale Weltlistenerfassung, Stop oder Timeout erhalten den
+vorherigen Snapshot.
+
+Regionale
 Tickdauer, Tickverzögerung, Überlastung und eine vollständige Zahl aktiver
 Regionen bleiben mangels öffentlicher API unimplementiert.
 
@@ -274,6 +289,12 @@ Der konkrete Provider wird in einem getrennten Source-Set gegen
 Capability-Erfolg geladen. Auf Paper bleibt ein aktivierter Collector
 `unsupported`, protokolliert genau eine Warnung und registriert keine
 Folia-Familie; Health und Readiness bleiben normal verfügbar.
+
+Der gepinnte Folia-Smoke-Test verlangt deshalb keine existierende beobachtbare
+Region. Sobald `minecraft_folia_observed_regions` einen Wert größer null
+ausgibt, müssen alle implementierten TPS- und Aggregationsfamilien vollständige
+und gültige Samples liefern; ein erfolgreicher leerer Snapshot ist ebenfalls
+ein gültiger Testzustand.
 
 ## Status
 

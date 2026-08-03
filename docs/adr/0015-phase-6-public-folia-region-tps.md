@@ -121,16 +121,39 @@ neuere Wert.
 
 Ein erfolgreicher Lauf ersetzt die gesamte vorherige Beobachtungsmenge. Damit
 verschwinden entladene Welten, entfernte Anker und ehemalige Regionen ohne
-unbegrenzten Cache. Ein Fehler eines Spieler- oder Regionscallbacks verwirft den
-unvollständigen Lauf, lässt aber den letzten vollständigen Snapshot aller
-Regionen bestehen. Timeout und Stop invalidieren den Lauf, brechen planbare
-Tasks ab und verhindern verspätete Publikation. Andere Collector bleiben davon
-unberührt.
+unbegrenzten Cache. Fehler beim Lesen oder Einplanen eines einzelnen
+Spielerankers sowie Ownership-, Scheduling-, API- und Validierungsfehler einer
+einzelnen Regionsbeobachtung werden lokal isoliert. Der betroffene Anker wird
+genau einmal abgeschlossen und übersprungen; alle übrigen Aufgaben laufen weiter.
+Der erfolgreiche Lauf publiziert anschließend einen Teilsnapshot aus genau den
+gültigen Observationen.
 
-Laufzeitfehler werden über den vorhandenen Reporter rate-limitiert. Der Provider
-übergibt dabei nur eine neutrale Fehlermeldung und den ursprünglichen Stack ohne
-ursprünglichen Nachrichtentext, damit API-Exceptions keine Spieler-, Chunk- oder
-Regionsdetails in das Log tragen können.
+Ein erfolgreicher Lauf darf null gültige Regionen enthalten. In diesem Fall
+ersetzt eine leere immutable Liste den vorherigen Registry- und Metrikstand,
+sodass alte dynamische Folia-Reihen verschwinden. Es werden weder `null`-Samples
+noch nullwertige Ersatzreihen erzeugt. Der Collector bleibt `running`; Health und
+Readiness ändern sich nicht. Der Prometheus Java Client 1.8.0 rendert leere
+dynamische Gauge-Snapshots im Textformat vollständig ohne `HELP`, `TYPE` oder
+Sample-Zeilen. Die Familienregistrierung wird deshalb unabhängig durch
+Provider- und Descriptor-Integrationstests geprüft.
+
+Systemisch sind dagegen eine nicht startbare Registry-Generation, das Ende der
+Completion-Annahme durch Stop oder Timeout, ein Fehler der globalen Weltliste
+und verletzte interne Zustandsinvarianten. Nur solche Fehler brechen den gesamten
+Lauf ab und erhalten den letzten gültigen Snapshot. Der Commit der Registry wird
+erst innerhalb der atomaren Erfolgsannahme des periodischen Collectors
+materialisiert; dadurch können Timeout und Erfolg sich weder überholen noch
+einen verspäteten Registry-Stand publizieren. Beim systemischen Abbruch werden
+ausstehende Tasks kontrolliert storniert und spätere Callbacks ignoriert.
+Andere Collector bleiben davon unberührt.
+
+Lokale Beobachtungsfehler und systemische Laufzeitfehler werden über den
+vorhandenen Reporter mit getrennten festen Schlüsseln rate-limitiert. Der
+Provider übergibt dabei nur neutrale Fehlermeldungen und den ursprünglichen Stack
+ohne ursprünglichen Nachrichtentext, damit API-Exceptions keine Spieler-, UUID-,
+Chunk-, Regions- oder internen Beobachtungsdetails in das Log tragen können.
+Auch eine Exception des Reporters wird an der Capture-Grenze abgefangen und
+verlässt keinen Entity- oder Region-Thread.
 
 Beobachtungen sind standardmäßig 60 Sekunden gültig. Der Wert muss mindestens
 `collection.folia-interval` betragen und ohne Überlauf als Millisekunden
