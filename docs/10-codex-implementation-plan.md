@@ -238,14 +238,7 @@ Abnahme: Phase 6 ist abgeschlossen. Phase 7 „Entities“ ist der nächste Umfa
 - optionale genaue Typen
 - Laufzeitmessung
 
-## Phase 8 – Optionales Gameplay
-
-- nur aggregiert
-- standardmäßig aus
-- keine Spielerzuordnung
-- Kardinalitätsgrenzen
-
-## Phase 9 – Dokumentation und Dashboard
+## Phase 8 – Dokumentation und Dashboard
 
 - Installationsanleitung
 - Alloy-Beispiel
