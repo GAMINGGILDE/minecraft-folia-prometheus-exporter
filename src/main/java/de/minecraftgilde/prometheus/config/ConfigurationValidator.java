@@ -31,6 +31,7 @@ public final class ConfigurationValidator {
         validateCollection(configuration.collection());
         validateFilesystem(configuration.filesystem());
         validateFolia(configuration.folia());
+        validateEntities(configuration.entities());
         if (
             configuration.folia().observationTtl().compareTo(
                 configuration.collection().foliaInterval()
@@ -87,10 +88,6 @@ public final class ConfigurationValidator {
             "collection.folia-interval",
             collection.foliaInterval()
         );
-        requireTickInterval(
-            "collection.entity-interval",
-            collection.entityInterval()
-        );
         requireMillisecondDuration(
             "collection.filesystem-interval",
             collection.filesystemInterval()
@@ -99,6 +96,26 @@ public final class ConfigurationValidator {
         requireMillisecondDuration(
             "collection.filesystem-timeout",
             collection.filesystemTimeout()
+        );
+    }
+
+    private static void validateEntities(
+        ExporterConfiguration.EntitiesConfiguration entities
+    ) {
+        requireMillisecondDuration(
+            "entities.reconciliation-interval",
+            entities.reconciliationInterval()
+        );
+        if (
+            entities.reconciliationInterval().compareTo(Duration.ofMinutes(1)) < 0
+        ) {
+            throw new ConfigurationException(
+                "entities.reconciliation-interval must be at least 1m"
+            );
+        }
+        requireMillisecondDuration(
+            "entities.reconciliation-timeout",
+            entities.reconciliationTimeout()
         );
     }
 

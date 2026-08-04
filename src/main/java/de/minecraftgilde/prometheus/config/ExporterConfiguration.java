@@ -10,6 +10,7 @@ public record ExporterConfiguration(
     CollectionConfiguration collection,
     CollectorsConfiguration collectors,
     FoliaConfiguration folia,
+    EntitiesConfiguration entities,
     FilesystemConfiguration filesystem,
     PrivacyConfiguration privacy,
     LoggingConfiguration logging
@@ -20,6 +21,7 @@ public record ExporterConfiguration(
         Objects.requireNonNull(collection, "collection");
         Objects.requireNonNull(collectors, "collectors");
         Objects.requireNonNull(folia, "folia");
+        Objects.requireNonNull(entities, "entities");
         Objects.requireNonNull(filesystem, "filesystem");
         Objects.requireNonNull(privacy, "privacy");
         Objects.requireNonNull(logging, "logging");
@@ -39,7 +41,6 @@ public record ExporterConfiguration(
                 Duration.ofSeconds(5),
                 Duration.ofSeconds(10),
                 Duration.ofSeconds(5),
-                Duration.ofSeconds(30),
                 Duration.ofMinutes(30),
                 Duration.ofSeconds(10),
                 Duration.ofMinutes(15)
@@ -57,7 +58,6 @@ public record ExporterConfiguration(
                 true,
                 false,
                 false,
-                false,
                 false
             ),
             new FoliaConfiguration(
@@ -68,6 +68,12 @@ public record ExporterConfiguration(
                     List.of("min", "p05", "p50", "p95", "max", "average"),
                     List.of(19.0, 18.0, 15.0)
                 )
+            ),
+            new EntitiesConfiguration(
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(60),
+                false,
+                false
             ),
             new FilesystemConfiguration(true, 1, true, false, false),
             new PrivacyConfiguration(false),
@@ -96,7 +102,6 @@ public record ExporterConfiguration(
         Duration serverInterval,
         Duration worldInterval,
         Duration regionInterval,
-        Duration entityInterval,
         Duration filesystemInterval,
         Duration timeout,
         Duration filesystemTimeout
@@ -106,7 +111,6 @@ public record ExporterConfiguration(
             Objects.requireNonNull(serverInterval, "serverInterval");
             Objects.requireNonNull(worldInterval, "worldInterval");
             Objects.requireNonNull(regionInterval, "regionInterval");
-            Objects.requireNonNull(entityInterval, "entityInterval");
             Objects.requireNonNull(filesystemInterval, "filesystemInterval");
             Objects.requireNonNull(timeout, "timeout");
             Objects.requireNonNull(filesystemTimeout, "filesystemTimeout");
@@ -131,13 +135,31 @@ public record ExporterConfiguration(
         boolean exporter,
         boolean gameplay,
         boolean pluginInfo,
-        boolean detailedEntityTypes,
         boolean commands
     ) {
 
         /** Phase-6 name for the legacy {@code foliaRegions} model field. */
         public boolean folia() {
             return foliaRegions;
+        }
+    }
+
+    public record EntitiesConfiguration(
+        Duration reconciliationInterval,
+        Duration reconciliationTimeout,
+        boolean includeExactTypes,
+        boolean includeProjectileTotal
+    ) {
+
+        public EntitiesConfiguration {
+            Objects.requireNonNull(
+                reconciliationInterval,
+                "reconciliationInterval"
+            );
+            Objects.requireNonNull(
+                reconciliationTimeout,
+                "reconciliationTimeout"
+            );
         }
     }
 

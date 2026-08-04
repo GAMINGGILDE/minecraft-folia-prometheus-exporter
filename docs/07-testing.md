@@ -107,6 +107,19 @@ muss erfolgreich sein.
   künstlicher Nullwerte
 - getrennte allgemeine und Folia-Compile-Classpaths, Folia-Provider-Suite gegen
   die gepinnte Folia-API und Bytecode-/JAR-Prüfungen ohne interne APIs
+- vollständige zentrale Entityklassifizierung aller Ziel-API-Typen, exakt eine
+  der zehn Gruppen, feste Priorität, unbekannte Typen als `other` und vollständiger
+  Spielerausschluss
+- immutable Entity-Weltsnapshots mit zehn Gruppen, konsistenten Summen,
+  optionalen Typen sowie Entfernung alter Welt- und Typreihen
+- Entity-Journalrennen für Event vor/nach Observation und Commit, Welt-Unload,
+  Abbruch, Stop, erfolgreichen Leersnapshot, lokale Teilerfolge und
+  Driftkorrekturen ohne verlorene oder doppelte Deltas
+- Region-Scheduler je geladenem Chunk und Entity Scheduler je Beobachtung;
+  lokale Welt-, Chunk-, Entity- und Reporterfehler bleiben isoliert
+- Registryausgabe aller Standardfamilien und drei begrenzter
+  Reconciliation-Metriken; optionale Projektil- und Typfamilien erscheinen nur
+  mit ihrem jeweiligen Schalter
 
 ## 7.3 Integrationsprüfungen
 
@@ -183,6 +196,16 @@ Laufender Collector, fehlerfreier Start, Health/Readiness, erlaubte Labels,
 fehlende experimentelle Familien sowie das Fehlen nichtfiniter oder negativer
 Samples bleiben auch beim leeren Snapshot die Abnahme.
 
+Seit Phase 7 wartet der Smoke-Test auf einen erfolgreichen initialen
+Entity-Abgleich. Paper und Folia müssen für jede erfasste geladene Welt genau
+zehn `minecraft_entity_group_count`-Samples, die vier standardmäßigen
+Weltaggregate, die drei begrenzten Reconciliation-Familien und den laufenden
+Collectorstatus `entities` liefern. Die standardmäßig deaktivierten Familien
+`minecraft_entities` und `minecraft_world_projectiles` sowie Entity-Lifecycle-
+Counter müssen fehlen. Eine bestimmte positive Entityzahl wird nicht verlangt;
+Nullgruppen sind ein gültiger Stand. Logprüfungen schließen Threading-,
+Scheduler-, NMS- und interne API-Fehler ein.
+
 ## 7.4 Threading-Prüfungen
 
 - keine Weltzugriffe aus HTTP-Threads
@@ -199,6 +222,11 @@ Samples bleiben auch beim leeren Snapshot die Abnahme.
   nur auf dem Region Scheduler
 - Folia-Regionthreads warten niemals blockierend auf andere Anker; Timeout und
   Scrape laufen außerhalb der Regionthreads
+- Phase-7-Welten- und Chunkanker entstehen auf dem Global Region Scheduler,
+  Chunklisten werden nur über den zuständigen Region Scheduler ausgewertet und
+  Entitytyp, Welt und lauflokale Identität nur auf dem Entity Scheduler gelesen
+- Entity-Region- und Entitytasks warten nie blockierend aufeinander; Timeout,
+  Commit und Scrape akzeptieren ausschließlich zurückgeführte immutable Werte
 
 ## 7.5 Performance-Ziele
 
@@ -407,3 +435,31 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
 - `./gradlew clean build`, `./gradlew test`, `./gradlew foliaTest` sowie die
   Architektur-, Dependency-, Shadow-JAR- und gepinnten Smoke-Prüfungen sind die
   vollständige Abnahme.
+
+## 7.14 Abnahme Phase 7
+
+- Die gepinnten Paper-/Folia-Artefakte und öffentlichen Entity-, Chunk-, Welt-
+  und Event-APIs sind untersucht; ADR 0016 dokumentiert verwendete und
+  verworfene Quellen sowie die Genauigkeitsgrenzen.
+- `EntityAddToWorldEvent` und `EntityRemoveFromWorldEvent` bilden die einzige
+  symmetrische Entity-Zustandsgrenze. Welt-Load/-Unload ergänzen den
+  Weltlebenszyklus; parallele Spawn-, Death-, Transform-, Teleport- oder
+  Chunkevents erzeugen keine Doppelzählung.
+- Der Initial- und Folgeabgleich verteilt bereits geladene Chunks über Region-
+  Scheduler und jede Entitybeobachtung über den Entity Scheduler. Er lädt weder
+  Chunks noch Entitydaten eigens für Metriken.
+- Run-ID, Überlappungsschutz, Timeout, Stop und ein lauflokales Eventjournal
+  koppeln Scan und Commit atomar. UUIDs dienen ausschließlich kurzfristig der
+  Deduplizierung und gelangen nie in Snapshot, Metrik oder Log.
+- Jede gültige Welt liefert zehn Gruppen und konsistente Nichtspieler-, Living-,
+  Villager- und Itemaggregate. Projektilsumme und genaue Namespaced Typen sind
+  getrennt und standardmäßig deaktiviert.
+- Lokale Welt-, Chunk- und Entityfehler werden isoliert; systemische Fehler und
+  Timeouts erhalten den letzten gültigen Stand. Ein erfolgreicher Leersnapshot
+  entfernt alle alten dynamischen Reihen.
+- Laufzeit, letzter Erfolg und Driftkorrekturen besitzen je eine unbeschriftete,
+  begrenzte Familie. Zusätzliche Error- und Lifecycle-Counter wurden nicht
+  eingeführt.
+- Konfigurations-, Klassifizierungs-, Snapshot-, Event-, Race-, Registry-,
+  Lifecycle-, Paper-/Folia-Smoke- und Shadow-JAR-Prüfungen bilden die
+  verpflichtende Abnahme. Phase 8 bleibt der nächste Umfang.

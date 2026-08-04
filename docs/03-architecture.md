@@ -69,6 +69,31 @@ Der konkrete Provider wird auf Paper nicht geladen. Ein Scrape liest die
 Observation-Liste genau einmal, filtert nur noch anhand der TTL und greift nicht
 auf Server, Welten, Spieler, Chunks oder Scheduler zu.
 
+Phase 7 ergänzt einen gemeinsamen hybriden Entitypfad:
+
+```text
+EntityAddToWorldEvent / EntityRemoveFromWorldEvent
+                    +
+Globaler Welt-/Chunkanker-Abgleich
+                    │
+          Region Scheduler je Chunk
+                    │
+          Entity Scheduler je Entity
+                    │
+                    ▼
+  sequenziertes lauflokales Eventjournal
+                    │
+                    ▼
+ atomarer vollständiger EntityWorldSnapshot
+                    │
+                    ▼
+ private PrometheusRegistry / MetricsEndpoint
+```
+
+Das Eventjournal enthält eine Identität nur während eines Abgleichs. Publizierte
+Snapshots enthalten ausschließlich Weltlabel, feste Gruppen, Aggregate und
+optional kontrollierte Namespaced EntityType-Keys.
+
 Die JVM- und Prozessinstrumentierungen aus Phase 3 bilden einen getrennten,
 serverunabhängigen Datenpfad:
 
@@ -119,6 +144,8 @@ wurden bereits während öffentlicher Events erhöht.
 - erzeugt `PhaseSixRuntime`, das nur die neutrale Capability- und Factory-Grenze
   registriert; die konkrete Providerklasse wird erst beim Collectorstart nach
   erfolgreicher Capability geladen
+- erzeugt `PhaseSevenRuntime`, das Entityfamilien, Listener, Vollabgleich und
+  den gemeinsamen Zustandsstore registriert
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
 - setzt Readiness beim Disable zuerst zurück und schließt alle Komponenten
@@ -196,6 +223,9 @@ Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil di
 - kann transaktionale Capture-Werte erst innerhalb seiner atomaren
   Erfolgsannahme materialisieren, sodass Stop oder Timeout keinen verspäteten
   Registry-Commit zulassen
+- unterstützt über `SnapshotPublisher` eine fachliche transaktionale
+  Publikation innerhalb derselben Erfolgsannahme; Phase 7 kombiniert dort
+  Scanbasis und Events bis zur Commitgrenze
 - verwirft Ergebnisse nach `stop()` und beendet periodischen Task und
   Timeout-Wächter idempotent
 
@@ -288,6 +318,36 @@ Eventdaten rate-limitiert als `IllegalStateException` gemeldet. Die ursprünglic
 wirft, verlässt keine Exception den Eventthread; andere Ereignisbereiche und der
 HTTP-Dienst laufen weiter.
 
+### `PhaseSevenRuntime`, `EntityCollector` und `EntityStateStore`
+
+`PhaseSevenRuntime` registriert den verwalteten Collector `entities`. Ist er
+deaktiviert, fehlen Listener, Scheduleraufgaben und sämtliche Entityfamilien.
+Bei Aktivierung werden genau ein Listener, ein periodischer Vollabgleich und die
+private Entity-Metrikgruppe erzeugt.
+
+Der Listener verwendet ausschließlich `EntityAddToWorldEvent`,
+`EntityRemoveFromWorldEvent`, `WorldLoadEvent` und ein nicht abgebrochenes
+`WorldUnloadEvent`. Add und Remove bilden die einzige symmetrische Entityquelle
+und decken dadurch auch Chunk-Lifecycle, Weltwechsel und Transformation ab.
+
+`BukkitEntityReconciliationCapture` liest die globale Welt-/Chunkankertopologie,
+plant je Chunk eine Regionaufgabe und wertet jede gefundene Entity anschließend
+auf ihrem Entity Scheduler aus. `Chunk#getEntities()` wird nur für bereits
+geladene Entitydaten verwendet. Ein erfolgreicher Initiallauf erfasst deshalb
+bereits vorhandene Entities, ohne entladene Chunks oder Entitydaten zu laden.
+
+`EntityStateStore` hält genau einen aktiven Run mit monotoner Eventsequenz.
+Entitybeobachtungen tragen die Sequenz nach ihrer Auswertung. Der Commit spielt
+nur spätere Events je lauflokaler Identität wieder und publiziert danach einen
+vollständigen immutable Snapshot. Eventupdates nach dem Commit bauen atomar auf
+diesem neuen Stand auf. Timeout, Stop und alte Callback-Ergebnisse können diese
+Commitgrenze nicht überschreiten.
+
+Die lauflokale Deduplizierung verwendet kurzzeitig UUIDs, speichert sie aber
+weder in Snapshot noch Registry oder Log. Der Snapshot enthält für jede Welt
+alle zehn Gruppen, Gesamt-, Living-, Villager-, Item- und Projectile-Zahl sowie
+optional exakte Typen. Prometheus liest pro Scrape genau einen Repositorywert.
+
 ### `MetricsEndpoint`
 
 - `/metrics`, `/health` und `/ready` als Standardpfade
@@ -367,7 +427,9 @@ Zustands kein Snapshot-Repository und keinen Scheduler. Server, Welten, Chunks
 und Weltgrößen bleiben separate periodische Snapshot-Collector. Seit Phase 6
 ist `FoliaRegionCollector` ein capability-geschützter `ManagedCollector`, dessen
 Provider intern den vorhandenen periodischen Snapshot-Collector wiederverwendet.
-Entity- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
+Seit Phase 7 ist `EntityCollector` ein hybrider `ManagedCollector` mit genau
+einem Listener und einem intern wiederverwendeten periodischen Collector.
+Gameplay-Collector bleiben späteren Phasen vorbehalten.
 
 ## 3.5 Fehlerisolation
 
@@ -389,6 +451,10 @@ Entity- und Gameplay-Collector bleiben späteren Phasen vorbehalten.
 - Nur systemische Folia-Lauffehler, Timeout und Stop verwerfen den gesamten Lauf
   und erhalten den letzten gültigen Snapshot bis zur TTL.
 - Experimentelle oder interne Provider sind kein Bestandteil von Version 1.
+- Entityfehler werden je Entity oder Chunk lokal übersprungen. Wenn kein Chunk
+  einer Welt erfolgreich erfasst werden konnte, bleibt deren letzter gültiger
+  Wert erhalten. Globale Fehler, Timeout und Stop behalten den gesamten letzten
+  Snapshot.
 
 ## 3.6 Abhängigkeitsisolation
 
@@ -424,7 +490,7 @@ Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-6-Lifecycle
+## 3.7 Phase-7-Lifecycle
 
 ```text
 onEnable
@@ -438,11 +504,14 @@ onEnable
   → Phase-4-Collector beim Coordinator registrieren
   → Event-Collector beim Coordinator registrieren
   → neutralen Folia-Collector beim Coordinator registrieren
+  → Entity-Collector beim Coordinator registrieren
   → CollectorCoordinator starten
     → bei aktiviertem Event-Collector Counter und einen Listener registrieren
     → Folia-Capability prüfen
       → Paper: einmal warnen, unsupported, keine Providerklasse/Familie laden
       → Folia: eigene Providerklasse laden, Familien registrieren, Capture starten
+    → bei aktiviertem Entity-Collector Familien und Listener registrieren
+      → initialen verteilten Entity-Abgleich starten
   → HTTP-Server starten
   → Initialisierung vollständig / ready = 1
 
@@ -452,6 +521,7 @@ onDisable oder Startfehler
   → gestartete Collector rückwärts stoppen
     → Eventannahme sperren und Listener abmelden
     → Folia-Capture invalidieren und keine Registryupdates mehr annehmen
+    → Entity-Capture invalidieren, Eventannahme sperren und Listener abmelden
   → alle verbliebenen Phase-4-/Phase-6-Schedulertasks abbrechen
   → Registry und Core-Zustand freigeben
 ```

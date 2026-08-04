@@ -228,15 +228,48 @@ Status: abgeschlossen.
   fehlende Textfamilien bei leerem Client-Snapshot sind gültig
 - keine Spieleridentitäten oder Chunk-/Regionskoordinaten im Output oder Log
 
-Abnahme: Phase 6 ist abgeschlossen. Phase 7 „Entities“ ist der nächste Umfang.
+Abnahme: Phase 6 ist abgeschlossen.
 
 ## Phase 7 – Entities
 
-- Gruppen
-- eventbasierte Aktualisierung
-- periodischer Abgleich
-- optionale genaue Typen
-- Laufzeitmessung
+Status: abgeschlossen.
+
+- zehn feste Gruppen `monster`, `animal`, `ambient`, `water`, `villager`,
+  `item`, `projectile`, `vehicle`, `display` und `other`
+- zentrale deterministische Klassifizierung über öffentliche Entity-Interfaces
+  mit fest dokumentierter Priorität und vollständigem Spielerausschluss
+- Standardgauge `minecraft_entity_group_count` mit zehn Samples je gültiger Welt
+- Weltaggregate für Nichtspieler-Entities, Living-Entities, Villager und
+  gedroppte Items
+- getrennt schaltbare Projektilsumme und genaue vollständige Namespaced Typen,
+  beide standardmäßig aus
+- Listener vor Initialabgleich; ausschließlich Add-/Remove-to/from-World als
+  symmetrische Entityquelle sowie Welt-Load/-Unload
+- sofortiger Initialabgleich und periodischer Folgeabgleich mit eigenem
+  Fünf-Minuten-Intervall, Ein-Minuten-Mindestwert und 60-Sekunden-Timeout
+- globale Welten-/Chunkanker, Chunkauswertung auf Region Schedulern und
+  Entitybeobachtung auf Entity Schedulern ohne blockierendes Warten
+- immutable Weltaggregate, atomare Publikation, erfolgreiche Leersnapshots und
+  Entfernung alter Welt-/Typreihen
+- Run-ID, Überlappungsschutz, kurzlebige UUID-Deduplizierung und sequenziertes
+  Eventjournal für race-sichere Scan-/Event-/Commit-Zusammenführung
+- lokale Fehlerisolation sowie Erhalt des letzten Standes bei systemischem
+  Fehler, Timeout oder Stop
+- begrenzte Laufzeit-, Erfolgszeitpunkt- und Korrekturmetriken ohne Welt- oder
+  Fehlerlabels
+- Konfigurations-, Klassifizierungs-, Snapshot-, Event-, Parallelitäts-,
+  Prometheus-, Lifecycle-, Build- und gepinnte Paper-/Folia-Smoke-Prüfungen
+- Architekturentscheidung in ADR 0016
+
+Nicht Bestandteil von Phase 7:
+
+- Spawn-, Removal-, Kill- und Item-Despawn-Counter
+- Spieler-, UUID-, Namens-, Koordinaten-, Besitzer-, Item- oder Plugindaten
+- persistente Entitybestände
+- NMS, interne APIs oder ein vorsorglicher zusätzlicher Folia-Provider
+
+Abnahme: Phase 7 ist abgeschlossen. Phase 8 „Dokumentation und Dashboard“ ist
+der nächste Umfang.
 
 ## Phase 8 – Dokumentation und Dashboard
 

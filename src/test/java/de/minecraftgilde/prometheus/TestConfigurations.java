@@ -30,7 +30,6 @@ public final class TestConfigurations {
             current.exporter(),
             current.gameplay(),
             pluginInfo,
-            current.detailedEntityTypes(),
             current.commands()
         );
         return new ExporterConfiguration(
@@ -38,6 +37,7 @@ public final class TestConfigurations {
             defaults.collection(),
             collectors,
             defaults.folia(),
+            defaults.entities(),
             defaults.filesystem(),
             defaults.privacy(),
             defaults.logging()

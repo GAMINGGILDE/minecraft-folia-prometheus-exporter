@@ -167,7 +167,11 @@ Phase 4 implementiert aus dieser Tabelle `minecraft_world_players`,
 `minecraft_world_difficulty`, `minecraft_world_environment` und
 `minecraft_world_pvp_enabled`. Full Time und Autosave bleiben als optionale,
 deaktivierte Katalogeinträge einer späteren Phase vorbehalten. Entityfamilien
-werden in Phase 4 nicht registriert.
+werden in Phase 4 nicht registriert. Phase 7 implementiert
+`minecraft_world_entities`, `minecraft_world_living_entities`,
+`minecraft_world_villagers` und `minecraft_world_item_entities` standardmäßig.
+`minecraft_world_projectiles` wird nur mit
+`entities.include-projectile-total: true` registriert.
 
 Wetter ist One-Hot über `clear`, `rain`, `thunder`; Schwierigkeit über
 `peaceful`, `easy`, `normal`, `hard`; Umgebung über `normal`, `nether`,
@@ -197,6 +201,80 @@ Standardgruppen:
 - `vehicle`
 - `display`
 - `other`
+
+Phase 7 implementiert `minecraft_entity_group_count` standardmäßig und
+`minecraft_entities` nur bei `entities.include-exact-types: true`. Die vier
+Lifecycle-Counter bleiben unimplementiert.
+
+Gezählt werden aktuell geladene Nichtspieler-Entities. Persistierte Entities in
+entladenen Chunks werden nicht für Metriken geladen. Für jede erfolgreich
+erfasste geladene Welt enthält `minecraft_entity_group_count` alle zehn Gruppen,
+auch mit Wert null. Die Gesamtzahl ist exakt die Summe dieser Gruppen.
+
+Definitionen:
+
+- `minecraft_world_entities`: alle erfassten Nichtspieler-Entities,
+- `minecraft_world_living_entities`: tatsächliche `LivingEntity`-Instanzen ohne
+  Spieler,
+- `minecraft_world_villagers`: `Villager` und `WanderingTrader`,
+- `minecraft_world_item_entities`: ausschließlich gedroppte `Item`-Entities,
+- `minecraft_world_projectiles`: ausschließlich `Projectile`-Entities.
+
+Die Klassifizierungspriorität ist `villager`, `item`, `projectile`, `vehicle`,
+`display`, `monster`, `water`, `ambient`, `animal`, danach `other`. Technisch
+werden dafür nur öffentliche Bukkit-Interfaces und `EntityType` verwendet.
+Spieler werden vor der Klassifizierung ausgeschlossen. Unbekannte Typen ergeben
+`other`.
+
+Der optionale Typwert ist der vollständige kleingeschriebene öffentliche
+Namespaced Key, beispielsweise `minecraft:zombie`. `UNKNOWN`, fehlende oder
+unerwartete Keys werden als `unknown` normalisiert. Es gibt keine Namen, UUIDs,
+Koordinaten oder Pluginmetadaten als Entitylabels. Ein neuer Snapshot ersetzt
+alle Welt- und Typreihen, sodass entladene Welten und nicht mehr vorhandene Typen
+verschwinden.
+
+Phase 7 verwendet `EntityAddToWorldEvent` und `EntityRemoveFromWorldEvent` als
+einzige Entity-Zustandsquellen zwischen initialem beziehungsweise periodischem
+Vollabgleich. Deshalb werden Spawn, Death, Transformation, Teleport sowie Chunk-
+Load/-Unload nicht durch parallele Spezialevents doppelt gezählt.
+
+### Technische Grundlage für Phase 8
+
+Geeignete niedrig-kardinale PromQL-Grundlagen sind:
+
+```promql
+# Bestand je Welt und Gruppe
+sum by (world, group) (minecraft_entity_group_count)
+
+# Gesamtbestand aller geladenen Welten
+sum(minecraft_world_entities)
+
+# Veränderung eines Gauge-Bestands über 15 Minuten
+delta(minecraft_world_entities[15m])
+
+# zehn häufigste genaue Typen, nur bei bewusst aktivierter Typfamilie
+topk(10, sum by (type) (minecraft_entities))
+
+# Alter des letzten erfolgreichen Vollabgleichs
+time() - minecraft_entity_reconciliation_last_success_timestamp_seconds
+
+# in den letzten 15 Minuten erkannte Driftkorrekturen
+increase(minecraft_entity_reconciliation_corrections_total[15m])
+```
+
+Für Phase 8 bieten sich gestapelte Zeitreihen je `world`/`group`, Stat-Panels für
+Gesamt-, Item- und Villagerbestand sowie getrennte Panels für Abgleichsdauer,
+Erfolgsalter, Korrekturrate und den vorhandenen Collectorstatus an. Die optionale
+Typfamilie soll nur in begrenzten `topk`-Panels verwendet werden; Abfragen über
+alle Welten und Typen ohne Aggregation oder Begrenzung sind zu vermeiden.
+
+Illustrative, serverabhängig zu kalibrierende Warnschwellen sind mehr als 5.000
+Entities je Welt für 10 Minuten, mehr als 1.000 Item-Entities für 5 Minuten oder
+mehr als 500 Villager für 15 Minuten. Für die Standardkonfiguration kann zudem
+eine Abgleichsdauer über 45 Sekunden oder ein Erfolgsalter über 10 Minuten auf
+Überlastung beziehungsweise wiederholte Fehlschläge hinweisen. Diese Werte sind
+keine universellen Produktdefaults; Phase 8 muss sie anhand Weltgröße,
+Sichtweite, Mobcaps und Hardware parametrierbar machen.
 
 ## 2.7 Chunks
 
@@ -480,6 +558,19 @@ Für spätere Phasen katalogisiert, aber in Phase 2 noch nicht registriert:
 | `minecraft_exporter_snapshot_age_seconds` | Gauge | `collector` |
 | `minecraft_exporter_last_scrape_duration_seconds` | Gauge | – |
 | `minecraft_exporter_metrics_exposed` | Gauge | – |
+
+Phase 7 ergänzt getrennt und ohne Labels:
+
+| Metrik | Typ | Bedeutung |
+|---|---|---|
+| `minecraft_entity_reconciliation_duration_seconds` | Gauge | Dauer des letzten erfolgreichen Entity-Vollabgleichs |
+| `minecraft_entity_reconciliation_last_success_timestamp_seconds` | Gauge | Unix-Zeitpunkt des letzten erfolgreichen Abgleichs |
+| `minecraft_entity_reconciliation_corrections_total` | Counter | Zahl numerisch abweichender Welt-/Gruppen-/Aggregat-/optional Typwerte, die ein Vollabgleich korrigiert hat |
+
+Der Initialabgleich zählt keine Korrekturen. Eine zusätzliche Entity-Fehlerfamilie
+wird nicht registriert; Laufzeitfehler werden rate-limitiert gemeldet und der
+Lifecycle über `minecraft_exporter_collector_state{collector="entities",...}`
+abgebildet.
 
 ## 2.13 Verbotene Metriken
 

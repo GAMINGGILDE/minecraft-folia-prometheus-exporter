@@ -24,7 +24,7 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
     private final Duration interval;
     private final Duration timeout;
     private final SnapshotCapture<T> capture;
-    private final SnapshotRepository<T> repository;
+    private final SnapshotPublisher<T> publisher;
     private final Clock clock;
     private final BiConsumer<String, Throwable> failureListener;
     private final AtomicBoolean acceptingResults = new AtomicBoolean();
@@ -48,7 +48,37 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
         this.interval = Objects.requireNonNull(interval, "interval");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
         this.capture = Objects.requireNonNull(capture, "capture");
-        this.repository = Objects.requireNonNull(repository, "repository");
+        SnapshotRepository<T> target = Objects.requireNonNull(
+            repository,
+            "repository"
+        );
+        this.publisher = (capturedAt, values) -> target.publish(
+            new ImmutableSnapshot<>(capturedAt, values)
+        );
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.failureListener = Objects.requireNonNull(
+            failureListener,
+            "failureListener"
+        );
+    }
+
+    public PeriodicSnapshotCollector(
+        String name,
+        boolean enabled,
+        CollectionScheduler scheduler,
+        Duration interval,
+        Duration timeout,
+        SnapshotCapture<T> capture,
+        SnapshotPublisher<T> publisher,
+        Clock clock,
+        BiConsumer<String, Throwable> failureListener
+    ) {
+        super(name, enabled);
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+        this.interval = Objects.requireNonNull(interval, "interval");
+        this.timeout = Objects.requireNonNull(timeout, "timeout");
+        this.capture = Objects.requireNonNull(capture, "capture");
+        this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.failureListener = Objects.requireNonNull(
             failureListener,
@@ -136,16 +166,17 @@ public final class PeriodicSnapshotCollector<T> extends AbstractCollector {
                 return false;
             }
             try {
-                List<T> values = Objects.requireNonNull(
+                List<T> values = List.copyOf(Objects.requireNonNull(
                     valuesSupplier.get(),
                     "values"
+                ));
+                publisher.publish(
+                    clock.instant(),
+                    values
                 );
                 activeRun.set(null);
                 run.cancelTimeout();
                 run.invalidate();
-                repository.publish(
-                    new ImmutableSnapshot<>(clock.instant(), values)
-                );
                 return true;
             } catch (Throwable failure) {
                 activeRun.set(null);

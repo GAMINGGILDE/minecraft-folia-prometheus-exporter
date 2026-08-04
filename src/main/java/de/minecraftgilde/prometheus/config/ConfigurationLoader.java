@@ -2,6 +2,7 @@ package de.minecraftgilde.prometheus.config;
 
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.CollectionConfiguration;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.CollectorsConfiguration;
+import de.minecraftgilde.prometheus.config.ExporterConfiguration.EntitiesConfiguration;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.FilesystemConfiguration;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.FoliaConfiguration;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration.HttpConfiguration;
@@ -26,6 +27,7 @@ public final class ConfigurationLoader {
             loadCollection(source, defaults.collection()),
             loadCollectors(source, defaults.collectors()),
             loadFolia(source, defaults.folia()),
+            loadEntities(source, defaults.entities()),
             loadFilesystem(source, defaults.filesystem()),
             new PrivacyConfiguration(
                 booleanValue(
@@ -72,7 +74,6 @@ public final class ConfigurationLoader {
                 "collection.region-interval",
                 defaults.foliaInterval()
             ),
-            durationValue(source, "collection.entity-interval", defaults.entityInterval()),
             durationValue(
                 source,
                 "collection.filesystem-interval",
@@ -109,12 +110,37 @@ public final class ConfigurationLoader {
             booleanValue(source, "collectors.exporter", defaults.exporter()),
             booleanValue(source, "collectors.gameplay", defaults.gameplay()),
             booleanValue(source, "collectors.plugin-info", defaults.pluginInfo()),
+            booleanValue(source, "collectors.commands", defaults.commands())
+        );
+    }
+
+    private static EntitiesConfiguration loadEntities(
+        ConfigurationSource source,
+        EntitiesConfiguration defaults
+    ) {
+        return new EntitiesConfiguration(
+            durationValue(
+                source,
+                "entities.reconciliation-interval",
+                "collection.entity-interval",
+                defaults.reconciliationInterval()
+            ),
+            durationValue(
+                source,
+                "entities.reconciliation-timeout",
+                defaults.reconciliationTimeout()
+            ),
             booleanValue(
                 source,
+                "entities.include-exact-types",
                 "collectors.detailed-entity-types",
-                defaults.detailedEntityTypes()
+                defaults.includeExactTypes()
             ),
-            booleanValue(source, "collectors.commands", defaults.commands())
+            booleanValue(
+                source,
+                "entities.include-projectile-total",
+                defaults.includeProjectileTotal()
+            )
         );
     }
 

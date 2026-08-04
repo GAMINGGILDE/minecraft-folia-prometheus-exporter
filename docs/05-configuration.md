@@ -13,7 +13,6 @@ collection:
   server-interval: "5s"
   world-interval: "10s"
   folia-interval: "5s"
-  entity-interval: "30s"
   filesystem-interval: "30m"
   timeout: "10s"
   filesystem-timeout: "15m"
@@ -31,8 +30,13 @@ collectors:
   exporter: true
   gameplay: false
   plugin-info: false
-  detailed-entity-types: false
   commands: false
+
+entities:
+  reconciliation-interval: "5m"
+  reconciliation-timeout: "60s"
+  include-exact-types: false
+  include-projectile-total: false
 
 folia:
   observation-sources:
@@ -88,9 +92,12 @@ logging:
 - HTTP-Pfade beginnen mit `/`, enthalten mindestens ein Segment und müssen
   eindeutig sein.
 - `http.worker-threads` muss positiv sein.
-- `collection.server-interval`, `world-interval`, `folia-interval` und
-  `entity-interval` müssen mindestens `50ms` betragen, weil sie in Serverticks
-  darstellbar sein müssen.
+- `collection.server-interval`, `world-interval` und `folia-interval` müssen
+  mindestens `50ms` betragen, weil sie in Serverticks darstellbar sein müssen.
+- `entities.reconciliation-interval` muss mindestens `1m` betragen.
+- `entities.reconciliation-timeout` muss mindestens `1ms` betragen. Timeout und
+  Intervall dürfen in beiden Größenordnungen zueinander stehen; bei einem langen
+  Timeout verhindert der Überlappungsschutz weitere gleichzeitige Läufe.
 - `collection.filesystem-interval`, `collection.timeout` und
   `collection.filesystem-timeout` müssen mindestens `1ms` betragen. Alle
   Erfassungsdauern müssen ohne Überlauf als Millisekunden darstellbar sein;
@@ -131,6 +138,10 @@ logging:
 - Phase 6 verwendet `collectors.folia`, `collection.folia-interval` und die
   abgegrenzte `folia`-Sektion. Die Capability-Prüfung erfolgt erst im Lifecycle,
   nicht im serverunabhängigen Konfigurationsmodell.
+- Phase 7 verwendet `collectors.entities` und die immutable `entities`-Sektion.
+  Die alten vorbereiteten Schlüssel `collection.entity-interval` und
+  `collectors.detailed-entity-types` bleiben Legacy-Aliasse; die neuen Schlüssel
+  gewinnen deterministisch.
 - Das Konfigurationsmodell selbst bleibt serverunabhängig und immutable. Erst der
   Plugin-Lifecycle startet nach erfolgreicher Validierung Registry, Coordinator
   und HTTP-Dienst.
@@ -199,8 +210,7 @@ beschleunigen, erhöht aber die konkurrierende I/O-Last. Die Option verändert
 weder den Namen noch die Labels von `minecraft_world_size_bytes`; interne
 Weltpfade werden niemals exportiert.
 
-`collection.entity-interval`, die Entity-, Gameplay- und detaillierten Schalter
-sowie die übrigen
+Die Entity-, Gameplay- und detaillierten Schalter sowie die übrigen
 `filesystem.include-*`-Optionen bleiben für spätere Phasen in der Konfiguration.
 Sie lösen in Phase 4 keine zusätzliche Metrikerfassung aus.
 
@@ -248,3 +258,29 @@ sein. Eine TTL unter dem Erfassungsintervall wird abgelehnt. Bei deaktiviertem
 Collector gibt es keine Capability-Warnung und keine Familie. Konfigurationswerte
 für Tickdauer, Tickverzögerung, Überlastung oder interne Provider existieren
 bewusst nicht.
+
+## Phase-7-relevante Werte
+
+| Schlüssel | Standard | Wirkung |
+|---|---:|---|
+| `collectors.entities` | `true` | aktiviert Listener, Initialabgleich, periodischen Abgleich und Entityfamilien |
+| `entities.reconciliation-interval` | `5m` | Abstand vollständiger Entity-Abgleiche; mindestens `1m` |
+| `entities.reconciliation-timeout` | `60s` | maximale Annahmezeit eines vollständigen verteilten Abgleichs |
+| `entities.include-exact-types` | `false` | registriert zusätzlich `minecraft_entities{world,type}` |
+| `entities.include-projectile-total` | `false` | registriert zusätzlich `minecraft_world_projectiles{world}` |
+
+Bei deaktiviertem Collector werden weder Listener noch Scheduleraufgaben oder
+Entity-Metrikfamilien registriert. Der Initialabgleich startet unabhängig vom
+fünfminütigen Folgeintervall unmittelbar nach dem Collectorstart.
+
+Das Mindestintervall von einer Minute schützt Server mit vielen geladenen Chunks
+und Entities vor versehentlich dauerhaft hoher Scheduler- und Allokationslast.
+Werte werden niemals still korrigiert. Dauerstrings mit falschem Typ, Null,
+negativen Werten, Überlauf oder zu kurzem Intervall verhindern den Pluginstart
+mit vollständigem Konfigurationspfad.
+
+Genaue Typen verwenden vollständige öffentliche Namespaced Bukkit-Keys wie
+`minecraft:zombie`. Sie erhöhen die Reiheanzahl ungefähr um die Zahl tatsächlich
+vorhandener Entitytypen je Welt und sind deshalb standardmäßig deaktiviert. Die
+Projektilsumme besitzt einen getrennten niedrig-kardinalen Schalter und hängt
+nicht von den genauen Typen ab.

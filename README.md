@@ -89,6 +89,7 @@ collectors:
   events: true
   worlds: true
   chunks: true
+  entities: true
   folia: true
   jvm: true
   process: true
@@ -102,6 +103,12 @@ collection:
   filesystem-interval: "30m"
   timeout: "10s"
   filesystem-timeout: "15m"
+
+entities:
+  reconciliation-interval: "5m"
+  reconciliation-timeout: "60s"
+  include-exact-types: false
+  include-projectile-total: false
 
 filesystem:
   include-world-sizes: true
@@ -296,7 +303,44 @@ ausgibt, müssen alle implementierten TPS- und Aggregationsfamilien vollständig
 und gültige Samples liefern; ein erfolgreicher leerer Snapshot ist ebenfalls
 ein gültiger Testzustand.
 
+## Entity-Metriken
+
+`collectors.entities: true` aktiviert die Phase-7-Gauges. Standardmäßig werden
+für jede erfolgreich erfasste geladene Welt genau zehn feste Gruppen ausgegeben:
+`monster`, `animal`, `ambient`, `water`, `villager`, `item`, `projectile`,
+`vehicle`, `display` und `other`. Spieler werden vollständig ausgeschlossen.
+
+Implementiert sind `minecraft_entity_group_count`,
+`minecraft_world_entities`, `minecraft_world_living_entities`,
+`minecraft_world_villagers` und `minecraft_world_item_entities`. Der optionale
+Schalter `entities.include-projectile-total` ergänzt
+`minecraft_world_projectiles`. `entities.include-exact-types` ergänzt die
+standardmäßig fehlende Familie `minecraft_entities{world,type}`; `type` ist ein
+kontrollierter Namespaced Bukkit-Key wie `minecraft:zombie`.
+
+Bereits vorhandene Entities werden initial erfasst. Danach halten ausschließlich
+`EntityAddToWorldEvent` und `EntityRemoveFromWorldEvent` den Stand zwischen den
+Vollabgleichen aktuell. Diese einzelne symmetrische Eventgrenze deckt auch
+Chunk-Load/-Unload, Weltwechsel und Transformation ab, ohne Spawn-, Death-,
+Teleport- oder Chunkevents doppelt zu zählen. Chunkzugriffe laufen auf dem
+Region Scheduler, jede Entity-Auswertung auf ihrem Entity Scheduler. Scrapes
+lesen nur den atomar publizierten immutable Snapshot.
+
+Das Standardintervall beträgt fünf Minuten und darf nicht unter eine Minute
+gesetzt werden. Der eigene Timeout beträgt 60 Sekunden. Laufzeit, letzter Erfolg
+und Korrekturen erscheinen als
+`minecraft_entity_reconciliation_duration_seconds`,
+`minecraft_entity_reconciliation_last_success_timestamp_seconds` und
+`minecraft_entity_reconciliation_corrections_total`. Timeout und systemische
+Fehler erhalten den letzten gültigen Snapshot; ein erfolgreicher leerer Lauf
+entfernt alte Welt- und Typreihen.
+
+Gezählt werden aktuell geladene Nichtspieler-Entities. Persistierte Entities in
+entladenen Chunks werden nicht eigens geladen. Kurzfristige UUIDs dienen nur der
+Deduplizierung innerhalb eines Abgleichs; sie werden nie exportiert, geloggt oder
+publiziert.
+
 ## Status
 
-Phase 6 „Folia Regions-TPS“ ist implementiert. Phase 7 „Entities“ ist der
-nächste Umfang.
+Phase 7 „Entities“ ist implementiert. Phase 8 „Dokumentation und Dashboard“ ist
+der nächste Umfang.

@@ -10,7 +10,6 @@ collection:
   server-interval: "5s"
   world-interval: "10s"
   folia-interval: "5s"
-  entity-interval: "30s"
   filesystem-interval: "30m"
   timeout: "10s"
   filesystem-timeout: "15m"
@@ -28,8 +27,13 @@ collectors:
   exporter: true
   gameplay: false
   plugin-info: false
-  detailed-entity-types: false
   commands: false
+
+entities:
+  reconciliation-interval: "5m"
+  reconciliation-timeout: "60s"
+  include-exact-types: false
+  include-projectile-total: false
 
 folia:
   observation-sources:

@@ -20,6 +20,12 @@ Messungen. Die Folia-Capability ist ausschließlich
 `Server#getRegionTPS(World,int,int)`; die gemeinsamen Scheduler selbst bleiben
 ausdrücklich kein Erkennungsmerkmal.
 
+Phase 7 verwendet dieselben gemeinsamen Scheduler ohne neuen Provider. Der
+Global Region Scheduler liest nur Welten und geladene Chunkanker. Entitylisten
+bereits geladener Chunks werden auf dem zuständigen Region Scheduler
+materialisiert; jede Entityeigenschaft wird anschließend auf dem Entity
+Scheduler gelesen.
+
 ## 4.1 Scheduler-Zuordnung
 
 | Aufgabe | Scheduler |
@@ -69,6 +75,23 @@ Für Phase 6 gilt zusätzlich:
 | `getRegionTPS(World,int,int)` | derselbe besitzende Region Scheduler |
 | Timeout-Wächter | Async Scheduler |
 | Prometheus-Scrape | HTTP-Thread; genau ein immutable Folia-Snapshot und eine Zeitablesung |
+
+Für Phase 7 gilt zusätzlich:
+
+| Öffentlicher API-Zugriff | Ausführung |
+|---|---|
+| `Server#getWorlds()` und `World#getLoadedChunks()` | Global Region Scheduler; nur laufzeitkurze Welt-/Chunkanker |
+| `Chunk#isLoaded()`, `isEntitiesLoaded()` und `getEntities()` | Region Scheduler des Chunks; `getEntities()` nur bei bereits geladenen Entitydaten |
+| `Entity#getWorld()`, `getType()` und lauflokale Identität | Entity Scheduler der Entity |
+| `EntityAddToWorldEvent`/`EntityRemoveFromWorldEvent` | ausliefernder besitzender Eventthread; sofortige Reduktion auf immutable Werte |
+| `WorldLoadEvent`/nicht abgebrochenes `WorldUnloadEvent` | ausliefernder Eventthread; ausschließlich Weltlabel und Aggregate |
+| Timeout-Wächter | Async Scheduler |
+| Prometheus-Scrape | HTTP-Thread; genau ein immutable Entity-Snapshot |
+
+Die Chunk-Entityliste wird nicht auf dem Global Region Scheduler gelesen.
+`World#getEntities()` und `World#getLivingEntities()` sind im Entity-Collector
+verboten. Ein Regiontask wertet auch nicht die Eigenschaften beweglicher
+Entities aus, sondern plant dafür deren mitwandernden Entity Scheduler.
 
 Alle Eventhandler sind kurz und nicht blockierend. Sie führen keine Datei- oder
 Netzwerkoperation aus, speichern kein Event- oder Minecraft-Objekt und lesen
@@ -170,6 +193,13 @@ nur ein Lauf aktiv. Ein Timeout entfernt diesen Lauf atomar; ein später Callbac
 kann wegen der abweichenden Laufidentität nicht mehr publizieren. Nach `stop()`
 werden überhaupt keine Ergebnisse mehr angenommen.
 
+Phase 7 ergänzt innerhalb derselben Erfolgsannahme ein sequenziertes Eventjournal.
+Die Scanbasis trägt je lauflokaler Identität die zuletzt beobachtete Eventsequenz;
+beim Commit werden nur spätere Events angewendet. Der gemeinsame Store sperrt
+Eventupdate und Reconciliation-Publikation kurz gegeneinander. Region- und
+Entitythreads warten dabei niemals auf Minecraft-Schedulerthreads, sondern nur
+auf den kurzen plugininternen Aggregationslock.
+
 Für `world-sizes` signalisiert der Collector Timeout und Stop zusätzlich an die
 interne Scan-Warteschlange. Sie verwirft alle noch nicht laufenden Arbeiten und
 startet für den ungültigen Lauf nichts mehr. Ein bereits in
@@ -217,6 +247,11 @@ Der Phase-6-Callback liest den Folia-Snapshot genau einmal. TTL-Filterung,
 Aggregation und Snapshot-Alter verwenden nur dessen primitive beziehungsweise
 immutable Werte. Weder Capability-Prüfung noch Provider, Scheduler oder
 Minecraft-Liveobjekte sind vom HTTP-Thread aus erreichbar.
+
+Der Phase-7-Callback liest ebenfalls genau einen immutable Repositorywert. Die
+zehn Gruppen und optionalen Typreihen werden ausschließlich aus Strings, Enums,
+Zählern und unveränderlichen Maps erzeugt. Weder Eventjournal noch Scheduler,
+UUID, World, Chunk oder Entity sind vom HTTP-Thread erreichbar.
 
 ## 4.6 Regionsbeobachtung
 

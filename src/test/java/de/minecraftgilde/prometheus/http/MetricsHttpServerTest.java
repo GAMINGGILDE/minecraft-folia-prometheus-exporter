@@ -20,9 +20,13 @@ import de.minecraftgilde.prometheus.minecraft.WeatherLabel;
 import de.minecraftgilde.prometheus.minecraft.WorldChunkSnapshot;
 import de.minecraftgilde.prometheus.minecraft.WorldSizeSnapshot;
 import de.minecraftgilde.prometheus.minecraft.WorldSnapshot;
+import de.minecraftgilde.prometheus.minecraft.entity.EntityGroup;
+import de.minecraftgilde.prometheus.minecraft.entity.EntityWorldSnapshot;
+import de.minecraftgilde.prometheus.minecraft.metrics.EntityMetricsCollector;
 import de.minecraftgilde.prometheus.minecraft.metrics.MinecraftMetrics;
 import de.minecraftgilde.prometheus.minecraft.event.EventMetrics;
 import de.minecraftgilde.prometheus.snapshot.ImmutableSnapshot;
+import de.minecraftgilde.prometheus.snapshot.SnapshotRepository;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -113,13 +117,16 @@ class MetricsHttpServerTest {
             assertTrue(metrics.body().contains("process_cpu_seconds_total"));
             assertPhaseFourFamilies(metrics.body());
             assertPhaseFiveFamilies(metrics.body());
+            assertPhaseSevenFamilies(metrics.body());
             assertTrue(metrics.body().contains("minecraft_world_weather{weather=\"rain\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_difficulty{difficulty=\"hard\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_environment{environment=\"normal\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_players_by_gamemode{gamemode=\"survival\"} 2.0"));
             assertTrue(!metrics.body().contains("minecraft_plugin_info"));
             assertTrue(!metrics.body().contains("Alice"));
-            assertTrue(!metrics.body().contains("minecraft_world_entities"));
+            assertTrue(metrics.body().contains("minecraft_world_entities{world=\"world\"} 3.0"));
+            assertTrue(!metrics.body().contains("minecraft_entities{"));
+            assertTrue(!metrics.body().contains("minecraft_world_projectiles"));
             assertTrue(metrics.body().contains("minecraft_login_denied_total{reason=\"unknown\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_player_kicks_total{reason=\"connection_lost\"} 1.0"));
             assertReasonLabelsAreBounded(metrics.body());
@@ -266,6 +273,7 @@ class MetricsHttpServerTest {
         publishPhaseFourSnapshots(minecraftMetrics);
         EventMetrics eventMetrics = new EventMetrics(registry);
         publishPhaseFiveEvents(eventMetrics);
+        publishPhaseSevenSnapshot(registry);
         ExporterLifecycleState state = readyCoreState();
         ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);
@@ -357,6 +365,31 @@ class MetricsHttpServerTest {
         );
     }
 
+    private static void publishPhaseSevenSnapshot(PrometheusRegistry registry) {
+        SnapshotRepository<EntityWorldSnapshot> repository =
+            new SnapshotRepository<>();
+        registry.register(new EntityMetricsCollector(repository, false, false));
+        EnumMap<EntityGroup, Long> groups = new EnumMap<>(EntityGroup.class);
+        for (EntityGroup group : EntityGroup.values()) {
+            groups.put(group, 0L);
+        }
+        groups.put(EntityGroup.MONSTER, 2L);
+        groups.put(EntityGroup.ITEM, 1L);
+        repository.publish(new ImmutableSnapshot<>(
+            Instant.parse("2026-08-04T15:00:00Z"),
+            List.of(new EntityWorldSnapshot(
+                "world",
+                groups,
+                3L,
+                2L,
+                0L,
+                1L,
+                0L,
+                java.util.Map.of()
+            ))
+        ));
+    }
+
     private static void assertPhaseFourFamilies(String metrics) {
         for (String family : List.of(
             "minecraft_server_info",
@@ -394,6 +427,27 @@ class MetricsHttpServerTest {
         }
         assertTrue(!metrics.contains("private chat content"));
         assertTrue(!metrics.contains("private-client-host"));
+    }
+
+    private static void assertPhaseSevenFamilies(String metrics) {
+        for (String family : List.of(
+            "minecraft_entity_group_count",
+            "minecraft_world_entities",
+            "minecraft_world_living_entities",
+            "minecraft_world_villagers",
+            "minecraft_world_item_entities"
+        )) {
+            assertTrue(metrics.contains("# HELP " + family + " "), family);
+            assertTrue(metrics.contains("# TYPE " + family + " gauge"), family);
+            assertTrue(metrics.contains("\n" + family), family);
+        }
+        long groupSamples = metrics.lines()
+            .filter(line -> line.startsWith("minecraft_entity_group_count{"))
+            .count();
+        assertEquals(EntityGroup.values().length, groupSamples);
+        assertTrue(!metrics.contains("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"));
+        assertTrue(!metrics.contains("chunk_x"));
+        assertTrue(!metrics.contains("chunk_z"));
     }
 
     private static void assertReasonLabelsAreBounded(String metrics) {

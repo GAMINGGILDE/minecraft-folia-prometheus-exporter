@@ -141,7 +141,9 @@ while ((SECONDS < snapshot_deadline)); do
     && grep -Eq '^minecraft_plugins_total[[:space:]]' <<<"$metrics_response" \
     && grep -Eq '^minecraft_world_players\{world="[^"]+"\}' <<<"$metrics_response" \
     && grep -Eq '^minecraft_world_loaded_chunks\{world="[^"]+"\}' <<<"$metrics_response" \
-    && grep -Eq '^minecraft_world_size_bytes\{world="[^"]+"\}' <<<"$metrics_response"; then
+    && grep -Eq '^minecraft_world_size_bytes\{world="[^"]+"\}' <<<"$metrics_response" \
+    && grep -Eq '^minecraft_entity_group_count\{group="[^"]+",world="[^"]+"\}|^minecraft_entity_group_count\{world="[^"]+",group="[^"]+"\}' <<<"$metrics_response" \
+    && grep -Eq '^minecraft_world_entities\{world="[^"]+"\}' <<<"$metrics_response"; then
     break
   fi
   sleep 1
@@ -185,7 +187,15 @@ for required_metric in \
   minecraft_chat_messages_total \
   minecraft_chunks_loaded_total \
   minecraft_chunks_unloaded_total \
-  minecraft_chunks_generated_total; do
+  minecraft_chunks_generated_total \
+  minecraft_entity_group_count \
+  minecraft_world_entities \
+  minecraft_world_living_entities \
+  minecraft_world_villagers \
+  minecraft_world_item_entities \
+  minecraft_entity_reconciliation_duration_seconds \
+  minecraft_entity_reconciliation_last_success_timestamp_seconds \
+  minecraft_entity_reconciliation_corrections_total; do
   if ! grep -Fq "$required_metric" <<<"$metrics_response"; then
     echo "Missing exporter metric: $required_metric" >&2
     exit 1
@@ -212,6 +222,40 @@ done
 
 if ! grep -Eq '^minecraft_exporter_collector_state\{collector="events",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
   echo "Phase-5 event collector is not running under the default configuration." >&2
+  exit 1
+fi
+
+if ! grep -Eq '^minecraft_exporter_collector_state\{collector="entities",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
+  echo "Phase-7 entity collector is not running under the default configuration." >&2
+  exit 1
+fi
+
+for entity_gauge in \
+  minecraft_entity_group_count \
+  minecraft_world_entities \
+  minecraft_world_living_entities \
+  minecraft_world_villagers \
+  minecraft_world_item_entities \
+  minecraft_entity_reconciliation_duration_seconds \
+  minecraft_entity_reconciliation_last_success_timestamp_seconds; do
+  if ! grep -Eq "^# HELP ${entity_gauge} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${entity_gauge} gauge$" <<<"$metrics_response" \
+    || ! grep -Eq "^${entity_gauge}(\\{|[[:space:]])" <<<"$metrics_response"; then
+    echo "Invalid or incomplete Phase-7 Prometheus family: $entity_gauge" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Eq '^# HELP minecraft_entity_reconciliation_corrections_total ' <<<"$metrics_response" \
+  || ! grep -Eq '^# TYPE minecraft_entity_reconciliation_corrections_total counter$' <<<"$metrics_response"; then
+  echo "Invalid Phase-7 reconciliation corrections counter." >&2
+  exit 1
+fi
+
+group_count="$(grep -E '^minecraft_entity_group_count\{' <<<"$metrics_response" | wc -l | tr -d ' ')"
+world_count="$(grep -E '^minecraft_world_entities\{' <<<"$metrics_response" | wc -l | tr -d ' ')"
+if [[ "$world_count" -lt 1 ]] || [[ "$group_count" -ne $((world_count * 10)) ]]; then
+  echo "Every captured world must expose exactly ten bounded entity groups." >&2
   exit 1
 fi
 
@@ -243,10 +287,22 @@ if grep -Fq 'minecraft_plugin_info' <<<"$metrics_response"; then
   exit 1
 fi
 
+for optional_entity_metric in \
+  minecraft_entities \
+  minecraft_world_projectiles; do
+  if grep -Fq "$optional_entity_metric" <<<"$metrics_response"; then
+    echo "Optional entity metric is unexpectedly enabled by default: $optional_entity_metric" >&2
+    exit 1
+  fi
+done
+
 for forbidden_prefix in \
-  minecraft_world_entities \
   minecraft_commands_total \
   minecraft_chunk_load_failures_total \
+  minecraft_entities_spawned_total \
+  minecraft_entities_removed_total \
+  minecraft_mobs_killed_total \
+  minecraft_items_despawned_total \
   minecraft_folia_active_regions \
   minecraft_folia_region_tick_duration_seconds \
   minecraft_folia_overloaded_regions \

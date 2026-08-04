@@ -11,7 +11,7 @@
   "internal_paper_api_v1": false,
   "internal_folia_api_v1": false,
   "individual_player_metrics": false,
-  "implementation_status": "Phase 3 JVM and process metrics implemented with official Prometheus Java Client 1.8.0 instrumentation registered directly in each MetricsCore private registry; Phase 4 server and world metrics is next",
+  "implementation_status": "Phase 7 entity metrics implemented with hybrid event and reconciliation snapshots; Phase 8 documentation and dashboard is next",
   "server_smoke_tests": {
     "workflow_separate_from_build": true,
     "runner": "ubuntu-24.04",
@@ -23,6 +23,7 @@
     "verifies_http_endpoints": true,
     "verifies_embedded_git_commit": true,
     "verifies_phase_3_metrics": true,
+    "verifies_phase_7_entity_metrics": true,
     "verifies_http_shutdown": true,
     "paper": {
       "version": "26.1.2",
@@ -138,6 +139,39 @@
       "system_load_average_1m"
     ],
     "next_phase": "Phase 4 Server and Worlds"
+  },
+  "phase_7_architecture": {
+    "implemented": true,
+    "enabled_by_default": true,
+    "fixed_groups": [
+      "monster",
+      "animal",
+      "ambient",
+      "water",
+      "villager",
+      "item",
+      "projectile",
+      "vehicle",
+      "display",
+      "other"
+    ],
+    "players_excluded": true,
+    "initial_and_periodic_reconciliation": true,
+    "event_sources": [
+      "EntityAddToWorldEvent",
+      "EntityRemoveFromWorldEvent",
+      "WorldLoadEvent",
+      "WorldUnloadEvent"
+    ],
+    "default_reconciliation_interval": "5m",
+    "minimum_reconciliation_interval": "1m",
+    "default_reconciliation_timeout": "60s",
+    "exact_types_enabled_by_default": false,
+    "projectile_total_enabled_by_default": false,
+    "snapshot_only_http_reads": true,
+    "run_local_identity_only": true,
+    "lifecycle_counters_implemented": false,
+    "next_phase": "Phase 8 Documentation and Dashboard"
   },
   "future_folia_provider": {
     "phase": 6,

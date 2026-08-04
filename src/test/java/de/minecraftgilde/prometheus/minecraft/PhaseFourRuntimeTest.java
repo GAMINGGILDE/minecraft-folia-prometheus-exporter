@@ -91,7 +91,6 @@ class PhaseFourRuntimeTest {
                 collection.serverInterval(),
                 collection.worldInterval(),
                 collection.regionInterval(),
-                collection.entityInterval(),
                 collection.filesystemInterval(),
                 timeout,
                 filesystemTimeout
@@ -109,10 +108,10 @@ class PhaseFourRuntimeTest {
                 collectors.exporter(),
                 collectors.gameplay(),
                 collectors.pluginInfo(),
-                collectors.detailedEntityTypes(),
                 collectors.commands()
             ),
             defaults.folia(),
+            defaults.entities(),
             defaults.filesystem(),
             defaults.privacy(),
             defaults.logging()

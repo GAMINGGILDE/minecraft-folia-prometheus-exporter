@@ -62,11 +62,15 @@ Prometheus-`HELP`-, `TYPE`- und Sample-Zeilen. Seit Phase 4 wartet er begrenzt a
 Server-, Welt-, Chunk- und Weltgrößensnapshots, validiert repräsentative
 Phase-4-Familien und kontrollierte Labels. Seit Phase 5 prüft er die zehn
 Eventfamilien und den laufenden Listener-Collector; Entity- und Folia-Familien
-bleiben dort ausgeschlossen. Seit Phase 6 erwartet Paper den Folia-Status
+bleiben im historischen Phase-5-Stand ausgeschlossen. Seit Phase 6 erwartet
+Paper den Folia-Status
 `unsupported`, genau eine Warnung und keine Folia-Familie. Folia erwartet
 `running` und prüft bei vorhandenen Beobachtungen die sechs Phase-6-Familien;
 ohne Beobachtung sind vollständig fehlende dynamische Textfamilien einschließlich
 `HELP` und `TYPE` ausdrücklich zulässig und es wird keine Region erzwungen.
+Seit Phase 7 verlangen beide Plattformen einen laufenden Entity-Collector, zehn
+Gruppensamples je erfasster Welt, die Standardaggregate und die begrenzten
+Abgleichsmetriken; optionale Typ- und Projektilfamilien bleiben im Standard aus.
 Details stehen in ADR 0009.
 
 ## 9.3 In Phase 2 umgesetzt
@@ -258,13 +262,52 @@ Details stehen in ADR 0014.
 
 Details stehen in ADR 0010 und ADR 0015.
 
-## 9.8 Noch offen
+## 9.8 In Phase 7 umgesetzt
 
-- genaue Entity-Abgleichstrategie
+- Zehn feste, gegenseitig ausschließende Entitygruppen werden zentral über
+  öffentliche Entity-Interfaces klassifiziert. Spieler sind vor jeder
+  Klassifizierung ausgeschlossen; unbekannte Typen ergeben `other`.
+- Bereits vorhandene Entities werden initial und danach standardmäßig alle fünf
+  Minuten über geladene Chunks abgeglichen. Der Mindestwert beträgt eine Minute,
+  der eigene Standardtimeout 60 Sekunden.
+- `EntityAddToWorldEvent` und `EntityRemoveFromWorldEvent` sind die einzigen
+  Entity-Zustandsquellen. Welt-Load und nicht abgebrochenes Welt-Unload behandeln
+  dynamische Welten ohne parallele Spawn-, Death-, Transform- oder Chunkevents.
+- Globale Topologie, Chunkzugriffe und Entityeigenschaften laufen getrennt auf
+  Global-, Region- und Entity-Schedulern. Ein zusätzlicher Folia-Provider ist
+  nicht erforderlich.
+- Ein lauflokales UUID-Deduplizierungsset und sequenziertes Eventjournal lösen
+  Scan-/Event-/Commit-Rennen. Identitäten überschreiten nie die Laufgrenze.
+- Standardmäßig registriert sind die zehn Gruppengauges, Nichtspieler-Gesamt-,
+  Living-, Villager- und Itemaggregate sowie Dauer, letzter Erfolg und
+  Korrekturen des Abgleichs.
+- Projektilsumme und vollständige Namespaced Entitytypen sind unabhängig und
+  standardmäßig deaktiviert. Entladene Welten und verschwundene Typen hinterlassen
+  keine Reihen.
+- Lokale Fehler werden neutral und rate-limitiert isoliert; systemischer Abbruch,
+  Timeout und Stop publizieren keinen Teilstand. Ein erfolgreicher leerer Lauf
+  entfernt den alten Stand.
+- Spawn-, Removal-, Kill-, Item-Despawn- und Error-Counter wurden bewusst nicht
+  eingeführt.
+
+Details stehen in ADR 0016.
+
+## 9.9 Vorbereitung für Phase 8
+
+Der Metrikkatalog enthält PromQL-Grundlagen für Gruppensummen, Gesamtbestände,
+Gauge-Veränderungen, `topk`-Typauswertungen, Erfolgsalter und Korrekturraten.
+Vorgesehen sind Welt-/Gruppen-Zeitreihen, Stat-Panels für Gesamt-, Item- und
+Villagerbestand sowie Betriebs-Panels für Dauer, Staleness, Korrekturen und
+Collectorstatus. Beispielschwellen sind ausdrücklich nur Ausgangswerte und
+müssen in Phase 8 an Weltgröße, Mobcaps, Sichtweite und Hardware angepasst
+werden. Die optionale Typfamilie erfordert begrenzte, aggregierte Abfragen.
+
+## 9.10 Noch offen
+
 - gewünschte Standard-Buckets für Histogramme
 - Release- und Changelog-Format
 
-## 9.9 Nicht mehr offen
+## 9.11 Nicht mehr offen
 
 - Automatisierbarkeit eines verpflichtenden Paper- und Folia-Starttests
 - feste Paper- und Folia-Serverbuilds für den Smoke-Test
@@ -309,3 +352,8 @@ Details stehen in ADR 0010 und ADR 0015.
 - Klassenlade- und Source-Set-Isolation des Folia-Providers
 - Folia-Registry-, TTL-, Quantil-, Schwellen- und Nullsample-Semantik
 - unterstützte und nicht verfügbare Phase-6-Metriken
+- öffentliche Entity-Abgleichs- und Eventstrategie
+- feste Gruppen, Klassifizierungspriorität und Spielerausschluss
+- Entity-Journal-, Deduplizierungs-, Timeout- und Commitsemantik
+- genaue Typnamen, Kardinalitätsschalter und Projektilschalter
+- Definition und Begrenzung der Entity-Abgleichsmetriken
