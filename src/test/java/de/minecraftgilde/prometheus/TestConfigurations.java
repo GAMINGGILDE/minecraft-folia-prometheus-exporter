@@ -27,10 +27,7 @@ public final class TestConfigurations {
             current.jvm(),
             current.process(),
             filesystem,
-            current.exporter(),
-            current.gameplay(),
-            pluginInfo,
-            current.commands()
+            pluginInfo
         );
         return new ExporterConfiguration(
             defaults.http(),

@@ -30,10 +30,7 @@ collectors:
   jvm: true
   process: true
   filesystem: true
-  exporter: true
-  gameplay: false
   plugin-info: false
-  commands: false
 
 entities:
   reconciliation-interval: "5m"
@@ -70,16 +67,12 @@ folia:
 filesystem:
   include-world-sizes: true
   world-size-scan-concurrency: 1
-  include-server-filesystem: true
-  include-log-size: false
-  include-plugin-size: false
 
 privacy:
   individual-player-metrics-supported: false
 
 logging:
   collection-errors: true
-  debug: false
 ```
 
 Konfigurationsänderungen werden nach einem vollständigen Serverneustart wirksam.
@@ -113,9 +106,9 @@ Netzwerk-, Firewall- oder Proxyregeln erfolgen.
 | Schlüssel | Standard | Wirkung |
 |---|---:|---|
 | `collectors.server` | `true` | Server-, Spieler- und Plugin-Summen |
-| `collectors.events` | `true` | alle zehn Event-Counter und deren Listener |
+| `collectors.events` | `true` | implementierte Login-, Join-, Quit-, Kick-, Ping- und Chat-Eventmetriken samt Listener sowie Chunk-Lifecycle-Counter |
 | `collectors.worlds` | `true` | Weltzustandsmetriken |
-| `collectors.chunks` | `true` | geladene Chunks je Welt |
+| `collectors.chunks` | `true` | Snapshot der aktuell geladenen Chunks je Welt |
 | `collectors.entities` | `true` | Entitygruppen, Aggregate und Abgleich |
 | `collectors.folia` | `true` | capability-geschützte Folia-Metriken |
 | `collectors.jvm` | `true` | JVM-Speicher, GC, Threads, Klassen und Buffer Pools |
@@ -143,6 +136,10 @@ Readiness und die übrigen Collector nicht.
 
 `collectors.plugin-info` wirkt nur zusammen mit `collectors.server`. Die Option
 ist wegen ihrer dynamischen Pluginname- und Versionslabels standardmäßig aus.
+
+Die drei Chunk-Lifecycle-Counter werden ereignisbasiert erfasst und gehören
+technisch zu `collectors.events`. `collectors.chunks` steuert ausschließlich die
+Snapshot-Metrik `minecraft_world_loaded_chunks`.
 
 ## 5.3 Entities
 
@@ -206,23 +203,7 @@ Spielermetriken können nicht aktiviert werden. `logging.collection-errors`
 steuert rate-limitierte Laufzeitfehlermeldungen der Collector. Fehlertexte werden
 nicht in Prometheus-Labels übernommen.
 
-## 5.7 Eingelesene Schlüssel ohne Metrikwirkung
-
-Die mitgelieferte Konfiguration enthält aus dem ursprünglichen
-Konfigurationsschema noch folgende Schlüssel, die keine Metrikfamilie oder
-Laufzeitfunktion aktivieren:
-
-- `collectors.exporter` – Exporter-Eigenmetriken sind immer Teil des Metrics Core
-- `collectors.gameplay` – reservierter Schlüssel ohne Laufzeitwirkung
-- `collectors.commands` – Command-Metriken sind nicht implementiert
-- `filesystem.include-server-filesystem`
-- `filesystem.include-log-size`
-- `filesystem.include-plugin-size`
-- `logging.debug`
-
-Diese Schlüssel dürfen nicht als vorhandene Features interpretiert werden.
-
-## 5.8 Legacy-Aliasse
+## 5.7 Legacy-Aliasse
 
 Folgende ältere Schlüssel werden weiterhin gelesen. Sind Alias und aktueller
 Schlüssel gleichzeitig vorhanden, gewinnt der aktuelle Schlüssel:

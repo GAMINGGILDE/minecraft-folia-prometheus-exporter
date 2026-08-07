@@ -11,6 +11,9 @@ muss erfolgreich sein.
 ## 7.2 Unit-Tests
 
 - Standardwerte des Konfigurationsmodells
+- ausgelieferte Standardkonfiguration entspricht dem Modell, enthält keine
+  entfernten wirkungslosen Schlüssel und wird erfolgreich validiert
+- unbekannte Konfigurationswerte werden weiterhin ignoriert
 - ungültige Konfigurationen
 - Plugin-Metadaten aus `plugin.yml`
 - expandierte Pluginversion ohne verbliebenen Platzhalter

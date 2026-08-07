@@ -120,6 +120,11 @@ Standardzustände und Plattformverfügbarkeit aller Familien. Event-Counter sind
 nicht persistent und können bei Serverstart oder Plugin-Reload zurückgesetzt
 werden; für Zeiträume sind `rate()` und `increase()` vorgesehen.
 
+`minecraft_server_uptime_seconds` und
+`minecraft_server_start_time_seconds` beziehen sich auf die Aktivierung des
+Plugins in `onEnable()`, nicht garantiert auf den JVM- oder
+Minecraft-Prozessstart. Ein Plugin-Reload setzt beide Werte zurück.
+
 ## Prometheus, Grafana Alloy und Alerting
 
 Direkt nutzbare Beispiele befinden sich unter `examples/`:

@@ -428,10 +428,7 @@ class EntityRuntimeTest {
                 false,
                 false,
                 old.filesystem(),
-                old.exporter(),
-                old.gameplay(),
-                old.pluginInfo(),
-                old.commands()
+                old.pluginInfo()
             ),
             defaults.folia(),
             new EntitiesConfiguration(

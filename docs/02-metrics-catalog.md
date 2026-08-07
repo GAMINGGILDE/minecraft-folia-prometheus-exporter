@@ -18,8 +18,8 @@
 | Metrik | Typ | Labels | Standard | Status | Bedeutung |
 |---|---|---|---:|---|---|
 | `minecraft_server_info` | Info | `implementation`, `minecraft_version`, `java_version` | an | Stabil | Server- und Laufzeitinformation |
-| `minecraft_server_uptime_seconds` | Gauge | – | an | Stabil | Laufzeit des Servers |
-| `minecraft_server_start_time_seconds` | Gauge | – | an | Stabil | Startzeit als Unix-Zeit |
+| `minecraft_server_uptime_seconds` | Gauge | – | an | Stabil | Sekunden seit Aktivierung des Plugins |
+| `minecraft_server_start_time_seconds` | Gauge | – | an | Stabil | Aktivierungszeitpunkt des Plugins als Unix-Zeit |
 | `minecraft_server_online_mode` | Gauge | – | an | Stabil | 1 bei Online-Mode |
 | `minecraft_server_hardcore` | Gauge | – | an | Stabil | 1 bei Hardcore |
 | `minecraft_server_view_distance_chunks` | Gauge | – | an | Stabil | View Distance |
@@ -31,10 +31,12 @@
 
 Diese Tabelle ist vollständig implementiert. `implementation` stammt aus
 `Server#getName()`, `minecraft_version` aus `Server#getMinecraftVersion()` und
-`java_version` aus der JVM-Systemeigenschaft. Serverstart und -Uptime beziehen
-sich auf den zu Beginn von `onEnable()` fixierten Aktivierungszeitpunkt des
-Plugins, da keine belastbare öffentliche API für einen früheren Prozess- oder
-Serverstart verwendet wird. Leere Info-Labelwerte werden als `unknown`
+`java_version` aus der JVM-Systemeigenschaft. Startzeit und Uptime beziehen sich
+ausschließlich auf den zu Beginn von `onEnable()` fixierten
+Aktivierungszeitpunkt des Plugins. Sie repräsentieren daher nicht garantiert den
+tatsächlichen JVM- oder Minecraft-Prozessstart; ein Plugin-Reload setzt beide
+Werte zurück. Eine belastbare öffentliche API für einen früheren Prozess- oder
+Serverstart wird nicht verwendet. Leere Info-Labelwerte werden als `unknown`
 normalisiert. Im Prometheus-Textformat 0.0.4 erscheint die vom Client modellierte
 Info-Familie technisch als `TYPE ... gauge`; OpenMetrics gibt sie als `info` aus.
 Plugininstanzen werden nach Objektidentität höchstens einmal gezählt. Für die
@@ -270,6 +272,11 @@ Nullreihen für tatsächlich geladene Welten an, damit alle drei Familien bereit
 vor dem ersten Chunk-Lifecycle-Event sichtbar sind.
 `minecraft_chunk_load_failures_total` bleibt
 unimplementiert.
+
+`collectors.chunks` steuert ausschließlich
+`minecraft_world_loaded_chunks`. Die drei implementierten Lifecycle-Counter
+gehören zum ereignisbasierten Collector und werden über `collectors.events`
+gemeinsam mit dessen Listener geschaltet.
 
 ## 2.8 Folia
 

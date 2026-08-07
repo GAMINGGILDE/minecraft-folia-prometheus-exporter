@@ -74,12 +74,11 @@ class ExporterConfigurationTest {
         values.put("collectors.plugin-info", true);
         values.put("filesystem.include-world-sizes", false);
         values.put("filesystem.world-size-scan-concurrency", 4);
-        values.put("collectors.gameplay", true);
         values.put("entities.reconciliation-interval", "2m");
         values.put("entities.reconciliation-timeout", "90s");
         values.put("entities.include-exact-types", true);
         values.put("entities.include-projectile-total", true);
-        values.put("logging.debug", true);
+        values.put("logging.collection-errors", false);
 
         ExporterConfiguration configuration = loader.load(values::get);
 
@@ -99,7 +98,6 @@ class ExporterConfigurationTest {
         assertTrue(configuration.collectors().pluginInfo());
         assertFalse(configuration.filesystem().includeWorldSizes());
         assertEquals(4, configuration.filesystem().worldSizeScanConcurrency());
-        assertTrue(configuration.collectors().gameplay());
         assertEquals(
             Duration.ofMinutes(2),
             configuration.entities().reconciliationInterval()
@@ -110,7 +108,25 @@ class ExporterConfigurationTest {
         );
         assertTrue(configuration.entities().includeExactTypes());
         assertTrue(configuration.entities().includeProjectileTotal());
-        assertTrue(configuration.logging().debug());
+        assertFalse(configuration.logging().collectionErrors());
+        assertDoesNotThrow(() -> validator.validate(configuration));
+    }
+
+    @Test
+    void removedAndOtherUnknownValuesAreIgnored() {
+        Map<String, Object> values = new HashMap<>();
+        values.put("collectors.exporter", "not-a-boolean");
+        values.put("collectors.gameplay", "not-a-boolean");
+        values.put("collectors.commands", "not-a-boolean");
+        values.put("filesystem.include-server-filesystem", "not-a-boolean");
+        values.put("filesystem.include-log-size", "not-a-boolean");
+        values.put("filesystem.include-plugin-size", "not-a-boolean");
+        values.put("logging.debug", "not-a-boolean");
+        values.put("unknown.future-setting", new Object());
+
+        ExporterConfiguration configuration = loader.load(values::get);
+
+        assertEquals(ExporterConfiguration.defaults(), configuration);
         assertDoesNotThrow(() -> validator.validate(configuration));
     }
 

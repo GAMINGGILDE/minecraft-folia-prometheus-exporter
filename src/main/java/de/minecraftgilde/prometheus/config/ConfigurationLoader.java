@@ -41,8 +41,7 @@ public final class ConfigurationLoader {
                     source,
                     "logging.collection-errors",
                     defaults.logging().collectionErrors()
-                ),
-                booleanValue(source, "logging.debug", defaults.logging().debug())
+                )
             )
         );
     }
@@ -107,10 +106,7 @@ public final class ConfigurationLoader {
             booleanValue(source, "collectors.jvm", defaults.jvm()),
             booleanValue(source, "collectors.process", defaults.process()),
             booleanValue(source, "collectors.filesystem", defaults.filesystem()),
-            booleanValue(source, "collectors.exporter", defaults.exporter()),
-            booleanValue(source, "collectors.gameplay", defaults.gameplay()),
-            booleanValue(source, "collectors.plugin-info", defaults.pluginInfo()),
-            booleanValue(source, "collectors.commands", defaults.commands())
+            booleanValue(source, "collectors.plugin-info", defaults.pluginInfo())
         );
     }
 
@@ -212,21 +208,6 @@ public final class ConfigurationLoader {
                 source,
                 "filesystem.world-size-scan-concurrency",
                 defaults.worldSizeScanConcurrency()
-            ),
-            booleanValue(
-                source,
-                "filesystem.include-server-filesystem",
-                defaults.includeServerFilesystem()
-            ),
-            booleanValue(
-                source,
-                "filesystem.include-log-size",
-                defaults.includeLogSize()
-            ),
-            booleanValue(
-                source,
-                "filesystem.include-plugin-size",
-                defaults.includePluginSize()
             )
         );
     }

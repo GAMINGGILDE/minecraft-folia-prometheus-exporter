@@ -24,10 +24,7 @@ collectors:
   jvm: true
   process: true
   filesystem: true
-  exporter: true
-  gameplay: false
   plugin-info: false
-  commands: false
 
 entities:
   reconciliation-interval: "5m"
@@ -64,13 +61,9 @@ folia:
 filesystem:
   include-world-sizes: true
   world-size-scan-concurrency: 1
-  include-server-filesystem: true
-  include-log-size: false
-  include-plugin-size: false
 
 privacy:
   individual-player-metrics-supported: false
 
 logging:
   collection-errors: true
-  debug: false

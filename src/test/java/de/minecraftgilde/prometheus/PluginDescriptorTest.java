@@ -1,13 +1,21 @@
 package de.minecraftgilde.prometheus;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.minecraftgilde.prometheus.config.ConfigurationLoader;
+import de.minecraftgilde.prometheus.config.ConfigurationValidator;
+import de.minecraftgilde.prometheus.config.ExporterConfiguration;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 class PluginDescriptorTest {
@@ -17,7 +25,7 @@ class PluginDescriptorTest {
         String descriptor = resourceText("plugin.yml");
 
         assertTrue(descriptor.contains("name: FoliaPrometheusExporter"));
-        assertTrue(descriptor.contains("version: '1.0.0'"));
+        assertTrue(descriptor.contains("version: '1.0.1'"));
         assertTrue(descriptor.contains("main: de.minecraftgilde.prometheus.ExporterPlugin"));
         assertTrue(descriptor.contains("api-version: '26.1.2'"));
         assertTrue(descriptor.contains("folia-supported: true"));
@@ -29,12 +37,43 @@ class PluginDescriptorTest {
     }
 
     @Test
-    void defaultConfigurationDoesNotExposeInternalProviders() throws IOException {
+    void defaultConfigurationContainsOnlyFunctionalOptions() throws IOException {
         String configuration = resourceText("config.yml");
 
         assertFalse(configuration.contains("experimental-internal-provider"));
         assertTrue(
             configuration.contains("individual-player-metrics-supported: false")
+        );
+        assertTrue(configuration.contains("plugin-info: false"));
+        assertTrue(configuration.contains("collection-errors: true"));
+        for (String removed : List.of(
+            "  exporter:",
+            "  gameplay:",
+            "  commands:",
+            "  include-server-filesystem:",
+            "  include-log-size:",
+            "  include-plugin-size:",
+            "  debug:"
+        )) {
+            assertFalse(
+                configuration.contains(removed),
+                "Removed option remains in config.yml: " + removed.trim()
+            );
+        }
+    }
+
+    @Test
+    void bundledDefaultConfigurationLoadsAndValidates() throws IOException {
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(
+            new StringReader(resourceText("config.yml"))
+        );
+        ExporterConfiguration configuration = new ConfigurationLoader().load(
+            yaml::get
+        );
+
+        assertEquals(ExporterConfiguration.defaults(), configuration);
+        assertDoesNotThrow(
+            () -> new ConfigurationValidator().validate(configuration)
         );
     }
 

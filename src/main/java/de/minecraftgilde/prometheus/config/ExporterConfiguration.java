@@ -55,9 +55,6 @@ public record ExporterConfiguration(
                 true,
                 true,
                 true,
-                true,
-                false,
-                false,
                 false
             ),
             new FoliaConfiguration(
@@ -75,9 +72,9 @@ public record ExporterConfiguration(
                 false,
                 false
             ),
-            new FilesystemConfiguration(true, 1, true, false, false),
+            new FilesystemConfiguration(true, 1),
             new PrivacyConfiguration(false),
-            new LoggingConfiguration(true, false)
+            new LoggingConfiguration(true)
         );
     }
 
@@ -132,10 +129,7 @@ public record ExporterConfiguration(
         boolean jvm,
         boolean process,
         boolean filesystem,
-        boolean exporter,
-        boolean gameplay,
-        boolean pluginInfo,
-        boolean commands
+        boolean pluginInfo
     ) {
 
         /** Current name for the legacy {@code foliaRegions} model field. */
@@ -209,10 +203,7 @@ public record ExporterConfiguration(
 
     public record FilesystemConfiguration(
         boolean includeWorldSizes,
-        int worldSizeScanConcurrency,
-        boolean includeServerFilesystem,
-        boolean includeLogSize,
-        boolean includePluginSize
+        int worldSizeScanConcurrency
     ) {}
 
     public record PrivacyConfiguration(
@@ -220,7 +211,6 @@ public record ExporterConfiguration(
     ) {}
 
     public record LoggingConfiguration(
-        boolean collectionErrors,
-        boolean debug
+        boolean collectionErrors
     ) {}
 }

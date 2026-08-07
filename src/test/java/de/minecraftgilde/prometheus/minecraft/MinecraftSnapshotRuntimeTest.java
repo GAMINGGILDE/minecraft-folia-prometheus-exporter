@@ -105,10 +105,7 @@ class MinecraftSnapshotRuntimeTest {
                 false,
                 false,
                 true,
-                collectors.exporter(),
-                collectors.gameplay(),
-                collectors.pluginInfo(),
-                collectors.commands()
+                collectors.pluginInfo()
             ),
             defaults.folia(),
             defaults.entities(),
