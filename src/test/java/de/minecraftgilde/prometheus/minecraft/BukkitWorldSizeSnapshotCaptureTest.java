@@ -2,7 +2,6 @@ package de.minecraftgilde.prometheus.minecraft;
 
 import static de.minecraftgilde.prometheus.TestProxies.proxy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,7 +14,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -363,25 +361,31 @@ class BukkitWorldSizeSnapshotCaptureTest {
             new WorldSizeSnapshot("world", 42)
         );
         List<Throwable> failures = new ArrayList<>();
-        BukkitWorldSizeSnapshotCapture capture = new BukkitWorldSizeSnapshotCapture(
-            server,
-            new ManualCollectionScheduler(),
-            new WorldSizeCalculator(),
-            repository,
-            failures::add,
-            1
-        );
+        try (
+            BukkitWorldSizeSnapshotCapture capture =
+                new BukkitWorldSizeSnapshotCapture(
+                    server,
+                    new ManualCollectionScheduler(),
+                    new WorldSizeCalculator(),
+                    repository,
+                    failures::add,
+                    1
+                )
+        ) {
+            TestCompletion failed = new TestCompletion();
+            capture.capture(failed);
+            assertEquals(
+                List.of(new WorldSizeSnapshot("world", 42)),
+                failed.values.get()
+            );
+            assertEquals(1, failures.size());
 
-        TestCompletion failed = new TestCompletion();
-        capture.capture(failed);
-        assertEquals(List.of(new WorldSizeSnapshot("world", 42)), failed.values.get());
-        assertEquals(1, failures.size());
-
-        worlds.set(List.of());
-        TestCompletion removed = new TestCompletion();
-        capture.capture(removed);
-        assertTrue(removed.values.get().isEmpty());
-        assertNull(removed.failure.get());
+            worlds.set(List.of());
+            TestCompletion removed = new TestCompletion();
+            capture.capture(removed);
+            assertTrue(removed.values.get().isEmpty());
+            assertNull(removed.failure.get());
+        }
     }
 
     @Test
@@ -405,26 +409,29 @@ class BukkitWorldSizeSnapshotCaptureTest {
             new WorldSizeSnapshot("broken", 42)
         );
         List<Throwable> failures = new ArrayList<>();
-        BukkitWorldSizeSnapshotCapture capture = new BukkitWorldSizeSnapshotCapture(
-            server(List.of(broken, world("healthy", healthyPath))),
-            new ManualCollectionScheduler(),
-            new WorldSizeCalculator(),
-            repository,
-            failures::add,
-            1
-        );
+        try (
+            BukkitWorldSizeSnapshotCapture capture =
+                new BukkitWorldSizeSnapshotCapture(
+                    server(List.of(broken, world("healthy", healthyPath))),
+                    new ManualCollectionScheduler(),
+                    new WorldSizeCalculator(),
+                    repository,
+                    failures::add,
+                    1
+                )
+        ) {
+            TestCompletion completion = new TestCompletion();
+            capture.capture(completion);
 
-        TestCompletion completion = new TestCompletion();
-        capture.capture(completion);
-
-        assertEquals(1, failures.size());
-        assertEquals(
-            List.of(
-                new WorldSizeSnapshot("broken", 42),
-                new WorldSizeSnapshot("healthy", 9)
-            ),
-            completion.values.get()
-        );
+            assertEquals(1, failures.size());
+            assertEquals(
+                List.of(
+                    new WorldSizeSnapshot("broken", 42),
+                    new WorldSizeSnapshot("healthy", 9)
+                ),
+                completion.values.get()
+            );
+        }
     }
 
     private BukkitWorldSizeSnapshotCapture capture(

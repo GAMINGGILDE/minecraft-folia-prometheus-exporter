@@ -18,7 +18,6 @@ public final class ExporterPlugin extends JavaPlugin {
 
     private final ConfigurationLoader configurationLoader;
     private final ConfigurationValidator configurationValidator;
-    private ExporterConfiguration configuration;
     private MetricsCore metricsCore;
     private MinecraftSnapshotRuntime snapshotRuntime;
     private FoliaRuntime foliaRuntime;
@@ -55,8 +54,6 @@ public final class ExporterPlugin extends JavaPlugin {
                 path -> getConfig().get(path)
             );
             configurationValidator.validate(loaded);
-            configuration = loaded;
-
             BuildInformation buildInformation = BuildInformation.load();
             initializingCore = new MetricsCore(
                 getPluginMeta().getVersion(),
@@ -135,7 +132,6 @@ public final class ExporterPlugin extends JavaPlugin {
         closeQuietly(entities);
         closeQuietly(folia);
         closeQuietly(snapshots);
-        configuration = null;
         getLogger().info("FoliaPrometheusExporter stopped.");
     }
 
