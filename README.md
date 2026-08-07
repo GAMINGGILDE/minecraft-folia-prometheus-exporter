@@ -4,6 +4,16 @@
        width="360">
 </p>
 
+<p align="center">
+  <a href="https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/GAMINGGILDE/minecraft-folia-prometheus-exporter/build.yml?branch=main&amp;label=build"></a>
+  <a href="https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter/releases"><img alt="Release" src="https://img.shields.io/github/v/release/GAMINGGILDE/minecraft-folia-prometheus-exporter?label=release&amp;cacheSeconds=300"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/GAMINGGILDE/minecraft-folia-prometheus-exporter"></a>
+  <img alt="Java 25 or newer" src="https://img.shields.io/badge/Java-25%2B-orange">
+  <img alt="Paper 26.1.2 or newer" src="https://img.shields.io/badge/Paper-26.1.2%2B-blue">
+  <img alt="Folia supported" src="https://img.shields.io/badge/Folia-supported-brightgreen">
+  <a href="https://discord.minecraft-gilde.de"><img alt="Join Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&amp;logoColor=white"></a>
+</p>
+
 # FoliaPrometheusExporter
 
 FoliaPrometheusExporter ist ein Prometheus-Exporter für Paper und Folia. Das
