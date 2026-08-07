@@ -115,9 +115,9 @@ class MetricsHttpServerTest {
             assertTrue(metrics.body().contains("jvm_classes_currently_loaded"));
             assertTrue(metrics.body().contains("jvm_buffer_pool_used_bytes"));
             assertTrue(metrics.body().contains("process_cpu_seconds_total"));
-            assertPhaseFourFamilies(metrics.body());
-            assertPhaseFiveFamilies(metrics.body());
-            assertPhaseSevenFamilies(metrics.body());
+            assertSnapshotFamilies(metrics.body());
+            assertEventFamilies(metrics.body());
+            assertEntityFamilies(metrics.body());
             assertTrue(metrics.body().contains("minecraft_world_weather{weather=\"rain\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_difficulty{difficulty=\"hard\",world=\"world\"} 1.0"));
             assertTrue(metrics.body().contains("minecraft_world_environment{environment=\"normal\",world=\"world\"} 1.0"));
@@ -267,13 +267,13 @@ class MetricsHttpServerTest {
         new JvmMetricsRegistrar(registry, true, true).register();
         MinecraftMetrics minecraftMetrics = new MinecraftMetrics(
             registry,
-            TestConfigurations.phaseFour(true, true, true, true, pluginInfo)
+            TestConfigurations.snapshotCollectors(true, true, true, true, pluginInfo)
         );
         minecraftMetrics.register();
-        publishPhaseFourSnapshots(minecraftMetrics);
+        publishMinecraftSnapshots(minecraftMetrics);
         EventMetrics eventMetrics = new EventMetrics(registry);
-        publishPhaseFiveEvents(eventMetrics);
-        publishPhaseSevenSnapshot(registry);
+        publishEvents(eventMetrics);
+        publishEntitySnapshot(registry);
         ExporterLifecycleState state = readyCoreState();
         ExporterMetrics metrics = ExporterMetricsTestSupport.create(registry);
         metrics.updateCollectorState("test-collector", CollectorState.STOPPED);
@@ -286,7 +286,7 @@ class MetricsHttpServerTest {
         return new TestServer(server, state, minecraftMetrics, eventMetrics);
     }
 
-    private static void publishPhaseFiveEvents(EventMetrics metrics) {
+    private static void publishEvents(EventMetrics metrics) {
         metrics.recordLogin("ALLOWED");
         metrics.recordLogin("PRIVATE_LOGIN_REASON");
         metrics.recordJoin();
@@ -299,7 +299,7 @@ class MetricsHttpServerTest {
         metrics.recordChunkUnload("world");
     }
 
-    private static void publishPhaseFourSnapshots(MinecraftMetrics metrics) {
+    private static void publishMinecraftSnapshots(MinecraftMetrics metrics) {
         Instant capturedAt = Instant.parse("2026-08-02T10:00:00Z");
         EnumMap<GameModeLabel, Integer> gameModes = new EnumMap<>(
             GameModeLabel.class
@@ -365,7 +365,7 @@ class MetricsHttpServerTest {
         );
     }
 
-    private static void publishPhaseSevenSnapshot(PrometheusRegistry registry) {
+    private static void publishEntitySnapshot(PrometheusRegistry registry) {
         SnapshotRepository<EntityWorldSnapshot> repository =
             new SnapshotRepository<>();
         registry.register(new EntityMetricsCollector(repository, false, false));
@@ -390,7 +390,7 @@ class MetricsHttpServerTest {
         ));
     }
 
-    private static void assertPhaseFourFamilies(String metrics) {
+    private static void assertSnapshotFamilies(String metrics) {
         for (String family : List.of(
             "minecraft_server_info",
             "minecraft_server_uptime_seconds",
@@ -408,7 +408,7 @@ class MetricsHttpServerTest {
         }
     }
 
-    private static void assertPhaseFiveFamilies(String metrics) {
+    private static void assertEventFamilies(String metrics) {
         for (String family : List.of(
             "minecraft_login_attempts_total",
             "minecraft_login_denied_total",
@@ -429,7 +429,7 @@ class MetricsHttpServerTest {
         assertTrue(!metrics.contains("private-client-host"));
     }
 
-    private static void assertPhaseSevenFamilies(String metrics) {
+    private static void assertEntityFamilies(String metrics) {
         for (String family : List.of(
             "minecraft_entity_group_count",
             "minecraft_world_entities",

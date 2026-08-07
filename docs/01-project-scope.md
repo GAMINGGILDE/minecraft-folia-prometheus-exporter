@@ -55,7 +55,6 @@ Java 25 voraus und verwendet genau ein gemeinsames Plugin-JAR.
 - kein Zugriff auf Minecraft-Weltdaten vom HTTP-Thread
 - keine unbeschränkte Auflistung einzelner Chunks als Zeitreihen
 - keine dynamischen internen Folia-Regions-IDs als langlebige Labels
-- keine Gameplay-Counter
 - keine Spawn-, Removal-, Kill- oder Item-Despawn-Counter für Entities
 
 ## 1.5 Stabilitätsklassen

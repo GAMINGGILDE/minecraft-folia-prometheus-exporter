@@ -350,26 +350,7 @@ Tickdauer, Tickverzögerung oder einen Überlastungszustand bereit. Die vier als
 „Nicht verfügbar“ markierten Familien werden daher nicht registriert. Tickdauer
 wird insbesondere nicht aus `20 / TPS` geschätzt.
 
-## 2.9 Gameplay-Counter
-
-Gameplay-Counter sind bewusst nicht Bestandteil dieses Exporters. Die folgenden
-historisch katalogisierten Namen werden nicht registriert:
-
-| Metrik | Typ | Labels | Status |
-|---|---|---|---|
-| `minecraft_blocks_broken_total` | Counter | `world`, `block` | Nicht implementiert |
-| `minecraft_blocks_placed_total` | Counter | `world`, `block` | Nicht implementiert |
-| `minecraft_items_crafted_total` | Counter | `item` | Nicht implementiert |
-| `minecraft_items_smelted_total` | Counter | `item` | Nicht implementiert |
-| `minecraft_items_picked_up_total` | Counter | `item` | Nicht implementiert |
-| `minecraft_items_dropped_total` | Counter | `item` | Nicht implementiert |
-| `minecraft_items_consumed_total` | Counter | `item` | Nicht implementiert |
-| `minecraft_player_deaths_total` | Counter | `cause` | Nicht implementiert |
-| `minecraft_player_kills_total` | Counter | – | Nicht implementiert |
-
-Auch hier niemals Spieleridentitäten exportieren.
-
-## 2.10 JVM und Prozess
+## 2.9 JVM und Prozess
 
 Der Exporter registriert ausschließlich offizielle Instrumentierungen aus
 `prometheus-metrics-instrumentation-jvm:1.8.0`. Die Tabellen verwenden die vom
@@ -475,7 +456,7 @@ nach:
 - `system_cpu_count`
 - `system_load_average_1m`
 
-## 2.11 Dateisystem
+## 2.10 Dateisystem
 
 | Metrik | Typ | Labels | Standard | Status |
 |---|---|---|---:|---|
@@ -496,7 +477,7 @@ sind nicht Bestandteil des Exporters. Normalisierte Weltpfade sind rein intern u
 werden niemals als Prometheus-Label oder als zusätzliche öffentliche Metrik
 exportiert.
 
-## 2.12 Exporter-Eigenüberwachung
+## 2.11 Exporter-Eigenüberwachung
 
 Implementiert:
 
@@ -554,7 +535,7 @@ einem erfolgreichen Lauf zählt die dadurch tatsächlich geänderten numerischen
 Reihen. Fehlgeschlagene Läufe verändern weder Dauer noch letzten
 Erfolgszeitpunkt.
 
-## 2.13 Verbotene Metriken
+## 2.12 Verbotene Metriken
 
 Folgende Metriken dürfen weder standardmäßig noch optional implementiert werden:
 

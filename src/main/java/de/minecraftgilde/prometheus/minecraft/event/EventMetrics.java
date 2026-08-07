@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import org.bukkit.event.player.PlayerKickEvent;
 
-/** Thread-safe Phase-5 counters owned by one private Prometheus registry. */
+/** Thread-safe event counters owned by one private Prometheus registry. */
 public final class EventMetrics {
 
     private final Counter loginAttempts;

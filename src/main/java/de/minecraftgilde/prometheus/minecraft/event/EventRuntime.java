@@ -11,10 +11,10 @@ import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
-/** Wires the Phase-5 event collector into the existing Metrics Core. */
-public final class PhaseFiveRuntime {
+/** Wires the event collector into the existing Metrics Core. */
+public final class EventRuntime {
 
-    public PhaseFiveRuntime(
+    public EventRuntime(
         MetricsCore core,
         Plugin plugin,
         ExporterConfiguration configuration,
@@ -41,7 +41,7 @@ public final class PhaseFiveRuntime {
         );
     }
 
-    PhaseFiveRuntime(
+    EventRuntime(
         MetricsCore core,
         boolean enabled,
         EventRegistration registration,

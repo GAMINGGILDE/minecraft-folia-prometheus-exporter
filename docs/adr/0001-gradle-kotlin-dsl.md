@@ -4,7 +4,7 @@
 
 Das Projekt verwendet Gradle mit `build.gradle.kts`.
 
-Für Phase 1 wird der Wrapper auf Gradle 9.6.1 festgelegt. Die Binärdistribution
+Der Wrapper ist auf Gradle 9.6.1 festgelegt. Die Binärdistribution
 verwendet folgende SHA-256-Prüfsumme:
 
 ```text

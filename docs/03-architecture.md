@@ -137,14 +137,14 @@ wurden bereits während öffentlicher Events erhöht.
   `unknown` als robustem Fallback
 - erzeugt Registry, JVM-/Prozessregistrar, Eigenmetriken und
   `CollectorCoordinator`
-- fixiert zu Beginn von `onEnable()` den für Phase 4 verwendeten
-  Server-Aktivierungszeitpunkt und erzeugt `PhaseFourRuntime`
-- erzeugt `PhaseFiveRuntime`, das den konfigurierten Event-Collector vor dem
+- fixiert zu Beginn von `onEnable()` den für Servermetriken verwendeten
+  Server-Aktivierungszeitpunkt und erzeugt `MinecraftSnapshotRuntime`
+- erzeugt `EventRuntime`, das den konfigurierten Event-Collector vor dem
   Core-Start beim vorhandenen Coordinator registriert
-- erzeugt `PhaseSixRuntime`, das nur die neutrale Capability- und Factory-Grenze
+- erzeugt `FoliaRuntime`, das nur die neutrale Capability- und Factory-Grenze
   registriert; die konkrete Providerklasse wird erst beim Collectorstart nach
   erfolgreicher Capability geladen
-- erzeugt `PhaseSevenRuntime`, das Entityfamilien, Listener, Vollabgleich und
+- erzeugt `EntityRuntime`, das Entityfamilien, Listener, Vollabgleich und
   den gemeinsamen Zustandsstore registriert
 - startet anschließend den HTTP-Dienst
 - aktiviert Readiness erst nach vollständiger Initialisierung
@@ -161,9 +161,10 @@ wurden bereits während öffentlicher Events erhöht.
 
 Der allgemeine Lifecycle verwendet die feste Zustandsmenge `disabled`,
 `starting`, `running`, `unsupported`, `failed` und `stopped`. Initialisierung
-erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Phase 4
-registriert `server`, `worlds`, `chunks` und `world-sizes`; Phase 5 ergänzt
-`events`. Deaktivierte Gruppen bleiben sichtbar im Zustand `disabled`.
+erfolgt höchstens einmal vor dem ersten Start. `stop()` ist idempotent. Die
+Collector `server`, `worlds`, `chunks`, `world-sizes` und `events` werden
+unabhängig registriert. Deaktivierte Gruppen bleiben sichtbar im Zustand
+`disabled`.
 
 ### `JvmMetricsRegistrar`
 
@@ -198,16 +199,17 @@ Abstraktion für:
 Diese Scheduler werden auf Paper und Folia verwendet. Es gibt keinen Fallback auf
 den klassischen `BukkitScheduler`.
 
-`PaperCollectionScheduler` ist die gemeinsame konkrete Implementierung. Phase 4
-plant die periodischen Erfassungsstarts über den Global Region Scheduler,
+`PaperCollectionScheduler` ist die gemeinsame konkrete Implementierung. Die
+periodischen Erfassungsstarts laufen über den Global Region Scheduler,
 einzelne Spielmoduslesungen über den jeweiligen Entity Scheduler und
 Dateisystemarbeit sowie Timeout-Wächter über den Async Scheduler. Der
 Weltgrößen-Capture stellt nur bis zu
 `filesystem.world-size-scan-concurrency` Async-Tasks gleichzeitig bereit; die
 interne FIFO-Warteschlange ist nach Weltname sortiert und startet standardmäßig
 genau einen Scan. Der Region
-Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil die
-öffentliche API aggregierte Welt- und Chunkzahlen ohne Positionszugriff anbietet.
+Scheduler gehört zur Abstraktion, wird von den Server-, Welt- und Chunk-
+Snapshots aber nicht benötigt, weil die öffentliche API aggregierte Werte ohne
+Positionszugriff anbietet.
 
 ### `PeriodicSnapshotCollector`
 
@@ -224,8 +226,8 @@ Scheduler gehört zur Abstraktion, wird in Phase 4 aber nicht benötigt, weil di
   Erfolgsannahme materialisieren, sodass Stop oder Timeout keinen verspäteten
   Registry-Commit zulassen
 - unterstützt über `SnapshotPublisher` eine fachliche transaktionale
-  Publikation innerhalb derselben Erfolgsannahme; Phase 7 kombiniert dort
-  Scanbasis und Events bis zur Commitgrenze
+  Publikation innerhalb derselben Erfolgsannahme; der Entity-Collector
+  kombiniert dort Scanbasis und Events bis zur Commitgrenze
 - verwirft Ergebnisse nach `stop()` und beendet periodischen Task und
   Timeout-Wächter idempotent
 
@@ -245,9 +247,9 @@ Minuten protokolliert, sofern `logging.collection-errors` aktiv ist.
 - Lesen, Ersetzen und Entfernen erfolgen atomar und ohne große Lockbereiche
 - Erfassungszeitpunkt und Snapshot-Alter sind direkt abfragbar
 
-### `PhaseFourRuntime` und `MinecraftMetrics`
+### `MinecraftSnapshotRuntime` und `MinecraftMetrics`
 
-`PhaseFourRuntime` verdrahtet die vier Erfassungsgruppen mit ihren privaten
+`MinecraftSnapshotRuntime` verdrahtet die vier Erfassungsgruppen mit ihren privaten
 Repositories und dem vorhandenen Coordinator. `MinecraftMetrics` registriert
 pro aktivierter Gruppe genau einen Prometheus-`MultiCollector` in der privaten
 Core-Registry. Ein `MultiCollector` liest für sämtliche Familien seiner Gruppe
@@ -268,11 +270,11 @@ keine weiteren wartenden Scans. Physisch bereits laufende
 `Files.walkFileTree`-Aufrufe dürfen zu Ende laufen, können aber weder publizieren
 noch einen neueren Snapshot überschreiben.
 
-### `PhaseFiveRuntime`, `EventCollector` und `EventMetrics`
+### `EventRuntime`, `EventCollector` und `EventMetrics`
 
-`PhaseFiveRuntime` registriert genau einen verwalteten Collector namens
+`EventRuntime` registriert genau einen verwalteten Collector namens
 `events`. Bei `collectors.events: false` bleibt dessen Zustand `disabled`; weder
-Listener noch Phase-5-Metrikfamilien werden registriert. Bei Aktivierung legt
+Listener noch Event-Metrikfamilien werden registriert. Bei Aktivierung legt
 der Collector einmalig zehn Counter in der privaten Core-Registry an und
 registriert genau einen Bukkit-Listener.
 
@@ -302,7 +304,7 @@ Auslieferung und strukturierte Ablehnungsgründe garantiert.
 `EventReasonMapper` liest ausschließlich strukturierte Result-/Cause-Enumnamen
 und gibt nur die neun katalogisierten Reasonwerte aus. Nachrichten, Identitäten,
 Adressen, Hostnamen und Koordinaten gelangen nicht in den Mapper. Chunkfamilien
-verwenden dieselbe `WorldLabel`-Validierung wie die Phase-4-Werttypen.
+verwenden dieselbe `WorldLabel`-Validierung wie die übrigen Snapshot-Werttypen.
 
 Für Kickursachen gilt insbesondere `TIMEOUT → connection_lost` und
 `IDLING → idle`. `CONNECTION_LOST` und `NETWORK_ERROR` bleiben zusätzlich als
@@ -318,9 +320,9 @@ Eventdaten rate-limitiert als `IllegalStateException` gemeldet. Die ursprünglic
 wirft, verlässt keine Exception den Eventthread; andere Ereignisbereiche und der
 HTTP-Dienst laufen weiter.
 
-### `PhaseSevenRuntime`, `EntityCollector` und `EntityStateStore`
+### `EntityRuntime`, `EntityCollector` und `EntityStateStore`
 
-`PhaseSevenRuntime` registriert den verwalteten Collector `entities`. Ist er
+`EntityRuntime` registriert den verwalteten Collector `entities`. Ist er
 deaktiviert, fehlen Listener, Scheduleraufgaben und sämtliche Entityfamilien.
 Bei Aktivierung werden genau ein Listener, ein periodischer Vollabgleich und die
 private Entity-Metrikgruppe erzeugt.
@@ -393,7 +395,7 @@ automatisch unbereit.
 
 ### Folia-spezifischer Provider
 
-- ist in Phase 6 implementiert
+- ist implementiert
 - ist vom allgemeinen, gegen `paper-api` kompilierten Code isoliert
 - liegt in einem getrennten Gradle-Source-Set unter `src/folia/java`
 - kompiliert gegen `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`
@@ -429,15 +431,14 @@ ExporterCollector
 
 `JvmCollector` und `ProcessCollector` sind logische Metrikgruppen, keine
 `ManagedCollector`: Sie werden durch `JvmMetricsRegistrar` direkt an die
-Registry gebunden. Seit Phase 5 ist `EventCollector` ebenfalls ein
-`ManagedCollector`, verwendet aber wegen seines fortlaufenden ereignisbasierten
-Zustands kein Snapshot-Repository und keinen Scheduler. Server, Welten, Chunks
-und Weltgrößen bleiben separate periodische Snapshot-Collector. Seit Phase 6
-ist `FoliaRegionCollector` ein capability-geschützter `ManagedCollector`, dessen
-Provider intern den vorhandenen periodischen Snapshot-Collector wiederverwendet.
-`EntityCollector` ist ein hybrider `ManagedCollector` mit genau einem Listener
-und einem intern wiederverwendeten periodischen Collector. Gameplay-Collector
-sind nicht Bestandteil des Projekts.
+Registry gebunden. `EventCollector` ist ein `ManagedCollector`, verwendet aber
+wegen seines fortlaufenden ereignisbasierten Zustands kein Snapshot-Repository
+und keinen Scheduler. Server, Welten, Chunks und Weltgrößen bleiben separate
+periodische Snapshot-Collector. `FoliaRegionCollector` ist ein capability-
+geschützter `ManagedCollector`, dessen Provider intern den vorhandenen
+periodischen Snapshot-Collector wiederverwendet. `EntityCollector` ist ein
+hybrider `ManagedCollector` mit genau einem Listener und einem intern
+wiederverwendeten periodischen Collector.
 
 ## 3.5 Fehlerisolation
 
@@ -468,7 +469,7 @@ sind nicht Bestandteil des Projekts.
 
 ## 3.6 Abhängigkeitsisolation
 
-Der Prometheus Java Client wird ab Phase 2 über seine BOM in Version 1.8.0
+Der Prometheus Java Client wird über seine BOM in Version 1.8.0
 eingebunden. Die Module `prometheus-metrics-core`,
 `prometheus-metrics-instrumentation-jvm` und
 `prometheus-metrics-exporter-httpserver` werden in das gemeinsame Plugin-JAR
@@ -481,9 +482,9 @@ deaktiviert das ungeschattete Standard-JAR und erzeugt genau ein Artefakt ohne
 Abhängigkeitssignaturen. Eine Buildprüfung kontrolliert Descriptor, Hauptklasse,
 Relocation und den Ausschluss von Paper-, Folia-, Bukkit- und Minecraft-Klassen.
 
-Phase 6 ergänzt getrennte `folia`- und `foliaTest`-Source-Sets. Die allgemeine
-Compile-Classpath enthält keine Folia-API; die Provider-Classpath enthält die
-Folia-API ausschließlich zum Kompilieren. `check` prüft diese Trennung, den
+Getrennte `folia`- und `foliaTest`-Source-Sets halten die APIs isoliert: Der
+allgemeine Compile-Classpath enthält keine Folia-API; der Provider-Classpath
+enthält die Folia-API ausschließlich zum Kompilieren. `check` prüft diese Trennung, den
 Ausschluss der Folia-API aus der Runtime, das Vorhandensein des Providers im
 gemeinsamen JAR, verbotene interne Bytecodereferenzen und das Fehlen einer
 statischen Providerreferenz im gemeinsamen Bootstrap.
@@ -510,8 +511,8 @@ onEnable
   → eigene PrometheusRegistry erzeugen
   → konfigurierte offizielle JVM-/Prozessinstrumentierungen einmalig registrieren
   → Eigenmetriken einmalig registrieren
-  → Phase-4-Metrikfamilien registrieren
-  → Phase-4-Collector beim Coordinator registrieren
+  → Server-, Welt-, Chunk- und Weltgrößenfamilien registrieren
+  → zugehörige Snapshot-Collector beim Coordinator registrieren
   → Event-Collector beim Coordinator registrieren
   → neutralen Folia-Collector beim Coordinator registrieren
   → Entity-Collector beim Coordinator registrieren
@@ -532,7 +533,7 @@ onDisable oder Startfehler
     → Eventannahme sperren und Listener abmelden
     → Folia-Capture invalidieren und keine Registryupdates mehr annehmen
     → Entity-Capture invalidieren, Eventannahme sperren und Listener abmelden
-  → alle verbliebenen Phase-4-/Phase-6-Schedulertasks abbrechen
+  → alle verbliebenen Snapshot- und Folia-Schedulertasks abbrechen
   → Registry und Core-Zustand freigeben
 ```
 

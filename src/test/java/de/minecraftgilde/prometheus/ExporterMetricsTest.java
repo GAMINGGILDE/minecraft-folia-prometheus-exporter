@@ -18,8 +18,8 @@ class ExporterMetricsTest {
             assertNotSame(first.registry(), second.registry());
             assertUniqueMetricNames(first);
             assertUniqueMetricNames(second);
-            assertPhaseThreeMetrics(first);
-            assertPhaseThreeMetrics(second);
+            assertCoreMetrics(first);
+            assertCoreMetrics(second);
         }
     }
 
@@ -55,7 +55,7 @@ class ExporterMetricsTest {
         assertEquals(names.size(), names.stream().distinct().count());
     }
 
-    private static void assertPhaseThreeMetrics(MetricsCore core) {
+    private static void assertCoreMetrics(MetricsCore core) {
         List<String> names = metricNames(core);
         assertTrue(names.contains("jvm_memory_used_bytes"));
         assertTrue(names.contains("jvm_gc_collection_seconds"));

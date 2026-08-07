@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.event.Listener;
 import org.junit.jupiter.api.Test;
 
-class PhaseFiveRuntimeTest {
+class EventRuntimeTest {
 
     @Test
     void disabledConfigurationKeepsCollectorVisibleButRegistersNoEvents()
@@ -18,7 +18,7 @@ class PhaseFiveRuntimeTest {
         AtomicInteger registrations = new AtomicInteger();
         EventRegistration registration = registration(registrations);
         try (MetricsCore core = core()) {
-            new PhaseFiveRuntime(core, false, registration, failure -> {});
+            new EventRuntime(core, false, registration, failure -> {});
 
             core.collectorCoordinator().startAll();
 
@@ -42,7 +42,7 @@ class PhaseFiveRuntimeTest {
         AtomicInteger registrations = new AtomicInteger();
         EventRegistration registration = registration(registrations);
         try (MetricsCore core = core()) {
-            new PhaseFiveRuntime(core, true, registration, failure -> {});
+            new EventRuntime(core, true, registration, failure -> {});
 
             core.collectorCoordinator().startAll();
             core.collectorCoordinator().startAll();

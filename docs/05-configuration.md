@@ -213,7 +213,7 @@ Konfigurationsschema noch folgende Schlüssel, die keine Metrikfamilie oder
 Laufzeitfunktion aktivieren:
 
 - `collectors.exporter` – Exporter-Eigenmetriken sind immer Teil des Metrics Core
-- `collectors.gameplay` – Gameplay-Counter sind nicht implementiert
+- `collectors.gameplay` – reservierter Schlüssel ohne Laufzeitwirkung
 - `collectors.commands` – Command-Metriken sind nicht implementiert
 - `filesystem.include-server-filesystem`
 - `filesystem.include-log-size`

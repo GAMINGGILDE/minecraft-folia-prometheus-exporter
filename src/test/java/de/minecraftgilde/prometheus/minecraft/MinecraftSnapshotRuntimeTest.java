@@ -21,7 +21,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 
-class PhaseFourRuntimeTest {
+class MinecraftSnapshotRuntimeTest {
 
     private static final Clock CLOCK = Clock.fixed(
         Instant.parse("2026-08-02T10:00:00Z"),
@@ -47,7 +47,7 @@ class PhaseFourRuntimeTest {
             false,
             (collector, failure) -> {}
         );
-        PhaseFourRuntime runtime = new PhaseFourRuntime(
+        MinecraftSnapshotRuntime runtime = new MinecraftSnapshotRuntime(
             core,
             server,
             scheduler,

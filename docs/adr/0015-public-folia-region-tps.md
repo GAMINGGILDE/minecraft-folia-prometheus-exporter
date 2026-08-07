@@ -1,8 +1,8 @@
-# ADR 0015: Öffentliche Folia-Regions-TPS in Phase 6
+# ADR 0015: Öffentliche Folia-Regions-TPS
 
 ## Status
 
-Angenommen und in Phase 6 umgesetzt.
+Angenommen und umgesetzt.
 
 ## Untersuchte öffentliche API
 
@@ -51,7 +51,7 @@ Der gemeinsame Bootstrap prüft reflektiv nur die öffentliche Signatur
 `Server#getRegionTPS(World,int,int)` und deren Rückgabetyp `double[]`. Erst nach
 Erfolg lädt eine reflektive Factory die eigene Providerklasse anhand ihres
 Klassennamens. Es gibt keine statische Referenz des Plugin-Bootstraps, der
-`PhaseSixRuntime` oder des `FoliaCollector` auf diese Klasse. Reflection wird
+`FoliaRuntime` oder des `FoliaCollector` auf diese Klasse. Reflection wird
 nicht für Minecraft-Daten und nicht für interne Serverklassen verwendet.
 
 Auf Paper gilt bei `collectors.folia: true`: genau eine Capability-Warnung,
@@ -72,8 +72,7 @@ die durch konfigurierte öffentliche Anker erreichbar sind:
 
 Force-loaded Chunks sind standardmäßig deaktiviert, um große zusätzliche
 Ankermengen nicht ungefragt periodisch zu planen. Freie konfigurierte Positionen
-sind in Phase 6 nicht implementiert und werden bei nichtleerer Konfiguration
-abgelehnt.
+werden nicht unterstützt und bei nichtleerer Konfiguration abgelehnt.
 
 Nach dem Lesen bestehen Anker nur aus validiertem Weltlabel, Weltreferenz für den
 noch laufenden Capture sowie Chunk-X/Z. Für jeden Anker wird eine kurze Aufgabe

@@ -6,9 +6,8 @@ Das Plugin unterstützt offiziell Paper und Folia ab der API-Linie 26.1.2 und
 wird als genau ein gemeinsames Plugin-JAR ausgeliefert.
 
 Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Folia-spezifische
-Funktionen werden erst bei tatsächlichem Bedarf in einem isolierten Provider
-implementiert. Phase 1 enthält weder diesen Provider noch eine vorsorgliche
-Plattform- oder Feature-Erkennung. Dasselbe gilt für Phase 2.
+Funktionen liegen bei tatsächlichem Bedarf in einem isolierten Provider. Eine
+vorsorgliche Plattform- oder Feature-Erkennung ist ausgeschlossen.
 
 ## Scheduler
 
@@ -37,12 +36,12 @@ Server-Smoke-Test verifiziert den Start auf Paper 26.1.2 Build 74 und Folia
 ## Konsequenzen
 
 - Gemeinsame Funktionalität darf keine Folia-spezifischen API-Aufrufe enthalten.
-- Eine Plattform- oder Feature-Erkennung wird erst zusammen mit dem späteren
-  Folia-Provider eingeführt.
+- Eine Plattform- oder Feature-Erkennung ist ausschließlich an eine konkret
+  benötigte öffentliche Folia-Capability gebunden.
 - Tests und Dokumentation berücksichtigen Paper und Folia getrennt.
 - Folia-spezifische Metriken bleiben in einem eigenen Provider isoliert.
 
 Die gepinnten Zielserver und der getrennte CI-Smoke-Test sind in
-[ADR 0009](0009-pinned-server-smoke-tests.md) festgelegt. Die spätere
+[ADR 0009](0009-pinned-server-smoke-tests.md) festgelegt. Die
 Capability-Erkennung und das Verhalten auf Paper regelt
 [ADR 0010](0010-folia-provider-capability-detection.md).

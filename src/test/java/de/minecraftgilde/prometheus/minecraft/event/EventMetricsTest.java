@@ -34,7 +34,7 @@ class EventMetricsTest {
     );
 
     @Test
-    void registersExactlyThePhaseFiveFamiliesInEachPrivateRegistry() {
+    void registersExactlyTheEventFamiliesInEachPrivateRegistry() {
         PrometheusRegistry firstRegistry = new PrometheusRegistry();
         PrometheusRegistry secondRegistry = new PrometheusRegistry();
 

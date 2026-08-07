@@ -213,14 +213,14 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
             ) { "Isolated Folia provider is missing from the plugin JAR" }
             check(
                 listOf(
-                    "de/minecraftgilde/prometheus/minecraft/entity/PhaseSevenRuntime.class",
+                    "de/minecraftgilde/prometheus/minecraft/entity/EntityRuntime.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/EntityCollector.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/BukkitEntityReconciliationCapture.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/EntityStateStore.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/EntityWorldScanStatus.class",
                     "de/minecraftgilde/prometheus/minecraft/metrics/EntityMetricsCollector.class"
                 ).all(names::contains)
-            ) { "Phase-7 entity runtime classes are missing from the plugin JAR" }
+            ) { "Entity runtime classes are missing from the plugin JAR" }
             check(
                 names.any {
                     it.startsWith(
@@ -272,7 +272,7 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
             check(
                 listOf(
                     "de/minecraftgilde/prometheus/ExporterPlugin.class",
-                    "de/minecraftgilde/prometheus/folia/PhaseSixRuntime.class",
+                    "de/minecraftgilde/prometheus/folia/FoliaRuntime.class",
                     "de/minecraftgilde/prometheus/folia/FoliaCollector.class"
                 ).none { commonClass ->
                     archive.getInputStream(archive.getEntry(commonClass)).use { input ->

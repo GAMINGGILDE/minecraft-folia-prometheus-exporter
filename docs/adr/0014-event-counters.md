@@ -1,11 +1,11 @@
-# ADR 0014: Aggregierte Event-Counter in Phase 5
+# ADR 0014: Aggregierte Event-Counter
 
 ## Entscheidung
 
-Phase 5 implementiert genau einen verwalteten Collector `events`. Er registriert
-zehn threadsichere Prometheus-Counter und einen Bukkit-Listener in der privaten
-Registry beziehungsweise am Plugin. Der Schalter `collectors.events` ist
-standardmäßig `true` und aktiviert oder deaktiviert die Gruppe vollständig.
+Genau ein verwalteter Collector `events` registriert zehn threadsichere
+Prometheus-Counter und einen Bukkit-Listener in der privaten Registry
+beziehungsweise am Plugin. Der Schalter `collectors.events` ist standardmäßig
+`true` und aktiviert oder deaktiviert die Gruppe vollständig.
 
 Der Collector besitzt keinen periodischen Scheduler, kein Snapshot-Repository,
 keinen statischen Countercache und keine globale Registry. Eventhandler erhöhen
@@ -148,7 +148,7 @@ nicht aus. Der Nachrichteninhalt wird nicht gelesen, gespeichert oder geloggt.
 Der Handler liest nur `event.getWorld().getName()` und `isNewChunk()`. Chunkobjekt
 und Event verlassen den Callback nicht; X-/Z-Koordinaten werden nicht gelesen.
 `WorldLabel` bewahrt den öffentlichen Weltname unverändert, validiert ihn als
-nichtleer und wird nun gemeinsam von Phase-4-Werttypen und Phase-5-Countern
+nichtleer und wird gemeinsam von Snapshot-Werttypen und Event-Countern
 verwendet.
 
 Weil der Prometheus Java Client gelabelte Counterfamilien ohne Datenpunkte im
@@ -199,5 +199,5 @@ Prometheus erkennt Counter-Resets; Auswertungen verwenden `rate()` oder
 - Es gibt keine Liveabfrage von Minecraft-Daten beim Scrape.
 - Deaktivierung entfernt die gesamte Eventgruppe ohne Auswirkungen auf andere
   Collector.
-- Commands, Chunk-Load-Failures, Entity-/Gameplayevents und Counter-Persistenz
-  bleiben außerhalb von Phase 5.
+- Commands, Chunk-Load-Failures und Entity-Lifecycle-Counter werden nicht
+  registriert; Counter-Persistenz bleibt ausgeschlossen.

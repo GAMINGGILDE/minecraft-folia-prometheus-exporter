@@ -93,4 +93,4 @@ Zwei optionale Familien verdienen besondere Aufmerksamkeit:
 
 Die festen Entitygruppen, Folia-Fenster/-Statistiken und strukturierten
 Reasonwerte besitzen dagegen kontrollierte Labelmengen. Individuelle
-Spielermetriken und Gameplay-Counter existieren nicht.
+Spielermetriken werden nicht exportiert.

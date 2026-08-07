@@ -344,7 +344,7 @@ class ExporterConfigurationTest {
     }
 
     @Test
-    void loadsPhaseSixKeysAndPrefersThemOverLegacyAliases() {
+    void loadsCurrentFoliaKeysAndPrefersThemOverLegacyAliases() {
         Map<String, Object> values = new HashMap<>();
         values.put("collectors.folia", false);
         values.put("collectors.folia-regions", true);
@@ -365,7 +365,7 @@ class ExporterConfigurationTest {
     }
 
     @Test
-    void legacyPhaseSixKeysRemainCompatible() {
+    void legacyFoliaKeysRemainCompatible() {
         Map<String, Object> values = Map.of(
             "collectors.folia-regions",
             false,
@@ -385,7 +385,7 @@ class ExporterConfigurationTest {
     }
 
     @Test
-    void phaseSevenKeysOverrideLegacyAliases() {
+    void entityKeysOverrideLegacyAliases() {
         Map<String, Object> values = new HashMap<>();
         values.put("entities.reconciliation-interval", "3m");
         values.put("collection.entity-interval", "4m");

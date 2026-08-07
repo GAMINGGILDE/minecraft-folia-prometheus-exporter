@@ -11,13 +11,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Server;
 import org.bukkit.plugin.Plugin;
 
-/** Wires the capability-gated Phase-6 boundary without referencing its provider. */
-public final class PhaseSixRuntime implements AutoCloseable {
+/** Wires the capability-gated Folia boundary without referencing its provider. */
+public final class FoliaRuntime implements AutoCloseable {
 
     private final CollectionScheduler scheduler;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public PhaseSixRuntime(
+    public FoliaRuntime(
         MetricsCore core,
         Plugin plugin,
         ExporterConfiguration configuration,

@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-/** Owns Phase-4 repositories and idempotent private-registry registration. */
+/** Owns Minecraft snapshot repositories and idempotent private-registry registration. */
 public final class MinecraftMetrics {
 
     private final PrometheusRegistry registry;

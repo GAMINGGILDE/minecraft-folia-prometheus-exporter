@@ -1,6 +1,6 @@
 package de.minecraftgilde.prometheus.minecraft.entity;
 
-/** Fixed, bounded entity groups exported by Phase 7. */
+/** Fixed, bounded entity groups exported by the entity collector. */
 public enum EntityGroup {
     MONSTER("monster"),
     ANIMAL("animal"),

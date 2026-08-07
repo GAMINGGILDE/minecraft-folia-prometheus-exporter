@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.ToDoubleFunction;
 
-/** Maps exactly one immutable entity snapshot to the Phase-7 gauge families. */
+/** Maps exactly one immutable entity snapshot to the entity gauge families. */
 public final class EntityMetricsCollector implements MultiCollector {
 
     private final SnapshotRepository<EntityWorldSnapshot> repository;

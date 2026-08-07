@@ -2,7 +2,7 @@
 
 ## Entscheidung
 
-Phase 3 registriert die offiziellen Instrumentierungen `JvmMemoryMetrics`,
+Das Plugin registriert die offiziellen Instrumentierungen `JvmMemoryMetrics`,
 `JvmGarbageCollectorMetrics`, `JvmThreadsMetrics`, `JvmClassLoadingMetrics`,
 `JvmBufferPoolMetrics` und `ProcessMetrics` aus dem Prometheus Java Client 1.8.0
 direkt in der privaten `PrometheusRegistry` jeder `MetricsCore`-Instanz.

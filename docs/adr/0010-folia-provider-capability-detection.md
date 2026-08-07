@@ -2,17 +2,15 @@
 
 ## Entscheidung
 
-Phase 2 implementiert keinen Folia-Metrikprovider. Allgemeine Scheduler-Funktionen
-verwenden auf Paper und Folia die Global-, Region-, Entity- und Async-Scheduler
-der gemeinsamen öffentlichen Paper-API.
+Allgemeine Scheduler-Funktionen verwenden auf Paper und Folia die Global-,
+Region-, Entity- und Async-Scheduler der gemeinsamen öffentlichen Paper-API.
 
-Der Folia-Metrikprovider wird erst in Phase 6 eingeführt und kompiliert in einem
-isolierten Package gegen
+Der Folia-Metrikprovider kompiliert in einem isolierten Package gegen
 `dev.folia:folia-api:26.1.2.build.8-stable` als `compileOnly`. Er verwendet weder
 NMS noch interne Klassen. Insbesondere ist
 `io.papermc.paper.threadedregions.RegionizedServer` verboten.
 
-Die spätere Aktivierung prüft ausschließlich das Vorhandensein genau der
+Die Aktivierung prüft ausschließlich das Vorhandensein genau der
 öffentlichen Folia-API-Capability, die der Provider für seine Messung tatsächlich
 benötigt. Servername, Versionsstring und allgemeine Scheduler-Verfügbarkeit sind
 keine Plattformmerkmale. Der allgemeine Bootstrap referenziert die konkrete
@@ -20,9 +18,8 @@ Providerklasse nicht statisch und lädt oder instanziiert sie erst nach erfolgre
 Capability-Prüfung. Damit wird die Providerklasse auf Paper nicht vorzeitig
 verifiziert oder geladen.
 
-Falls sich in Phase 6 keine belastbare öffentliche API für die vorgesehene Messung
-bestätigen lässt, wird der Provider nicht mit internen APIs oder Ersatzwerten
-implementiert.
+Fehlt eine belastbare öffentliche API für eine vorgesehene Messung, wird sie
+nicht mit internen APIs oder Ersatzwerten implementiert.
 
 ## Verhalten auf Paper
 

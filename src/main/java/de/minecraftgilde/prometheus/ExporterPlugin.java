@@ -3,10 +3,10 @@ package de.minecraftgilde.prometheus;
 import de.minecraftgilde.prometheus.config.ConfigurationLoader;
 import de.minecraftgilde.prometheus.config.ConfigurationValidator;
 import de.minecraftgilde.prometheus.config.ExporterConfiguration;
-import de.minecraftgilde.prometheus.folia.PhaseSixRuntime;
-import de.minecraftgilde.prometheus.minecraft.PhaseFourRuntime;
-import de.minecraftgilde.prometheus.minecraft.event.PhaseFiveRuntime;
-import de.minecraftgilde.prometheus.minecraft.entity.PhaseSevenRuntime;
+import de.minecraftgilde.prometheus.folia.FoliaRuntime;
+import de.minecraftgilde.prometheus.minecraft.MinecraftSnapshotRuntime;
+import de.minecraftgilde.prometheus.minecraft.entity.EntityRuntime;
+import de.minecraftgilde.prometheus.minecraft.event.EventRuntime;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -20,9 +20,9 @@ public final class ExporterPlugin extends JavaPlugin {
     private final ConfigurationValidator configurationValidator;
     private ExporterConfiguration configuration;
     private MetricsCore metricsCore;
-    private PhaseFourRuntime phaseFourRuntime;
-    private PhaseSixRuntime phaseSixRuntime;
-    private PhaseSevenRuntime phaseSevenRuntime;
+    private MinecraftSnapshotRuntime snapshotRuntime;
+    private FoliaRuntime foliaRuntime;
+    private EntityRuntime entityRuntime;
 
     public ExporterPlugin() {
         this(new ConfigurationLoader(), new ConfigurationValidator());
@@ -46,9 +46,9 @@ public final class ExporterPlugin extends JavaPlugin {
     public void onEnable() {
         Instant activationTime = Instant.now();
         MetricsCore initializingCore = null;
-        PhaseFourRuntime initializingPhaseFour = null;
-        PhaseSixRuntime initializingPhaseSix = null;
-        PhaseSevenRuntime initializingPhaseSeven = null;
+        MinecraftSnapshotRuntime initializingSnapshots = null;
+        FoliaRuntime initializingFolia = null;
+        EntityRuntime initializingEntities = null;
         try {
             saveDefaultConfig();
             ExporterConfiguration loaded = configurationLoader.load(
@@ -70,45 +70,45 @@ public final class ExporterPlugin extends JavaPlugin {
                     failure
                 )
             );
-            initializingPhaseFour = new PhaseFourRuntime(
+            initializingSnapshots = new MinecraftSnapshotRuntime(
                 initializingCore,
                 this,
                 loaded,
                 activationTime,
                 Clock.systemUTC()
             );
-            new PhaseFiveRuntime(
+            new EventRuntime(
                 initializingCore,
                 this,
                 loaded,
                 Clock.systemUTC()
             );
-            initializingPhaseSix = new PhaseSixRuntime(
+            initializingFolia = new FoliaRuntime(
                 initializingCore,
                 this,
                 loaded,
                 Clock.systemUTC()
             );
-            initializingPhaseSeven = new PhaseSevenRuntime(
+            initializingEntities = new EntityRuntime(
                 initializingCore,
                 this,
                 loaded,
                 Clock.systemUTC()
             );
             metricsCore = initializingCore;
-            phaseFourRuntime = initializingPhaseFour;
-            phaseSixRuntime = initializingPhaseSix;
-            phaseSevenRuntime = initializingPhaseSeven;
+            snapshotRuntime = initializingSnapshots;
+            foliaRuntime = initializingFolia;
+            entityRuntime = initializingEntities;
             initializingCore.start(loaded.http());
         } catch (Exception exception) {
             closeQuietly(initializingCore);
-            closeQuietly(initializingPhaseSeven);
-            closeQuietly(initializingPhaseSix);
-            closeQuietly(initializingPhaseFour);
+            closeQuietly(initializingEntities);
+            closeQuietly(initializingFolia);
+            closeQuietly(initializingSnapshots);
             metricsCore = null;
-            phaseFourRuntime = null;
-            phaseSixRuntime = null;
-            phaseSevenRuntime = null;
+            snapshotRuntime = null;
+            foliaRuntime = null;
+            entityRuntime = null;
             getLogger().log(
                 Level.SEVERE,
                 "FoliaPrometheusExporter could not start: " + exception.getMessage(),
@@ -124,17 +124,17 @@ public final class ExporterPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         MetricsCore core = metricsCore;
-        PhaseFourRuntime runtime = phaseFourRuntime;
-        PhaseSixRuntime foliaRuntime = phaseSixRuntime;
-        PhaseSevenRuntime entityRuntime = phaseSevenRuntime;
+        MinecraftSnapshotRuntime snapshots = snapshotRuntime;
+        FoliaRuntime folia = foliaRuntime;
+        EntityRuntime entities = entityRuntime;
         metricsCore = null;
-        phaseFourRuntime = null;
-        phaseSixRuntime = null;
-        phaseSevenRuntime = null;
+        snapshotRuntime = null;
+        foliaRuntime = null;
+        entityRuntime = null;
         closeQuietly(core);
-        closeQuietly(entityRuntime);
-        closeQuietly(foliaRuntime);
-        closeQuietly(runtime);
+        closeQuietly(entities);
+        closeQuietly(folia);
+        closeQuietly(snapshots);
         configuration = null;
         getLogger().info("FoliaPrometheusExporter stopped.");
     }
@@ -145,19 +145,19 @@ public final class ExporterPlugin extends JavaPlugin {
         }
     }
 
-    private static void closeQuietly(PhaseFourRuntime runtime) {
+    private static void closeQuietly(MinecraftSnapshotRuntime runtime) {
         if (runtime != null) {
             runtime.close();
         }
     }
 
-    private static void closeQuietly(PhaseSixRuntime runtime) {
+    private static void closeQuietly(FoliaRuntime runtime) {
         if (runtime != null) {
             runtime.close();
         }
     }
 
-    private static void closeQuietly(PhaseSevenRuntime runtime) {
+    private static void closeQuietly(EntityRuntime runtime) {
         if (runtime != null) {
             runtime.close();
         }

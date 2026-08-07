@@ -34,7 +34,7 @@ class MinecraftMetricsTest {
         PrometheusRegistry registry = new PrometheusRegistry();
         MinecraftMetrics metrics = new MinecraftMetrics(
             registry,
-            TestConfigurations.phaseFour(true, true, true, true, false)
+            TestConfigurations.snapshotCollectors(true, true, true, true, false)
         );
 
         metrics.register();
@@ -56,7 +56,7 @@ class MinecraftMetricsTest {
         PrometheusRegistry registry = new PrometheusRegistry();
         new MinecraftMetrics(
             registry,
-            TestConfigurations.phaseFour(false, false, true, false, true)
+            TestConfigurations.snapshotCollectors(false, false, true, false, true)
         ).register();
 
         List<String> names = expositionNames(registry);
@@ -68,7 +68,7 @@ class MinecraftMetricsTest {
         PrometheusRegistry registry = new PrometheusRegistry();
         MinecraftMetrics metrics = new MinecraftMetrics(
             registry,
-            TestConfigurations.phaseFour(true, true, true, true, true)
+            TestConfigurations.snapshotCollectors(true, true, true, true, true)
         );
         metrics.register();
         metrics.serverRepository().publish(
@@ -134,7 +134,7 @@ class MinecraftMetricsTest {
         PrometheusRegistry registry = new PrometheusRegistry();
         MinecraftMetrics metrics = new MinecraftMetrics(
             registry,
-            TestConfigurations.phaseFour(false, true, false, false, false)
+            TestConfigurations.snapshotCollectors(false, true, false, false, false)
         );
         metrics.register();
         metrics.worldRepository().publish(
@@ -156,7 +156,7 @@ class MinecraftMetricsTest {
     }
 
     @Test
-    void multipleMetricsCoresOwnIndependentPhaseFourRegistrations() {
+    void multipleMetricsCoresOwnIndependentMinecraftRegistrations() {
         try (
             MetricsCore first = new MetricsCore(
                 "test",
@@ -173,11 +173,11 @@ class MinecraftMetricsTest {
         ) {
             MinecraftMetrics firstMetrics = new MinecraftMetrics(
                 first.registry(),
-                TestConfigurations.phaseFour(true, true, true, true, false)
+                TestConfigurations.snapshotCollectors(true, true, true, true, false)
             );
             MinecraftMetrics secondMetrics = new MinecraftMetrics(
                 second.registry(),
-                TestConfigurations.phaseFour(true, true, true, true, false)
+                TestConfigurations.snapshotCollectors(true, true, true, true, false)
             );
             firstMetrics.register();
             secondMetrics.register();

@@ -5,23 +5,23 @@ auf Paper und Folia ausschließlich Global-, Region-, Entity- und Async-Schedule
 Es gibt keinen Fallback auf den klassischen `BukkitScheduler`.
 
 Diese vier Scheduler sind Teil der gemeinsamen öffentlichen Paper-API und werden
-nicht als Folia-Erkennungsmerkmal verwendet. Phase 4 setzt diese Grenze mit
-`PaperCollectionScheduler` um und benötigt weiterhin weder einen Folia-Provider
-noch Plattform- oder Feature-Erkennung.
+nicht als Folia-Erkennungsmerkmal verwendet. `PaperCollectionScheduler` setzt
+diese Grenze für die gemeinsamen Collector um und benötigt dafür weder einen
+Folia-Provider noch Plattform- oder Feature-Erkennung.
 
-Phase 5 benötigt für Event-Counter keinen Scheduler: Öffentliche Events werden
+Event-Counter benötigen keinen Scheduler: Öffentliche Events werden
 auf ihrem jeweiligen Paper-/Folia-Eventthread beobachtet und erhöhen dort nur
 threadsichere Counter. Der Collector verschiebt insbesondere Async-Login,
 Async-Chat, Ping- oder regionsgebundene Chunkereignisse nicht künstlich auf einen
 anderen Scheduler.
 
-Phase 6 verwendet den Region Scheduler erstmals für positionsgebundene
-Messungen. Die Folia-Capability ist ausschließlich
+Folia-Regionsmessungen verwenden den Region Scheduler für positionsgebundene
+Zugriffe. Die Folia-Capability ist ausschließlich
 `Server#getRegionTPS(World,int,int)`; die gemeinsamen Scheduler selbst bleiben
 ausdrücklich kein Erkennungsmerkmal.
 
-Phase 7 verwendet dieselben gemeinsamen Scheduler ohne neuen Provider. Der
-Global Region Scheduler liest nur Welten und geladene Chunkanker. Entitylisten
+Der Entity-Abgleich verwendet dieselben gemeinsamen Scheduler ohne eigenen
+Provider. Der Global Region Scheduler liest nur Welten und geladene Chunkanker. Entitylisten
 bereits geladener Chunks werden auf dem zuständigen Region Scheduler
 materialisiert; jede Entityeigenschaft wird anschließend auf dem Entity
 Scheduler gelesen.
@@ -37,7 +37,7 @@ Scheduler gelesen.
 | Dateisystemoperationen | Async Scheduler |
 | HTTP-Ausgabe | eigener HTTP-Thread, nur Snapshots |
 
-Für Phase 4 gilt konkret:
+Für globale Server-, Welt- und Chunk-Snapshots gilt konkret:
 
 | Öffentlicher API-Zugriff | Ausführung |
 |---|---|
@@ -52,7 +52,7 @@ Für Phase 4 gilt konkret:
 | Timeout-Wächter | Async Scheduler |
 | Prometheus-Scrape | HTTP-Thread; nur Repositories und Registry |
 
-Für Phase 5 gilt zusätzlich:
+Für Event-Counter gilt zusätzlich:
 
 | Event/API-Wert | Ausführung |
 |---|---|
@@ -65,7 +65,7 @@ Für Phase 5 gilt zusätzlich:
 | `ServerLoadEvent`/`WorldLoadEvent` | globaler beziehungsweise besitzender Eventthread; nur geladene Weltnamen für Nullinitialisierung übernehmen |
 | Prometheus-Scrape | HTTP-Thread; nur bereits akkumulierten Counterzustand serialisieren |
 
-Für Phase 6 gilt zusätzlich:
+Für Folia-Regionsbeobachtungen gilt zusätzlich:
 
 | Öffentlicher API-Zugriff | Ausführung |
 |---|---|
@@ -76,7 +76,7 @@ Für Phase 6 gilt zusätzlich:
 | Timeout-Wächter | Async Scheduler |
 | Prometheus-Scrape | HTTP-Thread; genau ein immutable Folia-Snapshot und eine Zeitablesung |
 
-Für Phase 7 gilt zusätzlich:
+Für den Entity-Abgleich gilt zusätzlich:
 
 | Öffentlicher API-Zugriff | Ausführung |
 |---|---|
@@ -147,7 +147,8 @@ dieser Beobachter selbst, wird seine Exception ebenfalls abgefangen. Weder der
 ursprüngliche Fehler noch ein Reporterfehler kann dadurch den ausliefernden
 Paper-/Folia-Eventthread beschädigen.
 
-Phase 4 braucht keinen Region-Scheduler-Aufruf: Der öffentliche aggregierte
+Die Server-, Welt- und Chunk-Snapshots brauchen keinen Region-Scheduler-Aufruf:
+Der öffentliche aggregierte
 Chunkzähler vermeidet Positions- und Chunkobjektzugriffe. Das Interface behält
 die Region-Methode für spätere, tatsächlich positionsgebundene Collector.
 
@@ -231,7 +232,7 @@ nur ein Lauf aktiv. Ein Timeout entfernt diesen Lauf atomar; ein später Callbac
 kann wegen der abweichenden Laufidentität nicht mehr publizieren. Nach `stop()`
 werden überhaupt keine Ergebnisse mehr angenommen.
 
-Phase 7 ergänzt innerhalb derselben Erfolgsannahme ein sequenziertes Eventjournal.
+Der Entity-Abgleich ergänzt innerhalb derselben Erfolgsannahme ein sequenziertes Eventjournal.
 Die Scanbasis trägt je lauflokaler Identität die zuletzt beobachtete Eventsequenz;
 beim Commit werden nur spätere Events angewendet. Der gemeinsame Store sperrt
 Eventupdate und Reconciliation-Publikation kurz gegeneinander. Region- und
@@ -246,7 +247,7 @@ vorherigen Stand vollständig fehlen. Wenn bei existierenden Welten keine einzig
 Welt `SUCCESS` erreicht, wird der Lauf systemisch verworfen. Eine leere
 Weltenliste darf dagegen erfolgreich den leeren Snapshot publizieren.
 
-Phase-7-Fehlerwrapper verwenden neutrale äußere Meldungen und die ursprüngliche
+Entity-Fehlerwrapper verwenden neutrale äußere Meldungen und die ursprüngliche
 Exception als Cause. Reporterfehler werden an Event-, Region- und Entitygrenzen
 abgefangen. UUIDs, Namen, Koordinaten und freie Eventdaten werden nicht in die
 äußere Meldung übernommen.
@@ -284,22 +285,22 @@ Callbacks der JVM-/Prozessinstrumentierung sind zulässig, weil sie ausschließl
 JDK- und Betriebssystemdaten lesen und keine Ownership-Regel von Paper oder Folia
 berühren.
 
-Die Phase-4-Prometheus-Callbacks lesen ebenfalls keine Minecraft-Objekte. Sie
+Die Server-, Welt- und Chunk-Callbacks lesen ebenfalls keine Minecraft-Objekte. Sie
 wandeln den jeweils einmal geladenen immutable Snapshot einer Gruppe in
 Prometheus-Snapshots um. Insbesondere lösen parallele Scrapes keine zusätzliche
 Minecraft-Erfassung oder Weltgrößenberechnung aus.
 
-Die Phase-5-Counter sind ebenfalls scrape-sicher: Ihre Datenpunkte werden von
+Die Event-Counter sind ebenfalls scrape-sicher: Ihre Datenpunkte werden von
 den threadsicheren Counterimplementierungen des Prometheus Java Client
 akkumuliert. Der HTTP-Thread besitzt keine Referenz auf Listener, Events,
 Connections, Spieler, Welten oder Chunks und löst keine Eventarbeit aus.
 
-Der Phase-6-Callback liest den Folia-Snapshot genau einmal. TTL-Filterung,
+Der Folia-Callback liest den Regionssnapshot genau einmal. TTL-Filterung,
 Aggregation und Snapshot-Alter verwenden nur dessen primitive beziehungsweise
 immutable Werte. Weder Capability-Prüfung noch Provider, Scheduler oder
 Minecraft-Liveobjekte sind vom HTTP-Thread aus erreichbar.
 
-Der Phase-7-Callback liest ebenfalls genau einen immutable Repositorywert. Die
+Der Entity-Callback liest ebenfalls genau einen immutable Repositorywert. Die
 zehn Gruppen und optionalen Typreihen werden ausschließlich aus Strings, Enums,
 Zählern und unveränderlichen Maps erzeugt. Weder Eventjournal noch Scheduler,
 UUID, World, Chunk oder Entity sind vom HTTP-Thread erreichbar.

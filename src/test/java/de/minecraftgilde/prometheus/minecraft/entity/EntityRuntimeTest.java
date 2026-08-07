@@ -27,7 +27,7 @@ import org.bukkit.World;
 import org.bukkit.event.Listener;
 import org.junit.jupiter.api.Test;
 
-class PhaseSevenRuntimeTest {
+class EntityRuntimeTest {
 
     private static final Clock CLOCK = Clock.fixed(
         Instant.parse("2026-08-04T15:00:00Z"),
@@ -45,7 +45,7 @@ class PhaseSevenRuntimeTest {
         );
         Server server = proxy(Server.class, Map.of("getWorlds", List.of(world)));
         AtomicInteger nanos = new AtomicInteger();
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             server,
             scheduler,
@@ -93,7 +93,7 @@ class PhaseSevenRuntimeTest {
         ManualCollectionScheduler scheduler = new ManualCollectionScheduler();
         TestRegistration registration = new TestRegistration();
         Server server = proxy(Server.class, Map.of("getWorlds", List.of()));
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             server,
             scheduler,
@@ -139,7 +139,7 @@ class PhaseSevenRuntimeTest {
                 }
             )
         );
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             proxy(Server.class, Map.of("getWorlds", List.of(broken))),
             scheduler,
@@ -234,7 +234,7 @@ class PhaseSevenRuntimeTest {
         );
         worldHolder[0] = world;
         AtomicInteger nanos = new AtomicInteger();
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             proxy(Server.class, Map.of("getWorlds", List.of(world))),
             scheduler,
@@ -300,7 +300,7 @@ class PhaseSevenRuntimeTest {
                 (java.util.function.Function<Object[], Object>) ignored -> worlds.get()
             )
         );
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             server,
             scheduler,
@@ -355,7 +355,7 @@ class PhaseSevenRuntimeTest {
                 }
             )
         );
-        PhaseSevenRuntime runtime = new PhaseSevenRuntime(
+        EntityRuntime runtime = new EntityRuntime(
             core,
             server,
             scheduler,

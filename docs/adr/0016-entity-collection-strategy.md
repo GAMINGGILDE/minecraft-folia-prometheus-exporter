@@ -1,21 +1,21 @@
-# ADR 0016: Hybride Entity-Erfassung in Phase 7
+# ADR 0016: Hybride Entity-Erfassung
 
 ## Status
 
-Angenommen und in Phase 7 umgesetzt.
+Angenommen und umgesetzt.
 
 ## Untersuchte öffentliche API
 
 Untersucht wurden die tatsächlich aufgelösten Source- und Binärartefakte
 `io.papermc.paper:paper-api:26.1.2.build.74-stable` und
-`dev.folia:folia-api:26.1.2.build.8-stable`. Die für Phase 7 verwendeten
-`World`-, `Chunk`-, `EntityType`- und Eventquellen sind in beiden gepinnten
-Source-Artefakten identisch.
+`dev.folia:folia-api:26.1.2.build.8-stable`. Die verwendeten `World`-, `Chunk`-,
+`EntityType`- und Eventquellen sind in beiden gepinnten Source-Artefakten
+identisch.
 
 `World#getEntityCount()` liefert nur eine unaufgeschlüsselte Gesamtzahl. Damit
 lassen sich Spieler nicht belastbar ausschließen und weder Living-Entities noch
 Gruppen oder genaue Typen bestimmen. Die Methode wird deshalb nicht als
-Phase-7-Datenquelle verwendet. `World#getEntities()`, `getLivingEntities()` und
+Entity-Datenquelle verwendet. `World#getEntities()`, `getLivingEntities()` und
 die `getEntitiesByClass(es)`-Varianten materialisieren weltweite Entitylisten.
 Solche globalen Entityzugriffe verletzen auf Folia die Ownership-Grenze und
 werden verworfen.
@@ -40,8 +40,9 @@ Entitydaten eigens für Metriken.
 
 ### Erneute Folia-Prüfung von `World#getLoadedChunks()`
 
-Für die Abnahmehärtung wurden nicht nur die API-Signaturen, sondern die exakt
-gepinnten Serverquellen erneut untersucht. Folia 26.1.2 Build 8 entspricht dem
+Zur Absicherung der Threadingentscheidung wurden nicht nur die API-Signaturen,
+sondern die exakt gepinnten Serverquellen untersucht. Folia 26.1.2 Build 8
+entspricht dem
 Folia-Commit `62dc0f257a4f5de1ef2eae8cf1627156a769c67f`; dessen
 `gradle.properties` pinnt Paper-Commit
 `b4682bfef616ac62e73cc96046dacdf4a6f53eeb`.
@@ -50,7 +51,7 @@ Die überprüfbaren Primärquellen sind die
 und die gepinnte
 [CraftWorld-Implementierung](https://github.com/PaperMC/Paper/blob/b4682bfef616ac62e73cc96046dacdf4a6f53eeb/paper-server/src/main/java/org/bukkit/craftbukkit/CraftWorld.java#L435-L450).
 
-Zusätzlich wurde `CraftWorld#getLoadedChunks()` direkt aus den bei der Abnahme
+Zusätzlich wurde `CraftWorld#getLoadedChunks()` direkt aus den im Smoke-Test
 gestarteten Serverartefakten Paper 26.1.2 Build 74 (`e4e17fc`) und Folia 26.1.2
 Build 8 (`62dc0f2`) disassembliert. Nach Normalisierung der konstanten
 Poolindizes ist der Bytecode beider Methoden identisch. Beide lesen denselben
@@ -119,7 +120,7 @@ doppelt zählen.
 `EntityRemoveEvent` bietet öffentliche strukturierte Removal-Causes, wird aber
 ebenfalls nicht kombiniert. Seine Dokumentation weist auf eine andere
 Auslieferungszeit als `EntityRemoveFromWorldEvent` hin. Der zusätzliche Cause
-wird für die Phase-7-Gauges nicht benötigt und eine zweite Removalquelle würde
+wird für die Entity-Bestandsgauges nicht benötigt und eine zweite Removalquelle würde
 Deduplizierung oder Drift erzeugen. Öffentliche Spawn-, Removal-, Kill- und
 Item-Despawn-Counter bleiben ausdrücklich unimplementiert.
 

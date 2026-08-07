@@ -17,13 +17,13 @@ import java.util.logging.Logger;
 import org.bukkit.Server;
 import org.bukkit.plugin.Plugin;
 
-/** Wires the Phase-7 hybrid entity collector into the existing Metrics Core. */
-public final class PhaseSevenRuntime implements AutoCloseable {
+/** Wires the hybrid entity collector into the existing Metrics Core. */
+public final class EntityRuntime implements AutoCloseable {
 
     private final CollectionScheduler scheduler;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public PhaseSevenRuntime(
+    public EntityRuntime(
         MetricsCore core,
         Plugin plugin,
         ExporterConfiguration configuration,
@@ -41,7 +41,7 @@ public final class PhaseSevenRuntime implements AutoCloseable {
         );
     }
 
-    PhaseSevenRuntime(
+    EntityRuntime(
         MetricsCore core,
         Server server,
         CollectionScheduler scheduler,

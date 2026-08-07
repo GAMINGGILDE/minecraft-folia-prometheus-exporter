@@ -24,7 +24,7 @@ public final class EntityGroupClassifier {
             return EntityGroup.OTHER;
         }
 
-        // The order is part of the public Phase-7 metric definition.
+        // The order is part of the public entity metric definition.
         if (AbstractVillager.class.isAssignableFrom(entityClass)) {
             return EntityGroup.VILLAGER;
         }

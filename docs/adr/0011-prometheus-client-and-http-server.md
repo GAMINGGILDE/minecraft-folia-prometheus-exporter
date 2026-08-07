@@ -2,7 +2,7 @@
 
 ## Entscheidung
 
-Phase 2 verwendet den offiziellen Prometheus Java Client 1.8.0. Die Version wird
+Das Projekt verwendet den offiziellen Prometheus Java Client 1.8.0. Die Version wird
 über `io.prometheus:prometheus-metrics-bom:1.8.0` zentral festgelegt. Folgende
 Module werden in das gemeinsame Plugin-JAR eingebunden:
 
@@ -38,10 +38,9 @@ Minecraft-Daten live lesen. Collector veröffentlichen vollständig erzeugte,
 immutable Snapshots atomar. Scrapes und Statushandler lesen ausschließlich diese
 Snapshots und kontrollierten Exporterstatus.
 
-Die JVM-Instrumentierungsbibliothek wird bereits als benötigtes Modul gebündelt;
-die Registrierung der JVM- und Prozessmetriken bleibt Phase 3 vorbehalten.
-Phase 3 erfüllt diese Vorgabe durch die direkte, instanzgebundene Registrierung
-aus [ADR 0012](0012-direct-jvm-process-instrumentation.md).
+Die gebündelte JVM-Instrumentierungsbibliothek registriert JVM- und
+Prozessmetriken direkt und instanzgebunden gemäß
+[ADR 0012](0012-direct-jvm-process-instrumentation.md).
 
 Jede `MetricsCore` besitzt genau eine eigene `PrometheusRegistry` und einen
 einmalig konstruierten, instanzgebundenen `ExporterMetrics`-Satz. Ein statischer

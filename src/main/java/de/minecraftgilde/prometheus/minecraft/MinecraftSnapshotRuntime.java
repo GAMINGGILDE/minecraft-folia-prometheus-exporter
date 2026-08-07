@@ -14,14 +14,14 @@ import java.util.logging.Logger;
 import org.bukkit.Server;
 import org.bukkit.plugin.Plugin;
 
-/** Wires Phase-4 collectors into the existing Metrics Core and coordinator. */
-public final class PhaseFourRuntime implements AutoCloseable {
+/** Wires server and world snapshot collectors into the Metrics Core and coordinator. */
+public final class MinecraftSnapshotRuntime implements AutoCloseable {
 
     private final CollectionScheduler scheduler;
     private final BukkitWorldSizeSnapshotCapture worldSizeCapture;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public PhaseFourRuntime(
+    public MinecraftSnapshotRuntime(
         MetricsCore core,
         Plugin plugin,
         ExporterConfiguration configuration,
@@ -40,7 +40,7 @@ public final class PhaseFourRuntime implements AutoCloseable {
         );
     }
 
-    PhaseFourRuntime(
+    MinecraftSnapshotRuntime(
         MetricsCore core,
         Server server,
         CollectionScheduler scheduler,

@@ -116,7 +116,7 @@ public record ExporterConfiguration(
             Objects.requireNonNull(filesystemTimeout, "filesystemTimeout");
         }
 
-        /** Phase-6 name for the legacy {@code regionInterval} model field. */
+        /** Current name for the legacy {@code regionInterval} model field. */
         public Duration foliaInterval() {
             return regionInterval;
         }
@@ -138,7 +138,7 @@ public record ExporterConfiguration(
         boolean commands
     ) {
 
-        /** Phase-6 name for the legacy {@code foliaRegions} model field. */
+        /** Current name for the legacy {@code foliaRegions} model field. */
         public boolean folia() {
             return foliaRegions;
         }

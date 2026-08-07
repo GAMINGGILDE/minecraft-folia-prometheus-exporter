@@ -36,8 +36,8 @@ Vor jeder Änderung lesen:
 
 ## Arbeitsweise
 
-- Bearbeite nur die ausdrücklich genannte Codex-Phase.
-- Erweitere den Projektumfang nicht eigenständig.
+- Bearbeite nur den ausdrücklich angeforderten Umfang und erweitere den
+  Projektumfang nicht eigenständig.
 - Ergänze Tests für neue Logik.
 - Aktualisiere den Metrikkatalog bei jeder neuen Metrik.
 - Melde fehlende öffentliche Paper- oder Folia-APIs, statt interne APIs zu verwenden.

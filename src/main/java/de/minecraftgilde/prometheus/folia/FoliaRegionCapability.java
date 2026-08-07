@@ -4,7 +4,7 @@ import java.lang.reflect.Method;
 import java.util.Objects;
 import org.bukkit.World;
 
-/** Detects only the public Folia region-TPS method required by Phase 6. */
+/** Detects only the public Folia region-TPS method required by the provider. */
 public final class FoliaRegionCapability {
 
     private FoliaRegionCapability() {}

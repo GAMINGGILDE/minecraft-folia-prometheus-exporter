@@ -297,7 +297,7 @@ for required_metric in \
   fi
 done
 
-for phase_five_metric in \
+for event_metric in \
   minecraft_login_attempts_total \
   minecraft_login_denied_total \
   minecraft_player_joins_total \
@@ -308,20 +308,20 @@ for phase_five_metric in \
   minecraft_chunks_loaded_total \
   minecraft_chunks_unloaded_total \
   minecraft_chunks_generated_total; do
-  if ! grep -Eq "^# HELP ${phase_five_metric} " <<<"$metrics_response" \
-    || ! grep -Eq "^# TYPE ${phase_five_metric} counter$" <<<"$metrics_response"; then
-    echo "Invalid or incomplete Phase-5 Prometheus family: $phase_five_metric" >&2
+  if ! grep -Eq "^# HELP ${event_metric} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${event_metric} counter$" <<<"$metrics_response"; then
+    echo "Invalid or incomplete event Prometheus family: $event_metric" >&2
     exit 1
   fi
 done
 
 if ! grep -Eq '^minecraft_exporter_collector_state\{collector="events",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
-  echo "Phase-5 event collector is not running under the default configuration." >&2
+  echo "Event collector is not running under the default configuration." >&2
   exit 1
 fi
 
 if ! grep -Eq '^minecraft_exporter_collector_state\{collector="entities",state="running"\}[[:space:]]1' <<<"$metrics_response"; then
-  echo "Phase-7 entity collector is not running under the default configuration." >&2
+  echo "Entity collector is not running under the default configuration." >&2
   exit 1
 fi
 
@@ -336,14 +336,14 @@ for entity_gauge in \
   if ! grep -Eq "^# HELP ${entity_gauge} " <<<"$metrics_response" \
     || ! grep -Eq "^# TYPE ${entity_gauge} gauge$" <<<"$metrics_response" \
     || ! grep -Eq "^${entity_gauge}(\\{|[[:space:]])" <<<"$metrics_response"; then
-    echo "Invalid or incomplete Phase-7 Prometheus family: $entity_gauge" >&2
+    echo "Invalid or incomplete entity Prometheus family: $entity_gauge" >&2
     exit 1
   fi
 done
 
 if ! grep -Eq '^# HELP minecraft_entity_reconciliation_corrections_total ' <<<"$metrics_response" \
   || ! grep -Eq '^# TYPE minecraft_entity_reconciliation_corrections_total counter$' <<<"$metrics_response"; then
-  echo "Invalid Phase-7 reconciliation corrections counter." >&2
+  echo "Invalid entity reconciliation corrections counter." >&2
   exit 1
 fi
 
@@ -354,7 +354,7 @@ if [[ "$world_count" -lt 1 ]] || [[ "$group_count" -ne $((world_count * 10)) ]];
   exit 1
 fi
 
-for phase_four_metric in \
+for snapshot_metric in \
   minecraft_server_uptime_seconds \
   minecraft_players_online \
   minecraft_plugins_total \
@@ -363,10 +363,10 @@ for phase_four_metric in \
   minecraft_world_size_bytes \
   minecraft_world_time_ticks \
   minecraft_world_weather; do
-  if ! grep -Eq "^# HELP ${phase_four_metric} " <<<"$metrics_response" \
-    || ! grep -Eq "^# TYPE ${phase_four_metric} gauge$" <<<"$metrics_response" \
-    || ! grep -Eq "^${phase_four_metric}(\\{|[[:space:]])" <<<"$metrics_response"; then
-    echo "Invalid or incomplete Phase-4 Prometheus family: $phase_four_metric" >&2
+  if ! grep -Eq "^# HELP ${snapshot_metric} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${snapshot_metric} gauge$" <<<"$metrics_response" \
+    || ! grep -Eq "^${snapshot_metric}(\\{|[[:space:]])" <<<"$metrics_response"; then
+    echo "Invalid or incomplete snapshot Prometheus family: $snapshot_metric" >&2
     exit 1
   fi
 done
@@ -433,7 +433,7 @@ elif [[ "${EXPECTED_PLATFORM:-}" == "Folia" ]]; then
     exit 1
   fi
   if grep -Eq '^minecraft_folia_.*[[:space:]](NaN|[+-]Inf|-([0-9]|\.))' <<<"$metrics_response"; then
-    echo "Folia exposed a non-finite or negative Phase-6 sample." >&2
+    echo "Folia exposed a non-finite or negative region sample." >&2
     exit 1
   fi
   unexpected_folia_labels="$(
@@ -467,7 +467,7 @@ elif [[ "${EXPECTED_PLATFORM:-}" == "Folia" ]]; then
       if ! grep -Eq "^# HELP ${folia_metric} " <<<"$metrics_response" \
         || ! grep -Eq "^# TYPE ${folia_metric} gauge$" <<<"$metrics_response" \
         || ! grep -Eq "^${folia_metric}\\{" <<<"$metrics_response"; then
-        echo "Observed Folia regions require a complete Phase-6 family: $folia_metric" >&2
+        echo "Observed Folia regions require a complete metric family: $folia_metric" >&2
         exit 1
       fi
     done
@@ -497,15 +497,15 @@ if grep -Eiq "$linkage_failure_pattern" "$server_log"; then
   exit 1
 fi
 
-for phase_three_metric in \
+for runtime_metric in \
   jvm_memory_used_bytes \
   jvm_threads_current \
   jvm_classes_currently_loaded \
   process_start_time_seconds; do
-  if ! grep -Eq "^# HELP ${phase_three_metric} " <<<"$metrics_response" \
-    || ! grep -Eq "^# TYPE ${phase_three_metric} (counter|gauge|summary)$" <<<"$metrics_response" \
-    || ! grep -Eq "^${phase_three_metric}(\\{|[[:space:]])" <<<"$metrics_response"; then
-    echo "Invalid or incomplete Prometheus family: $phase_three_metric" >&2
+  if ! grep -Eq "^# HELP ${runtime_metric} " <<<"$metrics_response" \
+    || ! grep -Eq "^# TYPE ${runtime_metric} (counter|gauge|summary)$" <<<"$metrics_response" \
+    || ! grep -Eq "^${runtime_metric}(\\{|[[:space:]])" <<<"$metrics_response"; then
+    echo "Invalid or incomplete Prometheus family: $runtime_metric" >&2
     exit 1
   fi
 done

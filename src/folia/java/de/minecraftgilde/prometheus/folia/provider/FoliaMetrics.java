@@ -7,7 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
-/** Owns the private-registry collector and repository for Phase 6. */
+/** Owns the private-registry collector and repository for Folia region metrics. */
 final class FoliaMetrics {
 
     private final PrometheusRegistry registry;

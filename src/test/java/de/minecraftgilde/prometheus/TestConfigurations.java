@@ -8,7 +8,7 @@ public final class TestConfigurations {
 
     private TestConfigurations() {}
 
-    public static ExporterConfiguration phaseFour(
+    public static ExporterConfiguration snapshotCollectors(
         boolean server,
         boolean worlds,
         boolean chunks,

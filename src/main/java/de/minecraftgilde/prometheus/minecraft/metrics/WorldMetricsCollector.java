@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.ToDoubleFunction;
 
-/** Maps a complete loaded-world snapshot to bounded Phase-4 world families. */
+/** Maps a complete loaded-world snapshot to bounded world metric families. */
 final class WorldMetricsCollector implements MultiCollector {
 
     private final SnapshotRepository<WorldSnapshot> repository;

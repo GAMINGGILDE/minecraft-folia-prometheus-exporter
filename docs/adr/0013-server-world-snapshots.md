@@ -1,17 +1,16 @@
-# ADR 0013: Server- und Welt-Snapshots in Phase 4
+# ADR 0013: Server- und Welt-Snapshots
 
 ## Entscheidung
 
-Phase 4 implementiert Server-, aggregierte Spieler-, Plugin-, Welt-, Chunk- und
-Weltgrößenmetriken als vier getrennte verwaltete Collector: `server`, `worlds`,
+Server-, aggregierte Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken
+werden als vier getrennte verwaltete Collector implementiert: `server`, `worlds`,
 `chunks` und `world-sizes`. Jeder Collector publiziert über ein eigenes
 `SnapshotRepository` ausschließlich vollständig konstruierte immutable Werte.
 Die Prometheus-Abbildung erfolgt durch instanzgebundene `MultiCollector` in der
 privaten Registry des vorhandenen `MetricsCore`.
 
 Es entsteht weder eine zweite Registry-, HTTP-, Status- noch
-Lifecycle-Architektur. Event-, Entity- und Folia-Provider bleiben außerhalb von
-Phase 4.
+Lifecycle-Architektur.
 
 ## Scheduler- und Ownership-Strategie
 
@@ -27,8 +26,9 @@ Scheduler der Paper-API-Linie 26.1.2:
   Namen und UUIDs werden nicht gelesen.
 - Weltpfade werden im globalen Kontext als normalisierte `Path`-Werte erfasst.
   Die anschließende Verzeichnistraversierung läuft nur auf dem Async Scheduler.
-- Der Region Scheduler ist Teil der gemeinsamen Abstraktion, wird für Phase 4
-  jedoch nicht benötigt. Es gibt keinen klassischen Bukkit-Scheduler-Fallback.
+- Der Region Scheduler ist Teil der gemeinsamen Abstraktion, wird für diese
+  Snapshot-Collector jedoch nicht benötigt. Es gibt keinen klassischen
+  Bukkit-Scheduler-Fallback.
 
 Prometheus-Callbacks lesen nur Snapshot-Repositories. Ein Scrape löst weder eine
 Minecraft-Abfrage noch eine Dateisystemberechnung aus.
@@ -134,6 +134,5 @@ unverändert.
   `15m` und die sequenzielle Scanparallelität `1`.
 - Der Aktivierungszeitpunkt ist semantisch enger als ein Prozessstart, dafür
   öffentlich, deterministisch und plattformübergreifend korrekt.
-- Full Time, Autosave, Entityzahlen, Event-Counter, allgemeine
-  Dateisystemkapazität und Folia-Regionsmetriken bleiben späteren Phasen
-  vorbehalten.
+- Full Time, Autosave und allgemeine Dateisystemkapazitätsmetriken werden nicht
+  registriert.

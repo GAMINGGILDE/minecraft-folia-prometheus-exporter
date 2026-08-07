@@ -1,4 +1,9 @@
-# FoliaPrometheusExporter
+<p align="center">
+  <img src="assets/folia-prometheus-exporter.svg"
+       alt="Folia Prometheus Exporter"
+       width="360">
+</p>
+
 
 FoliaPrometheusExporter ist ein Prometheus-Exporter für Paper und Folia. Das
 Plugin stellt aggregierte Minecraft-, JVM-, Prozess- und Exporter-Metriken über
@@ -134,7 +139,7 @@ Entity-UUIDs. Spielerwerte sind ausschließlich aggregiert.
 `minecraft_plugin_info` ist wegen dynamischer Pluginname-/Versionslabels
 standardmäßig deaktiviert. Auch genaue Entitytypen sind standardmäßig aus, weil
 die Zahl der Reihen mit den tatsächlich vorhandenen Typen je Welt wächst. Es
-gibt keine individuellen Spielermetriken und keine Gameplay-Counter.
+gibt keine individuellen Spielermetriken.
 
 ## Folia-Hinweise
 
@@ -164,16 +169,22 @@ Server-APIs und den Inhalt des auslieferbaren JARs automatisch.
 
 ## Dokumentation
 
-- [Projektumfang](docs/01-project-scope.md)
+### Für Administratoren
+
+- [Installation](docs/11-installation.md)
+- [Konfiguration](docs/05-configuration.md)
 - [Metrikkatalog](docs/02-metrics-catalog.md)
+- [Monitoring](docs/12-monitoring.md)
+
+### Technische Dokumentation
+
+- [Projektumfang](docs/01-project-scope.md)
 - [Architektur](docs/03-architecture.md)
 - [Paper-/Folia-Threading](docs/04-folia-threading.md)
-- [Konfiguration](docs/05-configuration.md)
 - [Prometheus-Format und Kardinalität](docs/06-prometheus-format.md)
-- [Tests und Abnahme](docs/07-testing.md)
+- [Tests und Abnahmekriterien](docs/07-testing.md)
 - [Release-Prozess](docs/08-release-process.md)
-- [Entscheidungen](docs/09-open-decisions.md)
-- [Historischer Umsetzungsplan](docs/10-codex-implementation-plan.md)
+- [Architecture Decision Records](docs/adr/)
 
 ## Lizenz
 

@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.ToDoubleFunction;
 
-/** Maps one immutable server snapshot to all Phase-4 server metric families. */
+/** Maps one immutable server snapshot to all server metric families. */
 final class ServerMetricsCollector implements MultiCollector {
 
     private final SnapshotRepository<ServerSnapshot> repository;
