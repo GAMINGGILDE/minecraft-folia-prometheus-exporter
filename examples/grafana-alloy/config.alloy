@@ -1,0 +1,21 @@
+prometheus.scrape "folia_prometheus_exporter" {
+  targets = [
+    {"__address__" = "127.0.0.1:9940"},
+  ]
+
+  job_name        = "folia-prometheus-exporter"
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.metrics_backend.receiver]
+}
+
+prometheus.remote_write "metrics_backend" {
+  endpoint {
+    url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+
+    basic_auth {
+      username = sys.env("PROMETHEUS_REMOTE_WRITE_USERNAME")
+      password = sys.env("PROMETHEUS_REMOTE_WRITE_PASSWORD")
+    }
+  }
+}

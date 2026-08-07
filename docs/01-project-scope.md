@@ -2,7 +2,9 @@
 
 ## 1.1 Ziel
 
-Entwicklung eines langlebigen Prometheus-Exporter-Plugins für Paper und Folia. Das Plugin beginnt mit der API-Linie 26.1.2, benötigt Java 25 und soll spätere Paper- und Folia-Versionen ohne große Umbauten unterstützen. Es wird als genau ein gemeinsames Plugin-JAR ausgeliefert.
+FoliaPrometheusExporter ist ein langlebiges Prometheus-Exporter-Plugin für Paper
+und Folia. Die offizielle Unterstützung beginnt mit der API-Linie 26.1.2, setzt
+Java 25 voraus und verwendet genau ein gemeinsames Plugin-JAR.
 
 ## 1.2 Kernanforderungen
 
@@ -35,8 +37,6 @@ Entwicklung eines langlebigen Prometheus-Exporter-Plugins für Paper und Folia. 
 - Prozess und CPU
 - begrenzte Dateisystemmetriken
 - Eigenüberwachung des Exporters
-- optionale, aggregierte Gameplay-Counter
-- spätere Pluginintegrationen über getrennte Provider
 
 ## 1.4 Harte Nicht-Ziele
 
@@ -55,6 +55,8 @@ Entwicklung eines langlebigen Prometheus-Exporter-Plugins für Paper und Folia. 
 - kein Zugriff auf Minecraft-Weltdaten vom HTTP-Thread
 - keine unbeschränkte Auflistung einzelner Chunks als Zeitreihen
 - keine dynamischen internen Folia-Regions-IDs als langlebige Labels
+- keine Gameplay-Counter
+- keine Spawn-, Removal-, Kill- oder Item-Despawn-Counter für Entities
 
 ## 1.5 Stabilitätsklassen
 
@@ -72,8 +74,8 @@ Entwicklung eines langlebigen Prometheus-Exporter-Plugins für Paper und Folia. 
 
 - Scrape-Latenz möglichst unter 10 ms
 - keine Welt- oder Entity-Scans während eines Scrapes
-- Collector-Laufzeiten als eigene Metriken sichtbar
-- Snapshot-Alter als eigene Metrik sichtbar
+- Entity-Abgleichslaufzeit und letzter erfolgreicher Abgleich sichtbar
+- Alter gültiger Folia-Regionsbeobachtungen sichtbar
 - sauberer Shutdown des HTTP-Servers
 - keine Blockierung von Region-Tickthreads durch Dateisystemoperationen
 - definierte Timeouts und Fehlerbehandlung
@@ -99,10 +101,11 @@ Lizenz: MIT
 - Für andere Serverimplementierungen und Forks besteht kein offizieller Supportanspruch.
 - Es werden keine Scheduler-Fallbacks für Spigot oder CraftBukkit entwickelt.
 
-Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Folia-spezifische
-Funktionen werden erst bei tatsächlichem Bedarf in einem isolierten Provider
-implementiert. Phase 1 enthält weder einen solchen Provider noch eine vorsorgliche
-Plattform- oder Feature-Erkennung.
+Allgemeiner Code kompiliert gegen die öffentliche `paper-api`. Die
+Folia-spezifische Regions-TPS-Erfassung ist in einem isolierten Provider
+gekapselt, der erst nach Prüfung der benötigten öffentlichen Capability geladen
+wird. Gemeinsame Server-, Welt-, Event- und Entity-Funktionen verwenden die
+öffentlichen Paper-APIs auf beiden Plattformen.
 
 Die unterstützten Zielplattformen werden in einem separaten CI-Smoke-Test gegen
 fest gepinnte Paper- und Folia-Serverbuilds der API-Linie 26.1.2 gestartet. Der

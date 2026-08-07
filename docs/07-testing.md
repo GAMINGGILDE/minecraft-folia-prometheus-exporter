@@ -488,4 +488,22 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
   Schedulerthread.
 - Konfigurations-, Klassifizierungs-, Snapshot-, Event-, Race-, Registry-,
   Lifecycle-, Paper-/Folia-Smoke- und Shadow-JAR-Prüfungen bilden die
-  verpflichtende Abnahme. Phase 8 bleibt der nächste Umfang.
+  verpflichtende Abnahme.
+
+## 7.15 Abnahme Phase 8
+
+- README und Installationsanleitung beschreiben das fertige Produkt, Java 25,
+  Paper/Folia 26.1.2, die lokale Standardbindung und alle HTTP-Endpunkte.
+- Metrikkatalog, Collectorregistrierung und Tests stimmen bei Namen, Typen,
+  Labels, Standardzustand und Plattformverfügbarkeit überein.
+- Prometheus-, Grafana-Alloy- und Alert-Beispiele verwenden gültige Syntax,
+  enthalten keine Zugangsdaten und filtern keine Metriken aus.
+- Folia-spezifische Alerts bleiben auf Paper mangels Folia-Reihen inaktiv.
+- Der tagbasierte Releaseworkflow verwendet Java 25, den Gradle Wrapper, das
+  einzige geprüfte Shadow-JAR und erzeugt eine SHA-256-Prüfsumme.
+- Relative Markdown-Links, YAML-Dateien, Secretsuche und Repositorystatus sind
+  geprüft; Build-Ausgaben werden nicht versioniert.
+- `./gradlew clean build`, `./gradlew test` und `./gradlew foliaTest` sind
+  erfolgreich.
+- Es wurden kein Grafana-Dashboard, keine Gameplay-Counter und keine neuen
+  Metriken eingeführt.

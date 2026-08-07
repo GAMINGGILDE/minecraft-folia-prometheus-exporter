@@ -24,7 +24,7 @@ Collector Collector Collector Collector
        MetricsEndpoint
 ```
 
-Phase 5 ergänzt einen getrennten ereignisbasierten Pfad:
+Event-Counter verwenden einen getrennten ereignisbasierten Pfad:
 
 ```text
 öffentliche Paper-/Bukkit-Events auf ihrem jeweiligen Eventthread
@@ -44,7 +44,7 @@ des Events nur primitive Werte, strukturierte Enumwerte und validierte
 Weltlabels. Er verwendet keine periodischen Tasks und speichert keine
 Minecraft-Objekte im Registryzustand.
 
-Phase 6 ergänzt auf Folia den capability-geschützten Snapshotpfad:
+Auf Folia ergänzt der capability-geschützte Provider einen Snapshotpfad:
 
 ```text
 öffentliche Global-/Entity-/Region-Scheduler
@@ -69,7 +69,7 @@ Der konkrete Provider wird auf Paper nicht geladen. Ein Scrape liest die
 Observation-Liste genau einmal, filtert nur noch anhand der TTL und greift nicht
 auf Server, Welten, Spieler, Chunks oder Scheduler zu.
 
-Phase 7 ergänzt einen gemeinsamen hybriden Entitypfad:
+Entitymetriken verwenden einen gemeinsamen hybriden Pfad:
 
 ```text
 EntityAddToWorldEvent / EntityRemoveFromWorldEvent
@@ -94,7 +94,7 @@ Das Eventjournal enthält eine Identität nur während eines Abgleichs. Publizie
 Snapshots enthalten ausschließlich Weltlabel, feste Gruppen, Aggregate und
 optional kontrollierte Namespaced EntityType-Keys.
 
-Die JVM- und Prozessinstrumentierungen aus Phase 3 bilden einen getrennten,
+Die JVM- und Prozessinstrumentierungen bilden einen getrennten,
 serverunabhängigen Datenpfad:
 
 ```text
@@ -425,7 +425,6 @@ JvmCollector
 ProcessCollector
 FileSystemCollector
 ExporterCollector
-GameplayCollector (optional)
 ```
 
 `JvmCollector` und `ProcessCollector` sind logische Metrikgruppen, keine
@@ -436,9 +435,9 @@ Zustands kein Snapshot-Repository und keinen Scheduler. Server, Welten, Chunks
 und Weltgrößen bleiben separate periodische Snapshot-Collector. Seit Phase 6
 ist `FoliaRegionCollector` ein capability-geschützter `ManagedCollector`, dessen
 Provider intern den vorhandenen periodischen Snapshot-Collector wiederverwendet.
-Seit Phase 7 ist `EntityCollector` ein hybrider `ManagedCollector` mit genau
-einem Listener und einem intern wiederverwendeten periodischen Collector.
-Gameplay-Collector bleiben späteren Phasen vorbehalten.
+`EntityCollector` ist ein hybrider `ManagedCollector` mit genau einem Listener
+und einem intern wiederverwendeten periodischen Collector. Gameplay-Collector
+sind nicht Bestandteil des Projekts.
 
 ## 3.5 Fehlerisolation
 
@@ -501,7 +500,7 @@ Gradle ermittelt `git rev-parse HEAD`, validiert den Hash und expandiert ihn in
 ungültigem Ergebnis wird `unknown` eingebettet. Ein explizites
 `-PgitCommit=<Hash oder unknown>` ermöglicht reproduzierbare externe Builds.
 
-## 3.7 Phase-7-Lifecycle
+## 3.7 Plugin-Lifecycle
 
 ```text
 onEnable

@@ -150,7 +150,7 @@ public final class ConfigurationValidator {
 
         if (!folia.observationSources().configuredLocations().isEmpty()) {
             throw new ConfigurationException(
-                "folia.observation-sources.configured-locations is not supported in Phase 6"
+                "folia.observation-sources.configured-locations is not supported"
             );
         }
 

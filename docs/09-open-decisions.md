@@ -292,20 +292,24 @@ Details stehen in ADR 0010 und ADR 0015.
 
 Details stehen in ADR 0016.
 
-## 9.9 Vorbereitung für Phase 8
+## 9.9 In Phase 8 umgesetzt
 
-Der Metrikkatalog enthält PromQL-Grundlagen für Gruppensummen, Gesamtbestände,
-Gauge-Veränderungen, `topk`-Typauswertungen, Erfolgsalter und Korrekturraten.
-Vorgesehen sind Welt-/Gruppen-Zeitreihen, Stat-Panels für Gesamt-, Item- und
-Villagerbestand sowie Betriebs-Panels für Dauer, Staleness, Korrekturen und
-Collectorstatus. Beispielschwellen sind ausdrücklich nur Ausgangswerte und
-müssen in Phase 8 an Weltgröße, Mobcaps, Sichtweite und Hardware angepasst
-werden. Die optionale Typfamilie erfordert begrenzte, aggregierte Abfragen.
+- README und Installationsanleitung sind auf Administratoren und Benutzer
+  ausgerichtet.
+- Direkt nutzbare Prometheus- und Grafana-Alloy-Scrape-Beispiele sowie
+  konservative Alert-Regeln sind unter `examples/` dokumentiert.
+- Katalog, Konfigurationsreferenz und Datenschutz-/Kardinalitätshinweise sind mit
+  Collectorregistrierung und Tests abgeglichen.
+- Ein tagbasierter Releaseworkflow verwendet Java 25, den Gradle Wrapper, das
+  geprüfte einzelne Shadow-JAR und eine SHA-256-Prüfsumme.
+- Grafana-Dashboards, Gameplay-Counter und neue Metriken sind ausdrücklich nicht
+  Bestandteil dieser Phase.
 
 ## 9.10 Noch offen
 
-- gewünschte Standard-Buckets für Histogramme
-- Release- und Changelog-Format
+- Die Version des ersten Releases ist noch nicht beschlossen. Deshalb bleibt
+  `projectVersion=0.1.0-SNAPSHOT`; der Releaseworkflow veröffentlicht keine
+  Snapshot-Version und ändert die Version nicht automatisch.
 
 ## 9.11 Nicht mehr offen
 
@@ -357,3 +361,4 @@ werden. Die optionale Typfamilie erfordert begrenzte, aggregierte Abfragen.
 - Entity-Journal-, Deduplizierungs-, Timeout- und Commitsemantik
 - genaue Typnamen, Kardinalitätsschalter und Projektilschalter
 - Definition und Begrenzung der Entity-Abgleichsmetriken
+- Release-Artefakt, SHA-256-Prüfsumme und generierte GitHub Release Notes

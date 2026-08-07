@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Validate tag and project version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          project_version="$(sed -n 's/^projectVersion=//p' gradle.properties)"
+          if [[ -z "$project_version" ]]; then
+            echo "projectVersion is missing from gradle.properties." >&2
+            exit 1
+          fi
+          if [[ "$project_version" == *-SNAPSHOT ]]; then
+            echo "Snapshot versions cannot be published: $project_version" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_NAME" != "v${project_version}" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match projectVersion $project_version." >&2
+            exit 1
+          fi
+
+          echo "project_version=$project_version" >> "$GITHUB_OUTPUT"
+
+      - name: Build and verify plugin
+        run: ./gradlew clean build
+
+      - name: Prepare release artifacts
+        id: artifacts
+        shell: bash
+        env:
+          PROJECT_VERSION: ${{ steps.version.outputs.project_version }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t plugin_jars < <(find build/libs -maxdepth 1 -type f -name '*.jar' -print)
+          if [[ ${#plugin_jars[@]} -ne 1 ]]; then
+            echo "Expected exactly one distributable plugin JAR, found ${#plugin_jars[@]}." >&2
+            printf '%s\n' "${plugin_jars[@]}" >&2
+            exit 1
+          fi
+
+          mkdir -p dist
+          artifact_name="FoliaPrometheusExporter-${PROJECT_VERSION}.jar"
+          cp "${plugin_jars[0]}" "dist/${artifact_name}"
+          (
+            cd dist
+            sha256sum "$artifact_name" > "${artifact_name}.sha256"
+          )
+
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoliaPrometheusExporter-${{ steps.version.outputs.project_version }}
+          path: |
+            dist/${{ steps.artifacts.outputs.artifact_name }}
+            dist/${{ steps.artifacts.outputs.artifact_name }}.sha256
+          if-no-files-found: error
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_VERSION: ${{ steps.version.outputs.project_version }}
+          ARTIFACT_NAME: ${{ steps.artifacts.outputs.artifact_name }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "dist/${ARTIFACT_NAME}" \
+              "dist/${ARTIFACT_NAME}.sha256" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "dist/${ARTIFACT_NAME}" \
+              "dist/${ARTIFACT_NAME}.sha256" \
+              --verify-tag \
+              --generate-notes \
+              --title "FoliaPrometheusExporter ${PROJECT_VERSION}"
+          fi

@@ -1,0 +1,65 @@
+groups:
+  - name: folia-prometheus-exporter
+    rules:
+      - alert: FoliaPrometheusExporterDown
+        expr: up{job="folia-prometheus-exporter"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: FoliaPrometheusExporter is unreachable
+          description: 'Prometheus has been unable to scrape {{ $labels.instance }} for 5 minutes.'
+
+      - alert: FoliaPrometheusExporterNotReady
+        expr: minecraft_exporter_ready{job="folia-prometheus-exporter"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: FoliaPrometheusExporter is not ready
+          description: 'The exporter at {{ $labels.instance }} has remained unready for 5 minutes.'
+
+      - alert: FoliaPrometheusExporterUnhealthy
+        expr: minecraft_exporter_health{job="folia-prometheus-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: FoliaPrometheusExporter is unhealthy
+          description: 'The exporter HTTP service at {{ $labels.instance }} reports an unhealthy state.'
+
+      - alert: FoliaPrometheusExporterScrapeErrors
+        expr: increase(minecraft_exporter_scrape_errors_total{job="folia-prometheus-exporter"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: FoliaPrometheusExporter returned scrape errors
+          description: 'The exporter at {{ $labels.instance }} recorded server-side scrape errors during the last 10 minutes.'
+
+      - alert: FoliaPrometheusExporterCollectorFailed
+        expr: minecraft_exporter_collector_state{job="folia-prometheus-exporter",state="failed"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: FoliaPrometheusExporter collector failed
+          description: 'Collector {{ $labels.collector }} at {{ $labels.instance }} has a structural start failure.'
+
+      - alert: FoliaPrometheusExporterEntityReconciliationStale
+        expr: time() - minecraft_entity_reconciliation_last_success_timestamp_seconds{job="folia-prometheus-exporter"} > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Entity reconciliation is stale
+          description: 'No successful full entity reconciliation has been recorded at {{ $labels.instance }} for at least 15 minutes.'
+
+      - alert: FoliaObservedRegionTpsLow
+        expr: minecraft_folia_region_tps{job="folia-prometheus-exporter",window="5m",stat="p05"} < 18
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Observed Folia region TPS is low
+          description: 'The 5-minute p05 TPS across observed regions in world {{ $labels.world }} at {{ $labels.instance }} has stayed below 18.'

@@ -33,7 +33,6 @@ Erlaubte kontrollierte Labels:
 - `window`
 - `stat`
 - `threshold`
-- `threshold_seconds`
 - `collector`
 - `state` aus der festen Collector-Zustandsmenge
 - `endpoint` aus `metrics`, `health`, `ready`, `not_found`
@@ -41,7 +40,6 @@ Erlaubte kontrollierte Labels:
 - `reason` aus fester Liste
 - `type` aus Minecraft-Registry, nur optional
 - `group` aus fester Liste
-- `command` nur Basisbefehl, optional
 
 Verbotene Labels:
 
@@ -53,10 +51,10 @@ Verbotene Labels:
 - Koordinaten
 - dynamische interne Regions-ID
 
-Seit Phase 5 ist `reason` exakt auf `banned`, `whitelist`, `server_full`,
+`reason` ist exakt auf `banned`, `whitelist`, `server_full`,
 `invalid_session`, `idle`, `connection_lost`, `moderation`, `plugin` und
 `unknown` begrenzt. Chunk-Eventfamilien besitzen ausschließlich `world`; Namen
-werden über dieselbe Validierung wie Phase-4-Weltmetriken übernommen.
+werden über dieselbe Validierung wie die übrigen Weltmetriken übernommen.
 
 ## 6.4 Counter-Resets
 
@@ -66,11 +64,13 @@ Plugin-Reload zurückgesetzt werden. Prometheus erkennt Counter-Resets nach
 Neustarts. Zeiträume und Langzeitwerte werden mit `rate()` beziehungsweise
 `increase()` in Prometheus berechnet.
 
-## 6.5 Histogramme
+## 6.5 Laufzeiten und Verteilungen
 
-Collector-Laufzeiten sollen als Histogramme exportiert werden. Regionale
-Tickdauer-Histogramme dürfen nur angeboten werden, wenn die zugrunde liegenden
-regionalen Tickdauern tatsächlich belastbar messbar sind.
+Der Exporter registriert keine allgemeinen Collector-Histogramme. Die Dauer des
+letzten erfolgreichen Entity-Abgleichs wird als
+`minecraft_entity_reconciliation_duration_seconds` ausgegeben. Regionale
+Tickdauer-Histogramme existieren nicht, weil keine belastbare öffentliche
+Messquelle für regionale Tickdauern verfügbar ist.
 
 ## 6.6 Scrape-Datenquelle
 

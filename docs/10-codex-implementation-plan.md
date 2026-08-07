@@ -280,14 +280,28 @@ Nicht Bestandteil von Phase 7:
 - persistente Entitybestände
 - NMS, interne APIs oder ein vorsorglicher zusätzlicher Folia-Provider
 
-Abnahme: Phase 7 ist abgeschlossen. Phase 8 „Dokumentation und Dashboard“ ist
-der nächste Umfang.
+Abnahme: Phase 7 ist abgeschlossen. Der anschließende Umfang ist Dokumentation
+und Release-Vorbereitung.
 
-## Phase 8 – Dokumentation und Dashboard
+## Phase 8 – Dokumentation und Release-Vorbereitung
+
+Status: abgeschlossen.
 
 - Installationsanleitung
 - Alloy-Beispiel
 - Prometheus-Beispiel
-- Grafana-Dashboard
 - Alert-Regeln
+- Dokumentations-Cleanup
+- Abgleich von Metrikkatalog, Implementierung und Tests
 - Releaseworkflow
+- Release-Vorbereitung
+
+Nicht Bestandteil von Phase 8:
+
+- Grafana-Dashboard oder Dashboard-JSON
+- Gameplay-Counter
+- neue Metriken oder Collector
+
+Abnahme: Produktdokumentation, Monitoring-Beispiele, Alert-Regeln und
+Releaseworkflow sind vorhanden und validiert. Die bestehende
+`0.1.0-SNAPSHOT`-Version wurde nicht willkürlich geändert.

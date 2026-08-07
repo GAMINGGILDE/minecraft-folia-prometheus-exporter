@@ -29,7 +29,7 @@
 | `minecraft_plugins_disabled` | Gauge | – | an | Stabil | Deaktivierte Plugins |
 | `minecraft_plugin_info` | Info | `name`, `version`, `enabled` | aus | Optional | Einzelne Plugininformationen |
 
-Phase 4 implementiert diese Tabelle vollständig. `implementation` stammt aus
+Diese Tabelle ist vollständig implementiert. `implementation` stammt aus
 `Server#getName()`, `minecraft_version` aus `Server#getMinecraftVersion()` und
 `java_version` aus der JVM-Systemeigenschaft. Serverstart und -Uptime beziehen
 sich auf den zu Beginn von `onEnable()` fixierten Aktivierungszeitpunkt des
@@ -58,7 +58,7 @@ nicht doppelt ausgegeben.
 
 Keine dieser Metriken darf Spielername oder UUID enthalten.
 
-Phase 4 liest ausschließlich aggregierte Mengen. Nur die Spielmodi erfordern
+Der Exporter liest ausschließlich aggregierte Mengen. Nur die Spielmodi erfordern
 Entity-Ownership: Je Online-Spieler wird allein `getGameMode()` über dessen
 Entity Scheduler gelesen und direkt in die festen Labels `survival`, `creative`,
 `adventure` und `spectator` aggregiert. Spielerobjekte werden nicht in einem
@@ -75,7 +75,7 @@ Snapshot gespeichert; Namen und UUIDs werden weder abgefragt noch protokolliert.
 | `minecraft_login_denied_total` | Counter | `reason` | an | Eventbasiert |
 | `minecraft_server_list_pings_total` | Counter | – | an | Eventbasiert |
 | `minecraft_chat_messages_total` | Counter | – | an | Eventbasiert |
-| `minecraft_commands_total` | Counter | `command`, `source` | aus | Optional |
+| `minecraft_commands_total` | Counter | `command`, `source` | – | Nicht implementiert |
 
 Erlaubte normalisierte Gründe:
 
@@ -91,8 +91,8 @@ Erlaubte normalisierte Gründe:
 
 Keine freien Nachrichten als Labels.
 
-Phase 5 implementiert alle Familien dieser Tabelle außer
-`minecraft_commands_total`. Genau ein `PlayerLoginEvent` zählt einen final
+Alle Familien dieser Tabelle außer `minecraft_commands_total` sind
+implementiert. Genau ein `PlayerLoginEvent` zählt einen final
 verarbeiteten Loginversuch; ein nicht erlaubtes strukturiertes Ergebnis zählt
 zusätzlich genau eine Denial-Reihe. `KICK_BANNED`, `KICK_WHITELIST` und
 `KICK_FULL` werden auf `banned`, `whitelist` und `server_full` abgebildet;
@@ -153,25 +153,24 @@ Minecraft-Eventthread.
 | `minecraft_world_projectiles` | Gauge | `world` | aus | Optional |
 | `minecraft_world_size_bytes` | Gauge | `world` | an | Async |
 | `minecraft_world_time_ticks` | Gauge | `world` | an | Snapshot |
-| `minecraft_world_full_time_ticks` | Gauge | `world` | aus | Optional |
+| `minecraft_world_full_time_ticks` | Gauge | `world` | – | Nicht implementiert |
 | `minecraft_world_border_size_blocks` | Gauge | `world` | an | Stabil |
 | `minecraft_world_weather` | Gauge | `world`, `weather` | an | Snapshot |
 | `minecraft_world_difficulty` | Gauge | `world`, `difficulty` | an | Stabil |
 | `minecraft_world_environment` | Gauge | `world`, `environment` | an | Stabil |
 | `minecraft_world_pvp_enabled` | Gauge | `world` | an | Stabil |
-| `minecraft_world_autosave_enabled` | Gauge | `world` | aus | Optional |
+| `minecraft_world_autosave_enabled` | Gauge | `world` | – | Nicht implementiert |
 
-Phase 4 implementiert aus dieser Tabelle `minecraft_world_players`,
-`minecraft_world_size_bytes`, `minecraft_world_time_ticks`,
+Implementiert sind `minecraft_world_players`, `minecraft_world_size_bytes`,
+`minecraft_world_time_ticks`,
 `minecraft_world_border_size_blocks`, `minecraft_world_weather`,
 `minecraft_world_difficulty`, `minecraft_world_environment` und
-`minecraft_world_pvp_enabled`. Full Time und Autosave bleiben als optionale,
-deaktivierte Katalogeinträge einer späteren Phase vorbehalten. Entityfamilien
-werden in Phase 4 nicht registriert. Phase 7 implementiert
-`minecraft_world_entities`, `minecraft_world_living_entities`,
+`minecraft_world_pvp_enabled` sowie `minecraft_world_entities`,
+`minecraft_world_living_entities`,
 `minecraft_world_villagers` und `minecraft_world_item_entities` standardmäßig.
 `minecraft_world_projectiles` wird nur mit
-`entities.include-projectile-total: true` registriert.
+`entities.include-projectile-total: true` registriert. Full Time und Autosave
+werden nicht registriert.
 
 Wetter ist One-Hot über `clear`, `rain`, `thunder`; Schwierigkeit über
 `peaceful`, `easy`, `normal`, `hard`; Umgebung über `normal`, `nether`,
@@ -184,10 +183,10 @@ entladene Welten keine veralteten Labelreihen hinterlassen.
 |---|---|---|---:|---|
 | `minecraft_entity_group_count` | Gauge | `world`, `group` | an | Snapshot/Hybrid |
 | `minecraft_entities` | Gauge | `world`, `type` | aus | Optional |
-| `minecraft_entities_spawned_total` | Counter | `world`, `type`, `reason` | aus | Eventbasiert |
-| `minecraft_entities_removed_total` | Counter | `world`, `type`, `reason` | aus | Eventbasiert |
-| `minecraft_mobs_killed_total` | Counter | `world`, `type` | aus | Eventbasiert |
-| `minecraft_items_despawned_total` | Counter | `world`, `item` | aus | Eventbasiert |
+| `minecraft_entities_spawned_total` | Counter | `world`, `type`, `reason` | – | Nicht implementiert |
+| `minecraft_entities_removed_total` | Counter | `world`, `type`, `reason` | – | Nicht implementiert |
+| `minecraft_mobs_killed_total` | Counter | `world`, `type` | – | Nicht implementiert |
+| `minecraft_items_despawned_total` | Counter | `world`, `item` | – | Nicht implementiert |
 
 Standardgruppen:
 
@@ -202,7 +201,7 @@ Standardgruppen:
 - `display`
 - `other`
 
-Phase 7 implementiert `minecraft_entity_group_count` standardmäßig und
+Der Exporter registriert `minecraft_entity_group_count` standardmäßig und
 `minecraft_entities` nur bei `entities.include-exact-types: true`. Die vier
 Lifecycle-Counter bleiben unimplementiert.
 
@@ -242,48 +241,11 @@ Koordinaten oder Pluginmetadaten als Entitylabels. Ein neuer Snapshot ersetzt
 alle Welt- und Typreihen, sodass entladene Welten und nicht mehr vorhandene Typen
 verschwinden.
 
-Phase 7 verwendet `EntityAddToWorldEvent` und `EntityRemoveFromWorldEvent` als
+Der Entity-Collector verwendet `EntityAddToWorldEvent` und
+`EntityRemoveFromWorldEvent` als
 einzige Entity-Zustandsquellen zwischen initialem beziehungsweise periodischem
 Vollabgleich. Deshalb werden Spawn, Death, Transformation, Teleport sowie Chunk-
 Load/-Unload nicht durch parallele Spezialevents doppelt gezählt.
-
-### Technische Grundlage für Phase 8
-
-Geeignete niedrig-kardinale PromQL-Grundlagen sind:
-
-```promql
-# Bestand je Welt und Gruppe
-sum by (world, group) (minecraft_entity_group_count)
-
-# Gesamtbestand aller geladenen Welten
-sum(minecraft_world_entities)
-
-# Veränderung eines Gauge-Bestands über 15 Minuten
-delta(minecraft_world_entities[15m])
-
-# zehn häufigste genaue Typen, nur bei bewusst aktivierter Typfamilie
-topk(10, sum by (type) (minecraft_entities))
-
-# Alter des letzten erfolgreichen Vollabgleichs
-time() - minecraft_entity_reconciliation_last_success_timestamp_seconds
-
-# in den letzten 15 Minuten erkannte Driftkorrekturen
-increase(minecraft_entity_reconciliation_corrections_total[15m])
-```
-
-Für Phase 8 bieten sich gestapelte Zeitreihen je `world`/`group`, Stat-Panels für
-Gesamt-, Item- und Villagerbestand sowie getrennte Panels für Abgleichsdauer,
-Erfolgsalter, Korrekturrate und den vorhandenen Collectorstatus an. Die optionale
-Typfamilie soll nur in begrenzten `topk`-Panels verwendet werden; Abfragen über
-alle Welten und Typen ohne Aggregation oder Begrenzung sind zu vermeiden.
-
-Illustrative, serverabhängig zu kalibrierende Warnschwellen sind mehr als 5.000
-Entities je Welt für 10 Minuten, mehr als 1.000 Item-Entities für 5 Minuten oder
-mehr als 500 Villager für 15 Minuten. Für die Standardkonfiguration kann zudem
-eine Abgleichsdauer über 45 Sekunden oder ein Erfolgsalter über 10 Minuten auf
-Überlastung beziehungsweise wiederholte Fehlschläge hinweisen. Diese Werte sind
-keine universellen Produktdefaults; Phase 8 muss sie anhand Weltgröße,
-Sichtweite, Mobcaps und Hardware parametrierbar machen.
 
 ## 2.7 Chunks
 
@@ -295,10 +257,10 @@ Sichtweite, Mobcaps und Hardware parametrierbar machen.
 | `minecraft_chunks_generated_total` | Counter | `world` | an | Eventbasiert |
 | `minecraft_chunk_load_failures_total` | Counter | `world`, `reason` | aus | API-abhängig |
 
-Phase 4 implementiert `minecraft_world_loaded_chunks`. Grundlage ist
+`minecraft_world_loaded_chunks` ist implementiert. Grundlage ist
 `World#getChunkCount()` aus der öffentlichen Paper-API; es werden weder
 `getLoadedChunks()` noch Chunkobjekte oder regiongebundene Einzelabfragen
-verwendet. Phase 5 implementiert die drei Lifecycle-Counter über
+verwendet. Die drei Lifecycle-Counter verwenden
 `ChunkLoadEvent` und `ChunkUnloadEvent`. `ChunkLoadEvent#isNewChunk()` entscheidet
 über die zusätzliche Generated-Inkrementierung: Ein neuer Chunk erhöht Loaded
 und Generated, ein bestehender nur Loaded. Alle drei Counter verwenden
@@ -311,7 +273,7 @@ unimplementiert.
 
 ## 2.8 Folia
 
-Phase 6 implementiert diese Metrikgruppe über einen isolierten, ausschließlich
+Diese Metrikgruppe wird über einen isolierten, ausschließlich
 auf öffentlichen APIs basierenden Provider. Messquelle ist
 `Server#getRegionTPS(World,int,int)` aus
 `folia-api:26.1.2.build.8-stable`.
@@ -388,27 +350,28 @@ Tickdauer, Tickverzögerung oder einen Überlastungszustand bereit. Die vier als
 „Nicht verfügbar“ markierten Familien werden daher nicht registriert. Tickdauer
 wird insbesondere nicht aus `20 / TPS` geschätzt.
 
-## 2.9 Aggregiertes Gameplay
+## 2.9 Gameplay-Counter
 
-Standardmäßig deaktiviert.
+Gameplay-Counter sind bewusst nicht Bestandteil dieses Exporters. Die folgenden
+historisch katalogisierten Namen werden nicht registriert:
 
 | Metrik | Typ | Labels | Status |
 |---|---|---|---|
-| `minecraft_blocks_broken_total` | Counter | `world`, `block` | Optional |
-| `minecraft_blocks_placed_total` | Counter | `world`, `block` | Optional |
-| `minecraft_items_crafted_total` | Counter | `item` | Optional |
-| `minecraft_items_smelted_total` | Counter | `item` | Optional |
-| `minecraft_items_picked_up_total` | Counter | `item` | Optional |
-| `minecraft_items_dropped_total` | Counter | `item` | Optional |
-| `minecraft_items_consumed_total` | Counter | `item` | Optional |
-| `minecraft_player_deaths_total` | Counter | `cause` | Optional, nur aggregiert |
-| `minecraft_player_kills_total` | Counter | – | Optional, nur aggregiert |
+| `minecraft_blocks_broken_total` | Counter | `world`, `block` | Nicht implementiert |
+| `minecraft_blocks_placed_total` | Counter | `world`, `block` | Nicht implementiert |
+| `minecraft_items_crafted_total` | Counter | `item` | Nicht implementiert |
+| `minecraft_items_smelted_total` | Counter | `item` | Nicht implementiert |
+| `minecraft_items_picked_up_total` | Counter | `item` | Nicht implementiert |
+| `minecraft_items_dropped_total` | Counter | `item` | Nicht implementiert |
+| `minecraft_items_consumed_total` | Counter | `item` | Nicht implementiert |
+| `minecraft_player_deaths_total` | Counter | `cause` | Nicht implementiert |
+| `minecraft_player_kills_total` | Counter | – | Nicht implementiert |
 
 Auch hier niemals Spieleridentitäten exportieren.
 
 ## 2.10 JVM und Prozess
 
-Phase 3 registriert ausschließlich offizielle Instrumentierungen aus
+Der Exporter registriert ausschließlich offizielle Instrumentierungen aus
 `prometheus-metrics-instrumentation-jvm:1.8.0`. Die Tabellen verwenden die vom
 Client tatsächlich exportierten Namen; offizielle Namen werden nicht an frühere
 Katalogentwürfe angepasst.
@@ -503,7 +466,7 @@ Quelle: `ProcessMetrics`.
 ### In Client 1.8.0 nicht verfügbar
 
 Das JVM-Instrumentierungsmodul bietet keine offiziellen Instrumentierungen für
-die folgenden früher vorgesehenen Metriken. Phase 3 baut sie deshalb nicht frei
+die folgenden früher vorgesehenen Metriken. Der Exporter baut sie deshalb nicht frei
 nach:
 
 - `process_cpu_usage_ratio`
@@ -514,28 +477,28 @@ nach:
 
 ## 2.11 Dateisystem
 
-| Metrik | Typ | Labels | Standard |
-|---|---|---|---:|
-| `minecraft_filesystem_usable_bytes` | Gauge | `path` | an |
-| `minecraft_filesystem_total_bytes` | Gauge | `path` | an |
-| `minecraft_filesystem_usage_ratio` | Gauge | `path` | an |
-| `minecraft_world_size_bytes` | Gauge | `world` | an |
-| `minecraft_logs_size_bytes` | Gauge | – | aus |
-| `minecraft_plugins_size_bytes` | Gauge | – | aus |
+| Metrik | Typ | Labels | Standard | Status |
+|---|---|---|---:|---|
+| `minecraft_filesystem_usable_bytes` | Gauge | `path` | – | Nicht implementiert |
+| `minecraft_filesystem_total_bytes` | Gauge | `path` | – | Nicht implementiert |
+| `minecraft_filesystem_usage_ratio` | Gauge | `path` | – | Nicht implementiert |
+| `minecraft_world_size_bytes` | Gauge | `world` | an | Implementiert |
+| `minecraft_logs_size_bytes` | Gauge | – | – | Nicht implementiert |
+| `minecraft_plugins_size_bytes` | Gauge | – | – | Nicht implementiert |
 
-Phase 4 implementiert in dieser Gruppe ausschließlich
-`minecraft_world_size_bytes`. Der Wert ist die rekursive Summe der Größen aller
+In dieser Gruppe ist ausschließlich `minecraft_world_size_bytes` implementiert.
+Der Wert ist die rekursive Summe der Größen aller
 regulären Dateien innerhalb des jeweiligen Weltpfads. Symbolischen Links wird
 nicht gefolgt. Nicht lesbare oder während des Laufs verschwindende Einträge
 werden übersprungen; schlägt die Berechnung der Welt als Ganzes fehl, bleibt der
 letzte gültige Wert erhalten. Allgemeine Dateisystem-, Log- und Pluginpfadgrößen
-sind nicht Bestandteil von Phase 4. Normalisierte Weltpfade sind rein intern und
+sind nicht Bestandteil des Exporters. Normalisierte Weltpfade sind rein intern und
 werden niemals als Prometheus-Label oder als zusätzliche öffentliche Metrik
 exportiert.
 
 ## 2.12 Exporter-Eigenüberwachung
 
-In Phase 2 implementiert:
+Implementiert:
 
 | Metrik | Typ | Labels | Bedeutung |
 |---|---|---|---|
@@ -555,7 +518,7 @@ Registrierung validiert; freie Fehlertexte, URLs, Methoden, Clientadressen und
 User-Agents werden nicht als Labels exportiert. Ohne registrierte fachliche
 Collector enthält `minecraft_exporter_collector_state` noch keine Zeitreihe.
 
-Für spätere Phasen katalogisiert, aber in Phase 2 noch nicht registriert:
+Nicht registriert:
 
 | Metrik | Typ | Labels |
 |---|---|---|
@@ -568,7 +531,7 @@ Für spätere Phasen katalogisiert, aber in Phase 2 noch nicht registriert:
 | `minecraft_exporter_last_scrape_duration_seconds` | Gauge | – |
 | `minecraft_exporter_metrics_exposed` | Gauge | – |
 
-Phase 7 ergänzt getrennt und ohne Labels:
+Der Entity-Collector ergänzt getrennt und ohne Labels:
 
 | Metrik | Typ | Bedeutung |
 |---|---|---|
