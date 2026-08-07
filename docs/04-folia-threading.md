@@ -88,6 +88,44 @@ Für Phase 7 gilt zusätzlich:
 | Timeout-Wächter | Async Scheduler |
 | Prometheus-Scrape | HTTP-Thread; genau ein immutable Entity-Snapshot |
 
+### Nachweis für `World#getLoadedChunks()` in den gepinnten Builds
+
+Die erneute Prüfung umfasst die aufgelösten API-Source-/Binärartefakte
+`paper-api:26.1.2.build.74-stable` und
+`folia-api:26.1.2.build.8-stable` sowie die zu Folia Build 8 gehörende
+Serverquellenkette. Folia-Commit
+`62dc0f257a4f5de1ef2eae8cf1627156a769c67f` pinnt Paper-Commit
+`b4682bfef616ac62e73cc96046dacdf4a6f53eeb`.
+
+Die gemeinsame `World`-API dokumentiert nur die Rückgabe aller geladenen
+`Chunk`-Handles und trägt keine Threadingannotation. Der belastbare Nachweis
+stammt deshalb aus der gepinnten Implementierung: `CraftWorld#getLoadedChunks()`
+liest `ServerChunkCache.fullChunks`, eine
+`ConcurrentChainedLong2ReferenceHashTable`, über deren concurrent Key-Iterator.
+Für jeden Key wird lediglich ein `CraftChunk` aus Weltreferenz und X/Z erzeugt;
+es wird weder ein NMS-Chunkwert gelesen noch ein Chunk oder dessen Entitydaten
+geladen. Die Folia-Patches ändern diese Methode nicht und fügen dort im Gegensatz
+zu tatsächlich regions- oder globalgebundenen Nachbarmethoden keinen
+`TickThread.ensureTickThread`- beziehungsweise
+`ensureGlobalTickThread`-Check ein. Folia hält dieselbe concurrent Full-Chunk-
+Tabelle während der Chunkstatusübergänge aktuell.
+
+Dieser Quellenbefund wurde zusätzlich am tatsächlich gestarteten Paper-26.1.2-
+Build-74- und Folia-26.1.2-Build-8-Serverartefakt verifiziert: Der normalisierte
+Bytecode beider `getLoadedChunks()`-Methoden ist identisch, verwendet den
+concurrent `fullChunks`-Schlüsseliterator und enthält keinen Threadcheck.
+
+Damit ist der kurze Aufruf auf dem Global Region Scheduler für genau die
+gepinnten Builds zulässig. Er materialisiert regionsübergreifend ausschließlich
+öffentliche Chunk-Handles; `isLoaded`, `isEntitiesLoaded` und `getEntities`
+bleiben auf dem Region Scheduler jedes Handles. Der echte Folia-Smoke-Test
+erzeugt eine kurzlebige Area-Effect-Cloud, beobachtet ihre natürliche Entfernung
+und prüft das vollständige Log unter anderem auf `Cannot getLoadedChunks asynchronously`,
+`Cannot getEntities asynchronously`, `TickThread` und Ownershipverletzungen.
+Ein zusätzlicher Lifecycle-Chunkindex ist deshalb nicht erforderlich. Diese
+Entscheidung muss bei einer Änderung der gepinnten Serverlinie erneut geprüft
+werden.
+
 Die Chunk-Entityliste wird nicht auf dem Global Region Scheduler gelesen.
 `World#getEntities()` und `World#getLivingEntities()` sind im Entity-Collector
 verboten. Ein Regiontask wertet auch nicht die Eigenschaften beweglicher
@@ -199,6 +237,19 @@ beim Commit werden nur spätere Events angewendet. Der gemeinsame Store sperrt
 Eventupdate und Reconciliation-Publikation kurz gegeneinander. Region- und
 Entitythreads warten dabei niemals auf Minecraft-Schedulerthreads, sondern nur
 auf den kurzen plugininternen Aggregationslock.
+
+Pro Welt gilt zusätzlich ein expliziter Zuverlässigkeitsstatus. Nur `SUCCESS`
+publiziert einen neu aggregierten Stand. Chunk- oder Entityfehler führen zu
+`PARTIAL`, eine nicht lesbare Chunkankerliste zu `UNAVAILABLE`; beide Zustände
+behalten einen vorhandenen gültigen Weltstand oder lassen die Welt ohne
+vorherigen Stand vollständig fehlen. Wenn bei existierenden Welten keine einzige
+Welt `SUCCESS` erreicht, wird der Lauf systemisch verworfen. Eine leere
+Weltenliste darf dagegen erfolgreich den leeren Snapshot publizieren.
+
+Phase-7-Fehlerwrapper verwenden neutrale äußere Meldungen und die ursprüngliche
+Exception als Cause. Reporterfehler werden an Event-, Region- und Entitygrenzen
+abgefangen. UUIDs, Namen, Koordinaten und freie Eventdaten werden nicht in die
+äußere Meldung übernommen.
 
 Für `world-sizes` signalisiert der Collector Timeout und Stop zusätzlich an die
 interne Scan-Warteschlange. Sie verwirft alle noch nicht laufenden Arbeiten und

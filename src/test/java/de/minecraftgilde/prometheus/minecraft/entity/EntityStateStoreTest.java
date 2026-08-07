@@ -2,6 +2,7 @@ package de.minecraftgilde.prometheus.minecraft.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.minecraftgilde.prometheus.snapshot.SnapshotRepository;
@@ -151,11 +152,10 @@ class EntityStateStoreTest {
         store.recordAdd(ZOMBIE_ID, zombie("world"));
 
         long second = store.beginReconciliation().orElseThrow();
-        store.commit(
+        EntityStateStore.ReconciliationCommit commit = store.commit(
             new EntityScanResult(
                 second,
-                Set.of("world"),
-                Set.of("world"),
+                Map.of("world", EntityWorldScanStatus.PARTIAL),
                 List.of(),
                 Duration.ofMillis(1)
             ),
@@ -163,6 +163,7 @@ class EntityStateStoreTest {
         );
 
         assertEquals(2L, world("world").totalEntities());
+        assertEquals(0L, commit.corrections());
     }
 
     @Test
@@ -206,6 +207,99 @@ class EntityStateStoreTest {
         store.commit(scan(second, Set.of(), List.of()), NOW.plusSeconds(1));
 
         assertTrue(repository.current().orElseThrow().values().isEmpty());
+    }
+
+    @Test
+    void unavailableInitialWorldPublishesNoInventedZeroSeries() {
+        long run = store.beginReconciliation().orElseThrow();
+
+        EntityStateStore.ReconciliationCommit commit = store.commit(
+            scan(run, Map.of("world", EntityWorldScanStatus.UNAVAILABLE), List.of()),
+            NOW
+        );
+
+        assertTrue(repository.current().orElseThrow().values().isEmpty());
+        assertEquals(0L, commit.corrections());
+    }
+
+    @Test
+    void partialInitialWorldPublishesNoInventedZeroSeries() {
+        long run = store.beginReconciliation().orElseThrow();
+
+        store.commit(
+            scan(run, Map.of("world", EntityWorldScanStatus.PARTIAL), List.of()),
+            NOW
+        );
+
+        assertTrue(repository.current().orElseThrow().values().isEmpty());
+    }
+
+    @Test
+    void unavailableWorldIsOmittedWhileSuccessfulNeighbourIsPublished() {
+        long run = store.beginReconciliation().orElseThrow();
+
+        store.commit(
+            scan(
+                run,
+                Map.of(
+                    "broken",
+                    EntityWorldScanStatus.UNAVAILABLE,
+                    "healthy",
+                    EntityWorldScanStatus.SUCCESS
+                ),
+                List.of(new EntityObservation(
+                    ZOMBIE_ID,
+                    zombie("healthy"),
+                    store.currentSequence()
+                ))
+            ),
+            NOW
+        );
+
+        assertEquals(1L, world("healthy").totalEntities());
+        assertTrue(repository.current().orElseThrow().values().stream().noneMatch(
+            value -> value.world().equals("broken")
+        ));
+    }
+
+    @Test
+    void eventsCannotCreateABaselineForAnUnavailableWorld() {
+        long first = store.beginReconciliation().orElseThrow();
+        store.commit(
+            scan(first, Map.of("healthy", EntityWorldScanStatus.SUCCESS), List.of()),
+            NOW
+        );
+
+        assertTrue(store.recordAdd(ZOMBIE_ID, zombie("unavailable")));
+
+        assertTrue(repository.current().orElseThrow().values().stream().noneMatch(
+            value -> value.world().equals("unavailable")
+        ));
+    }
+
+    @Test
+    void lateCommitFromAbortedRunCannotOverwriteNewerSuccess() {
+        long oldRun = store.beginReconciliation().orElseThrow();
+        store.abort(oldRun);
+        long newRun = store.beginReconciliation().orElseThrow();
+        store.commit(
+            scan(
+                newRun,
+                Set.of("world"),
+                List.of(new EntityObservation(
+                    ZOMBIE_ID,
+                    zombie("world"),
+                    store.currentSequence()
+                ))
+            ),
+            NOW
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> store.commit(scan(oldRun, Set.of(), List.of()), NOW.plusSeconds(1))
+        );
+        assertEquals(1L, world("world").totalEntities());
     }
 
     @Test
@@ -255,6 +349,34 @@ class EntityStateStoreTest {
         assertEquals(0L, world("world").totalEntities());
     }
 
+    @Test
+    void stopDuringAnActiveRunRejectsItsCommit() {
+        long run = store.beginReconciliation().orElseThrow();
+        store.stop();
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> store.commit(scan(run, Set.of("world"), List.of()), NOW)
+        );
+        assertFalse(repository.hasSnapshot());
+    }
+
+    @Test
+    void unmatchedRemovalNeverCreatesNegativeCounts() {
+        long run = store.beginReconciliation().orElseThrow();
+        EntityStateStore.ReconciliationCommit initial = store.commit(
+            scan(run, Set.of("world"), List.of()),
+            NOW
+        );
+        assertEquals(0L, initial.corrections());
+
+        assertTrue(store.recordRemove(ZOMBIE_ID, zombie("world")));
+
+        EntityWorldSnapshot value = world("world");
+        assertEquals(0L, value.totalEntities());
+        assertTrue(value.groups().values().stream().allMatch(count -> count >= 0L));
+    }
+
     private EntityWorldSnapshot world(String name) {
         return repository.current()
             .orElseThrow()
@@ -270,10 +392,22 @@ class EntityStateStoreTest {
         Set<String> worlds,
         List<EntityObservation> observations
     ) {
+        Map<String, EntityWorldScanStatus> statuses = new java.util.HashMap<>();
+        worlds.forEach(world -> statuses.put(
+            world,
+            EntityWorldScanStatus.SUCCESS
+        ));
+        return scan(run, statuses, observations);
+    }
+
+    private static EntityScanResult scan(
+        long run,
+        Map<String, EntityWorldScanStatus> worldStatuses,
+        List<EntityObservation> observations
+    ) {
         return new EntityScanResult(
             run,
-            worlds,
-            Set.of(),
+            worldStatuses,
             observations,
             Duration.ofMillis(5)
         );

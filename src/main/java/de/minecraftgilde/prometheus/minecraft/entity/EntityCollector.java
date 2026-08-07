@@ -154,9 +154,9 @@ final class EntityCollector extends AbstractCollector implements Listener {
     private void reportFailure(RuntimeException failure) {
         try {
             IllegalStateException sanitized = new IllegalStateException(
-                "An entity event update failed."
+                "An entity event update failed.",
+                failure
             );
-            sanitized.setStackTrace(failure.getStackTrace());
             failureListener.accept(sanitized);
         } catch (RuntimeException ignored) {
             // A diagnostic observer must never escape a Minecraft event thread.

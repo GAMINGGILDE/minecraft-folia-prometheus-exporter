@@ -216,6 +216,8 @@ val verifyPluginJar = tasks.register("verifyPluginJar") {
                     "de/minecraftgilde/prometheus/minecraft/entity/PhaseSevenRuntime.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/EntityCollector.class",
                     "de/minecraftgilde/prometheus/minecraft/entity/BukkitEntityReconciliationCapture.class",
+                    "de/minecraftgilde/prometheus/minecraft/entity/EntityStateStore.class",
+                    "de/minecraftgilde/prometheus/minecraft/entity/EntityWorldScanStatus.class",
                     "de/minecraftgilde/prometheus/minecraft/metrics/EntityMetricsCollector.class"
                 ).all(names::contains)
             ) { "Phase-7 entity runtime classes are missing from the plugin JAR" }

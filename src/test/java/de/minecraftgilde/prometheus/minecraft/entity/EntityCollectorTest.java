@@ -3,6 +3,8 @@ package de.minecraftgilde.prometheus.minecraft.entity;
 import static de.minecraftgilde.prometheus.TestProxies.proxy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
@@ -16,7 +18,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.World;
@@ -113,6 +114,40 @@ class EntityCollectorTest {
         assertDoesNotThrow(() -> fixture.collector.onEntityAdded(
             new EntityAddToWorldEvent(broken, world("world"))
         ));
+        fixture.collector.stop();
+    }
+
+    @Test
+    void eventFailureUsesANeutralMessageAndRetainsTheOriginalCause()
+        throws Exception {
+        java.util.concurrent.atomic.AtomicReference<Throwable> reported =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        Fixture fixture = new Fixture(reported::set);
+        fixture.collector.start();
+        fixture.initialize("world");
+        IllegalArgumentException original = new IllegalArgumentException(
+            "entity 00000000-0000-0000-0000-000000000123 at 12,64,9"
+        );
+        Entity broken = proxy(
+            Entity.class,
+            Map.of(
+                "getType",
+                (java.util.function.Function<Object[], Object>) ignored -> {
+                    throw original;
+                }
+            )
+        );
+
+        fixture.collector.onEntityAdded(
+            new EntityAddToWorldEvent(broken, world("world"))
+        );
+
+        Throwable failure = reported.get();
+        assertEquals("An entity event update failed.", failure.getMessage());
+        assertSame(original, failure.getCause());
+        assertEquals(IllegalArgumentException.class, failure.getCause().getClass());
+        assertFalse(failure.getMessage().contains("00000000"));
+        assertFalse(failure.getMessage().contains("12,64,9"));
         fixture.collector.stop();
     }
 
@@ -252,8 +287,12 @@ class EntityCollectorTest {
             store.commit(
                 new EntityScanResult(
                     run,
-                    Set.of(worlds),
-                    Set.of(),
+                    java.util.Arrays.stream(worlds).collect(
+                        java.util.stream.Collectors.toUnmodifiableMap(
+                            world -> world,
+                            ignored -> EntityWorldScanStatus.SUCCESS
+                        )
+                    ),
                     List.of(),
                     Duration.ZERO
                 ),

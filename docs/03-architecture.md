@@ -348,6 +348,15 @@ weder in Snapshot noch Registry oder Log. Der Snapshot enthält für jede Welt
 alle zehn Gruppen, Gesamt-, Living-, Villager-, Item- und Projectile-Zahl sowie
 optional exakte Typen. Prometheus liest pro Scrape genau einen Repositorywert.
 
+Der Scan weist jeder bekannten Welt explizit `SUCCESS`, `PARTIAL` oder
+`UNAVAILABLE` zu. Nur `SUCCESS` ersetzt den Weltstand. Die beiden konservativen
+Fehlerzustände behalten einen vorhandenen gültigen Weltstand oder erzeugen ohne
+einen solchen überhaupt keine Weltreihe. Ein Welt-Load-Event und Entityevents
+können deshalb keinen fehlenden Baseline-Snapshot durch künstliche Null- oder
+Teilwerte ersetzen. Existieren geladene Welten, aber keine einzige
+`SUCCESS`-Welt, schlägt der gesamte Lauf fehl; nur eine tatsächlich leere
+Weltenliste publiziert erfolgreich den leeren Snapshot.
+
 ### `MetricsEndpoint`
 
 - `/metrics`, `/health` und `/ready` als Standardpfade
@@ -451,10 +460,12 @@ Gameplay-Collector bleiben späteren Phasen vorbehalten.
 - Nur systemische Folia-Lauffehler, Timeout und Stop verwerfen den gesamten Lauf
   und erhalten den letzten gültigen Snapshot bis zur TTL.
 - Experimentelle oder interne Provider sind kein Bestandteil von Version 1.
-- Entityfehler werden je Entity oder Chunk lokal übersprungen. Wenn kein Chunk
-  einer Welt erfolgreich erfasst werden konnte, bleibt deren letzter gültiger
-  Wert erhalten. Globale Fehler, Timeout und Stop behalten den gesamten letzten
-  Snapshot.
+- Ein lokaler Entity- oder Chunkfehler macht die betroffene Welt `PARTIAL`; ein
+  Fehler ihrer Chunk-Enumeration macht sie `UNAVAILABLE`. Ein vorheriger gültiger
+  Weltwert bleibt erhalten, andernfalls fehlt die Reihe. Andere erfolgreiche
+  Welten desselben Laufs werden publiziert. Kann keine existierende Welt
+  belastbar erfasst werden, behalten globale Fehler, Timeout und Stop den
+  gesamten letzten Snapshot.
 
 ## 3.6 Abhängigkeitsisolation
 

@@ -8,7 +8,9 @@ standardisierte JVM-/Prozessmetriken sowie immutable Snapshots für aggregierte
 Server-, Spieler-, Plugin-, Welt-, Chunk- und Weltgrößenmetriken. Phase 5 ergänzt
 direkte, aggregierte Event-Counter für Verbindungen, Spieleraktionen und den
 Chunk-Lifecycle. Phase 6 liefert auf Folia aggregierte TPS-Verteilungen für
-tatsächlich über öffentliche Anker beobachtete Regionen.
+tatsächlich über öffentliche Anker beobachtete Regionen. Phase 7 ergänzt
+aggregierte, hybrid aus Events und verteilten Vollabgleichen gepflegte
+Entitybestände.
 
 ## Verbindliche Eckdaten
 
@@ -326,19 +328,50 @@ Teleport- oder Chunkevents doppelt zu zählen. Chunkzugriffe laufen auf dem
 Region Scheduler, jede Entity-Auswertung auf ihrem Entity Scheduler. Scrapes
 lesen nur den atomar publizierten immutable Snapshot.
 
+Jede Welt besitzt im Vollabgleich einen expliziten Zuverlässigkeitsstatus.
+Nur eine vollständig erfolgreiche Erfassung veröffentlicht einen neuen Wert;
+ein lokaler Chunk- oder Entityfehler macht die Welt konservativ `PARTIAL`, eine
+nicht lesbare Chunkliste `UNAVAILABLE`. In beiden Fällen bleibt ein vorhandener
+gültiger Weltwert erhalten, ohne vorherigen gültigen Wert fehlt die Weltreihe
+vollständig. Insbesondere entstehen beim ersten fehlgeschlagenen Lauf keine
+künstlichen Gesamt- oder zehn Nullgruppen. Eine erfolgreich erfasste leere Welt
+liefert dagegen weiterhin genau zehn Nullgruppen. Nur eine tatsächlich leere
+globale Weltenliste entfernt alle alten Welten erfolgreich; existieren Welten,
+aber keine ist belastbar erfassbar, gilt der Lauf als technisch fehlgeschlagen.
+
+Für die gepinnten Builds ist `World#getLoadedChunks()` als globaler
+Topologiezugriff geprüft: Folia 26.1.2 Build 8 basiert auf Paper-Commit
+`b4682bfef616ac62e73cc96046dacdf4a6f53eeb`; dessen `CraftWorld` iteriert eine
+concurrent Chunk-Key-Tabelle und konstruiert nur kurzlebige `CraftChunk`-Handles.
+Die Folia-Patches ändern diese Methode nicht und fügen dort keinen TickThread-
+oder Ownership-Check ein. Chunk- und Entitydaten werden weiterhin ausschließlich
+auf Region- beziehungsweise Entity-Schedulern gelesen.
+
 Das Standardintervall beträgt fünf Minuten und darf nicht unter eine Minute
 gesetzt werden. Der eigene Timeout beträgt 60 Sekunden. Laufzeit, letzter Erfolg
 und Korrekturen erscheinen als
 `minecraft_entity_reconciliation_duration_seconds`,
 `minecraft_entity_reconciliation_last_success_timestamp_seconds` und
 `minecraft_entity_reconciliation_corrections_total`. Timeout und systemische
-Fehler erhalten den letzten gültigen Snapshot; ein erfolgreicher leerer Lauf
-entfernt alte Welt- und Typreihen.
+Fehler erhalten den letzten gültigen Snapshot; ein erfolgreicher Lauf mit
+tatsächlich leerer globaler Weltenliste entfernt alte Welt- und Typreihen.
+
+Lokale und systemische Fehlermeldungen bleiben nach außen neutral, bewahren aber
+die ursprüngliche Exception einschließlich Typ, Cause-Kette und Suppressed-
+Informationen als Cause. Isolierte Laufzeitfehler lassen den Collector
+`running` und verändern `/health` oder `/ready` nicht; ein noch nie erfolgreich
+erfasster Collector wird nicht durch Nullwerte als initialisiert dargestellt.
 
 Gezählt werden aktuell geladene Nichtspieler-Entities. Persistierte Entities in
 entladenen Chunks werden nicht eigens geladen. Kurzfristige UUIDs dienen nur der
 Deduplizierung innerhalb eines Abgleichs; sie werden nie exportiert, geloggt oder
 publiziert.
+
+Der gepinnte Paper-/Folia-Smoke-Test lädt kontrolliert einen Chunk und erzeugt
+eine kurzlebige, markierte Area-Effect-Cloud. Er verlangt ihren Anstieg in der
+Gruppe `other` und nach ihrer natürlichen Entfernung einen sinkenden Bestand.
+Das vollständige Serverlog wird danach gezielt auf TickThread-, Region-/Entity-
+Scheduler- und Ownershipfehler geprüft.
 
 ## Status
 

@@ -33,11 +33,13 @@ final class BukkitEntityReconciliationCapture
     implements SnapshotCapture<EntityScanResult> {
 
     static final String WORLD_FAILURE_MESSAGE =
-        "One entity reconciliation world could not be enumerated and was retained.";
+        "One entity reconciliation world could not be enumerated.";
     static final String CHUNK_FAILURE_MESSAGE =
         "One entity reconciliation chunk was skipped.";
     static final String ENTITY_FAILURE_MESSAGE =
         "One entity reconciliation observation was skipped.";
+    static final String NO_RELIABLE_WORLD_MESSAGE =
+        "Entity reconciliation found loaded worlds but could not capture any world reliably.";
 
     private final Server server;
     private final CollectionScheduler scheduler;
@@ -107,12 +109,9 @@ final class BukkitEntityReconciliationCapture
         private final long startedNanos;
         private final AtomicBoolean active = new AtomicBoolean(true);
         private final AtomicInteger pendingWork = new AtomicInteger(1);
-        private final Set<String> loadedWorlds = ConcurrentHashMap.newKeySet();
-        private final Set<String> retainedWorlds = ConcurrentHashMap.newKeySet();
-        private final Map<String, AtomicInteger> scheduledChunks =
+        private final Map<String, EntityWorldScanStatus> worldStatuses =
             new ConcurrentHashMap<>();
-        private final Map<String, AtomicInteger> successfulChunks =
-            new ConcurrentHashMap<>();
+        private final Set<String> partialWorlds = ConcurrentHashMap.newKeySet();
         private final Map<UUID, EntityObservation> observations =
             new ConcurrentHashMap<>();
         private final Set<CollectionTask> tasks = ConcurrentHashMap.newKeySet();
@@ -134,7 +133,13 @@ final class BukkitEntityReconciliationCapture
             }
             try {
                 for (World world : List.copyOf(server.getWorlds())) {
+                    if (!isActive()) {
+                        return;
+                    }
                     captureWorld(world);
+                    if (!isActive()) {
+                        return;
+                    }
                 }
             } catch (Throwable failure) {
                 failSystemically(failure);
@@ -147,13 +152,8 @@ final class BukkitEntityReconciliationCapture
             String worldLabel;
             try {
                 worldLabel = WorldLabel.normalize(world.getName());
-                loadedWorlds.add(worldLabel);
             } catch (RuntimeException failure) {
-                reportLocalFailure(
-                    "entity-world-reconciliation",
-                    WORLD_FAILURE_MESSAGE,
-                    failure
-                );
+                failSystemically(failure);
                 return;
             }
 
@@ -164,7 +164,10 @@ final class BukkitEntityReconciliationCapture
                     "loaded chunks"
                 );
             } catch (RuntimeException failure) {
-                retainedWorlds.add(worldLabel);
+                worldStatuses.put(
+                    worldLabel,
+                    EntityWorldScanStatus.UNAVAILABLE
+                );
                 reportLocalFailure(
                     "entity-world-reconciliation",
                     WORLD_FAILURE_MESSAGE,
@@ -172,6 +175,8 @@ final class BukkitEntityReconciliationCapture
                 );
                 return;
             }
+
+            worldStatuses.put(worldLabel, EntityWorldScanStatus.SUCCESS);
 
             for (Chunk chunk : chunks.clone()) {
                 if (!isActive()) {
@@ -184,10 +189,6 @@ final class BukkitEntityReconciliationCapture
         private void scheduleChunk(String worldLabel, Chunk chunk) {
             ChunkWork work = new ChunkWork(worldLabel);
             registerWork();
-            scheduledChunks.computeIfAbsent(
-                worldLabel,
-                ignored -> new AtomicInteger()
-            ).incrementAndGet();
             try {
                 int chunkX = chunk.getX();
                 int chunkZ = chunk.getZ();
@@ -227,13 +228,12 @@ final class BukkitEntityReconciliationCapture
                         "chunk entities"
                     );
                     for (Entity entity : entities.clone()) {
-                        scheduleEntity(Objects.requireNonNull(entity, "entity"));
+                        scheduleEntity(
+                            work.world,
+                            Objects.requireNonNull(entity, "entity")
+                        );
                     }
                 }
-                successfulChunks.computeIfAbsent(
-                    work.world,
-                    ignored -> new AtomicInteger()
-                ).incrementAndGet();
             } catch (RuntimeException failure) {
                 localFailure = failure;
             } catch (Throwable failure) {
@@ -243,8 +243,8 @@ final class BukkitEntityReconciliationCapture
             }
         }
 
-        private void scheduleEntity(Entity entity) {
-            EntityWork work = new EntityWork();
+        private void scheduleEntity(String world, Entity entity) {
+            EntityWork work = new EntityWork(world);
             registerWork();
             try {
                 Optional<CollectionTask> task = scheduler.executeFor(
@@ -310,6 +310,7 @@ final class BukkitEntityReconciliationCapture
             }
             untrack(work);
             if (localFailure != null) {
+                partialWorlds.add(work.world);
                 reportLocalFailure(
                     "entity-chunk-reconciliation",
                     CHUNK_FAILURE_MESSAGE,
@@ -328,6 +329,7 @@ final class BukkitEntityReconciliationCapture
             }
             untrack(work);
             if (localFailure != null) {
+                partialWorlds.add(work.world);
                 reportLocalFailure(
                     "entity-observation",
                     ENTITY_FAILURE_MESSAGE,
@@ -362,16 +364,28 @@ final class BukkitEntityReconciliationCapture
         }
 
         private void succeed() {
-            if (!isActive() || !active.compareAndSet(true, false)) {
+            if (!isActive()) {
                 return;
             }
-            for (Map.Entry<String, AtomicInteger> entry : scheduledChunks.entrySet()) {
-                int successes = successfulChunks
-                    .getOrDefault(entry.getKey(), new AtomicInteger())
-                    .get();
-                if (entry.getValue().get() > 0 && successes == 0) {
-                    retainedWorlds.add(entry.getKey());
-                }
+            partialWorlds.forEach(world -> worldStatuses.computeIfPresent(
+                world,
+                (ignored, status) -> status == EntityWorldScanStatus.UNAVAILABLE
+                    ? status
+                    : EntityWorldScanStatus.PARTIAL
+            ));
+            if (
+                !worldStatuses.isEmpty()
+                    && worldStatuses.values().stream().noneMatch(
+                        status -> status == EntityWorldScanStatus.SUCCESS
+                    )
+            ) {
+                failSystemically(
+                    new IllegalStateException(NO_RELIABLE_WORLD_MESSAGE)
+                );
+                return;
+            }
+            if (!active.compareAndSet(true, false)) {
+                return;
             }
             List<EntityObservation> values = new ArrayList<>(observations.values());
             values.sort(
@@ -384,8 +398,7 @@ final class BukkitEntityReconciliationCapture
             long elapsed = Math.max(0L, nanoTime.getAsLong() - startedNanos);
             EntityScanResult result = new EntityScanResult(
                 runId,
-                Set.copyOf(loadedWorlds),
-                Set.copyOf(retainedWorlds),
+                Map.copyOf(worldStatuses),
                 values,
                 Duration.ofNanos(elapsed)
             );
@@ -507,9 +520,7 @@ final class BukkitEntityReconciliationCapture
         String message,
         Throwable failure
     ) {
-        IllegalStateException result = new IllegalStateException(message);
-        result.setStackTrace(failure.getStackTrace());
-        return result;
+        return new IllegalStateException(message, failure);
     }
 
     private static class Work {
@@ -528,5 +539,12 @@ final class BukkitEntityReconciliationCapture
         }
     }
 
-    private static final class EntityWork extends Work {}
+    private static final class EntityWork extends Work {
+
+        private final String world;
+
+        private EntityWork(String world) {
+            this.world = world;
+        }
+    }
 }

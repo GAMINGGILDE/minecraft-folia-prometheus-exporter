@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -115,20 +114,21 @@ final class EntityStateStore {
             Map<UUID, ObservedState> entities = observationsByIdentity(
                 scan.observations()
             );
-            Set<String> loadedWorlds = new HashSet<>(scan.loadedWorlds());
-            Set<String> retainedWorlds = new HashSet<>(scan.retainedWorlds());
+            Map<String, EntityWorldScanStatus> worldStatuses = new HashMap<>(
+                scan.worldStatuses()
+            );
             replay(
                 journal.deltas,
                 entities,
-                loadedWorlds,
-                retainedWorlds
+                worldStatuses
             );
 
             Map<String, MutableWorld> aggregates = new HashMap<>();
-            loadedWorlds.forEach(world -> aggregates.put(
-                world,
-                new MutableWorld(world)
-            ));
+            worldStatuses.forEach((world, status) -> {
+                if (status == EntityWorldScanStatus.SUCCESS) {
+                    aggregates.put(world, new MutableWorld(world));
+                }
+            });
             for (ObservedState state : entities.values()) {
                 EntityDescriptor descriptor = state.descriptor;
                 MutableWorld world = aggregates.get(descriptor.world());
@@ -138,16 +138,16 @@ final class EntityStateStore {
             }
 
             Map<String, EntityWorldSnapshot> reconciled = new LinkedHashMap<>();
-            for (String world : new TreeSet<>(loadedWorlds)) {
-                EntityWorldSnapshot retained = retainedWorlds.contains(world)
-                    ? current.get(world)
-                    : null;
-                reconciled.put(
-                    world,
-                    retained == null
-                        ? aggregates.get(world).snapshot()
-                        : retained
-                );
+            for (String world : new TreeSet<>(worldStatuses.keySet())) {
+                EntityWorldScanStatus status = worldStatuses.get(world);
+                if (status == EntityWorldScanStatus.SUCCESS) {
+                    reconciled.put(world, aggregates.get(world).snapshot());
+                    continue;
+                }
+                EntityWorldSnapshot retained = current.get(world);
+                if (retained != null) {
+                    reconciled.put(world, retained);
+                }
             }
 
             long corrections = initialized
@@ -200,25 +200,35 @@ final class EntityStateStore {
                 Map<String, EntityWorldSnapshot> updated = new LinkedHashMap<>(
                     current
                 );
+                boolean changed = false;
                 if (kind == EntityStateDelta.Kind.ADD) {
-                    EntityWorldSnapshot previous = updated.getOrDefault(
-                        descriptor.world(),
-                        EntityWorldSnapshot.empty(descriptor.world())
+                    EntityWorldSnapshot previous = updated.get(
+                        descriptor.world()
                     );
-                    updated.put(
-                        descriptor.world(),
-                        apply(previous, descriptor, true)
-                    );
-                } else {
-                    EntityWorldSnapshot previous = updated.get(descriptor.world());
                     if (previous != null) {
                         updated.put(
                             descriptor.world(),
-                            apply(previous, descriptor, false)
+                            apply(previous, descriptor, true)
                         );
+                        changed = true;
+                    }
+                } else {
+                    EntityWorldSnapshot previous = updated.get(descriptor.world());
+                    if (previous != null) {
+                        EntityWorldSnapshot next = apply(
+                            previous,
+                            descriptor,
+                            false
+                        );
+                        if (next != previous) {
+                            updated.put(descriptor.world(), next);
+                            changed = true;
+                        }
                     }
                 }
-                publish(updated, clock.instant());
+                if (changed) {
+                    publish(updated, clock.instant());
+                }
             }
             return true;
         }
@@ -237,19 +247,13 @@ final class EntityStateStore {
                 normalized
             );
             journal(delta);
-            if (initialized) {
+            if (initialized && kind == EntityStateDelta.Kind.WORLD_UNLOAD) {
                 Map<String, EntityWorldSnapshot> updated = new LinkedHashMap<>(
                     current
                 );
-                if (kind == EntityStateDelta.Kind.WORLD_LOAD) {
-                    updated.putIfAbsent(
-                        normalized,
-                        EntityWorldSnapshot.empty(normalized)
-                    );
-                } else {
-                    updated.remove(normalized);
+                if (updated.remove(normalized) != null) {
+                    publish(updated, clock.instant());
                 }
-                publish(updated, clock.instant());
             }
             return true;
         }
@@ -359,15 +363,16 @@ final class EntityStateStore {
     private static void replay(
         List<EntityStateDelta> deltas,
         Map<UUID, ObservedState> entities,
-        Set<String> loadedWorlds,
-        Set<String> retainedWorlds
+        Map<String, EntityWorldScanStatus> worldStatuses
     ) {
         for (EntityStateDelta delta : deltas) {
             switch (delta.kind()) {
-                case WORLD_LOAD -> loadedWorlds.add(delta.world());
+                case WORLD_LOAD -> worldStatuses.putIfAbsent(
+                    delta.world(),
+                    EntityWorldScanStatus.UNAVAILABLE
+                );
                 case WORLD_UNLOAD -> {
-                    loadedWorlds.remove(delta.world());
-                    retainedWorlds.remove(delta.world());
+                    worldStatuses.remove(delta.world());
                     entities.entrySet().removeIf(
                         entry -> entry.getValue().descriptor.world().equals(
                             delta.world()
@@ -380,7 +385,10 @@ final class EntityStateStore {
                         previous == null
                             || delta.sequence() > previous.seenSequence
                     ) {
-                        loadedWorlds.add(delta.descriptor().world());
+                        worldStatuses.putIfAbsent(
+                            delta.descriptor().world(),
+                            EntityWorldScanStatus.UNAVAILABLE
+                        );
                         entities.put(
                             delta.identity(),
                             new ObservedState(

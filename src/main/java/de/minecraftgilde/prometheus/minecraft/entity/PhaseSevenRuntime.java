@@ -119,25 +119,30 @@ public final class PhaseSevenRuntime implements AutoCloseable {
                 configuration.entities().reconciliationTimeout(),
                 capture,
                 (capturedAt, values) -> {
-                    if (values.size() != 1) {
+                    try {
+                        if (values.size() != 1) {
+                            throw new IllegalStateException(
+                                "Entity reconciliation produced an invalid result count"
+                            );
+                        }
+                        EntityStateStore.ReconciliationCommit commit =
+                            stateStore.commit(values.getFirst(), capturedAt);
+                        if (runtimeMetrics != null) {
+                            runtimeMetrics.recordSuccess(
+                                commit.duration(),
+                                capturedAt,
+                                commit.corrections()
+                            );
+                        }
+                    } catch (Throwable failure) {
                         throw new IllegalStateException(
-                            "Entity reconciliation produced an invalid result count"
-                        );
-                    }
-                    EntityStateStore.ReconciliationCommit commit = stateStore.commit(
-                        values.getFirst(),
-                        capturedAt
-                    );
-                    if (runtimeMetrics != null) {
-                        runtimeMetrics.recordSuccess(
-                            commit.duration(),
-                            capturedAt,
-                            commit.corrections()
+                            "Entity reconciliation commit failed.",
+                            failure
                         );
                     }
                 },
                 clock,
-                failures
+                failureReporter
             );
         core.collectorCoordinator().register(
             new EntityCollector(
@@ -146,7 +151,7 @@ public final class PhaseSevenRuntime implements AutoCloseable {
                 stateStore,
                 classifier,
                 reconciliation,
-                failure -> failures.accept("entity-events", failure)
+                failure -> failureReporter.accept("entity-events", failure)
             )
         );
     }

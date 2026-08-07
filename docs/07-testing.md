@@ -115,8 +115,17 @@ muss erfolgreich sein.
 - Entity-Journalrennen für Event vor/nach Observation und Commit, Welt-Unload,
   Abbruch, Stop, erfolgreichen Leersnapshot, lokale Teilerfolge und
   Driftkorrekturen ohne verlorene oder doppelte Deltas
+- explizite Weltzustände: initiales `UNAVAILABLE`/`PARTIAL` ohne Nullreihen,
+  späterer Erhalt eines gültigen Weltwerts, gemischter Lauf mit erfolgreicher und
+  fehlgeschlagener Welt, tatsächlich leere Welt mit zehn Nullgruppen sowie echte
+  leere Weltenliste mit Entfernung alter Reihen
 - Region-Scheduler je geladenem Chunk und Entity Scheduler je Beobachtung;
   lokale Welt-, Chunk-, Entity- und Reporterfehler bleiben isoliert
+- deterministische Timeouts bei ausstehender Chunk- und Entityarbeit,
+  Entity-Scheduler-Retire, Stop während eines aktiven Laufs und verspäteter alter
+  Callback nach einem neueren Erfolg ohne `Thread.sleep()` als Synchronisation
+- neutrale Phase-7-Fehlermeldungen mit ursprünglichem Exceptiontyp als Cause,
+  abgefangenen Reporterfehlern und ohne UUID- oder Koordinatentext außen
 - Registryausgabe aller Standardfamilien und drei begrenzter
   Reconciliation-Metriken; optionale Projektil- und Typfamilien erscheinen nur
   mit ihrem jeweiligen Schalter
@@ -200,11 +209,18 @@ Seit Phase 7 wartet der Smoke-Test auf einen erfolgreichen initialen
 Entity-Abgleich. Paper und Folia müssen für jede erfasste geladene Welt genau
 zehn `minecraft_entity_group_count`-Samples, die vier standardmäßigen
 Weltaggregate, die drei begrenzten Reconciliation-Familien und den laufenden
-Collectorstatus `entities` liefern. Die standardmäßig deaktivierten Familien
-`minecraft_entities` und `minecraft_world_projectiles` sowie Entity-Lifecycle-
-Counter müssen fehlen. Eine bestimmte positive Entityzahl wird nicht verlangt;
-Nullgruppen sind ein gültiger Stand. Logprüfungen schließen Threading-,
-Scheduler-, NMS- und interne API-Fehler ein.
+Collectorstatus `entities` liefern. Anschließend lädt der Test kontrolliert den
+Chunk `0/0`, erzeugt in der Standardwelt eine kurzlebige, markierte Area-Effect-
+Cloud und verlangt einen Anstieg der Gruppe `other` um mindestens eins. Nach der
+natürlichen Entfernung muss der Bestand wieder sinken. Damit kann ein fälschlich
+leerer Initialsnapshot nicht mehr bestehen. Die standardmäßig deaktivierten
+Familien `minecraft_entities` und `minecraft_world_projectiles` sowie Entity-
+Lifecycle-Counter müssen fehlen. Die vollständige Paper-/Folia-Logdatei wird
+präzise auf `Thread failed main thread check`,
+`Cannot getEntities asynchronously`, `Cannot getLoadedChunks asynchronously`,
+`not owned by current region`, TickThread-Stackframes sowie fehlerhafte Region-
+oder Entity-Scheduler-Callbacks geprüft. Eine beliebige
+`IllegalStateException` allein ist kein Fehlerkriterium.
 
 ## 7.4 Threading-Prüfungen
 
@@ -227,6 +243,9 @@ Scheduler-, NMS- und interne API-Fehler ein.
   Entitytyp, Welt und lauflokale Identität nur auf dem Entity Scheduler gelesen
 - Entity-Region- und Entitytasks warten nie blockierend aufeinander; Timeout,
   Commit und Scrape akzeptieren ausschließlich zurückgeführte immutable Werte
+- `World#getLoadedChunks()` ist gegen die zu Folia Build 8 gepinnte
+  `CraftWorld`-/concurrent-Chunk-Tabellen-Implementierung geprüft; der echte
+  Entity-Smoke-Test sichert diese Annahme zusätzlich gegen Threadchecks ab
 
 ## 7.5 Performance-Ziele
 
@@ -454,12 +473,19 @@ Produktionsverhalten bleibt unabhängig davon: Symlinks werden nie verfolgt.
 - Jede gültige Welt liefert zehn Gruppen und konsistente Nichtspieler-, Living-,
   Villager- und Itemaggregate. Projektilsumme und genaue Namespaced Typen sind
   getrennt und standardmäßig deaktiviert.
-- Lokale Welt-, Chunk- und Entityfehler werden isoliert; systemische Fehler und
-  Timeouts erhalten den letzten gültigen Stand. Ein erfolgreicher Leersnapshot
-  entfernt alle alten dynamischen Reihen.
+- Nur `SUCCESS` publiziert einen neuen Weltstand. `PARTIAL` und `UNAVAILABLE`
+  behalten einen vorherigen gültigen Wert oder lassen ohne Baseline alle Reihen
+  der Welt fehlen; eine fehlgeschlagene Initialerfassung erzeugt keine
+  Nullgruppen. Existieren Welten, aber keine ist belastbar erfassbar, scheitert
+  der Lauf systemisch. Eine erfolgreich erfasste leere Welt liefert zehn
+  Nullgruppen, eine tatsächlich leere Weltenliste entfernt alte Reihen.
 - Laufzeit, letzter Erfolg und Driftkorrekturen besitzen je eine unbeschriftete,
   begrenzte Familie. Zusätzliche Error- und Lifecycle-Counter wurden nicht
   eingeführt.
+- Fehlgeschlagene oder nur beibehaltene Welten aktualisieren weder Erfolgszeit
+  noch Dauer und erzeugen keine Nullkorrektur. Ursprüngliche Exceptions bleiben
+  Cause neutraler Wrapper; Reporterfehler verlassen keinen Minecraft-
+  Schedulerthread.
 - Konfigurations-, Klassifizierungs-, Snapshot-, Event-, Race-, Registry-,
   Lifecycle-, Paper-/Folia-Smoke- und Shadow-JAR-Prüfungen bilden die
   verpflichtende Abnahme. Phase 8 bleibt der nächste Umfang.

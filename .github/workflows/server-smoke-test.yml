@@ -95,6 +95,10 @@ jobs:
             '  filesystem-interval: "5s"' \
             '  filesystem-timeout: "2m"' \
             '' \
+            'entities:' \
+            '  reconciliation-interval: "1m"' \
+            '  reconciliation-timeout: "60s"' \
+            '' \
             'filesystem:' \
             '  include-world-sizes: true' \
             '  world-size-scan-concurrency: 1' \

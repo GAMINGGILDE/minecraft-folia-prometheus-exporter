@@ -2,16 +2,16 @@ package de.minecraftgilde.prometheus.minecraft.entity;
 
 import de.minecraftgilde.prometheus.minecraft.WorldLabel;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
 
 /** Complete immutable output of one distributed reconciliation scan. */
 record EntityScanResult(
     long runId,
-    Set<String> loadedWorlds,
-    Set<String> retainedWorlds,
+    Map<String, EntityWorldScanStatus> worldStatuses,
     List<EntityObservation> observations,
     Duration duration
 ) {
@@ -20,13 +20,7 @@ record EntityScanResult(
         if (runId < 1L) {
             throw new IllegalArgumentException("runId must be positive");
         }
-        loadedWorlds = normalizedWorlds(loadedWorlds);
-        retainedWorlds = normalizedWorlds(retainedWorlds);
-        if (!loadedWorlds.containsAll(retainedWorlds)) {
-            throw new IllegalArgumentException(
-                "Retained worlds must also be loaded worlds"
-            );
-        }
+        worldStatuses = normalizedWorldStatuses(worldStatuses);
         observations = List.copyOf(
             Objects.requireNonNull(observations, "observations")
         );
@@ -36,10 +30,26 @@ record EntityScanResult(
         }
     }
 
-    private static Set<String> normalizedWorlds(Set<String> worlds) {
-        Objects.requireNonNull(worlds, "worlds");
-        TreeSet<String> normalized = new TreeSet<>();
-        worlds.forEach(world -> normalized.add(WorldLabel.normalize(world)));
-        return Set.copyOf(normalized);
+    private static Map<String, EntityWorldScanStatus> normalizedWorldStatuses(
+        Map<String, EntityWorldScanStatus> statuses
+    ) {
+        Objects.requireNonNull(statuses, "worldStatuses");
+        Map<String, EntityWorldScanStatus> normalized = new LinkedHashMap<>();
+        statuses.entrySet()
+            .stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                String world = WorldLabel.normalize(entry.getKey());
+                EntityWorldScanStatus previous = normalized.put(
+                    world,
+                    Objects.requireNonNull(entry.getValue(), "world status")
+                );
+                if (previous != null) {
+                    throw new IllegalArgumentException(
+                        "Duplicate normalized entity world"
+                    );
+                }
+            });
+        return Collections.unmodifiableMap(normalized);
     }
 }

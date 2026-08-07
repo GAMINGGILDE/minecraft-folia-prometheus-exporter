@@ -255,6 +255,18 @@ Status: abgeschlossen.
   Eventjournal für race-sichere Scan-/Event-/Commit-Zusammenführung
 - lokale Fehlerisolation sowie Erhalt des letzten Standes bei systemischem
   Fehler, Timeout oder Stop
+- explizite Weltzustände `SUCCESS`, `PARTIAL` und `UNAVAILABLE`: nur vollständige
+  Welterfassung publiziert neu; fehlende Baseline erzeugt keine künstlichen
+  Nullreihen, während eine erfolgreich erfasste leere Welt zehn Nullgruppen
+  behält
+- ein Lauf mit existierenden, aber ausschließlich nicht belastbar erfassbaren
+  Welten gilt als fehlgeschlagen; nur eine tatsächlich leere Weltenliste
+  publiziert erfolgreich den leeren Snapshot
+- erneuter Implementierungsnachweis für den globalen
+  `World#getLoadedChunks()`-Topologiezugriff in den gepinnten Paper-/Folia-
+  Serverquellen sowie echter Entity-Lebenszyklus-Smoke-Test auf beiden Plattformen
+- neutrale Fehlerwrapper mit erhaltener Cause-Kette und deterministische Tests
+  für lokale Fehler, Retire, Timeout, Stop und verspätete Callbacks
 - begrenzte Laufzeit-, Erfolgszeitpunkt- und Korrekturmetriken ohne Welt- oder
   Fehlerlabels
 - Konfigurations-, Klassifizierungs-, Snapshot-, Event-, Parallelitäts-,

@@ -5,13 +5,14 @@ set -Eeuo pipefail
 server_directory="${1:?Usage: server-smoke-test.sh <server-directory>}"
 activation_marker="FoliaPrometheusExporter started."
 failure_pattern="(Could not load|Failed to load|Error occurred while (loading|enabling)|Could not pass event).*FoliaPrometheusExporter|Task .*FoliaPrometheusExporter.*exception|FoliaPrometheusExporter.*(Exception|ERROR|SEVERE)|Exception.*FoliaPrometheusExporter"
-thread_failure_pattern="(AsyncCatcher|Thread check failed|not (the )?tick thread|not owned by (the )?current region|IllegalStateException:.*(region|thread))"
+thread_failure_pattern="(AsyncCatcher|Thread (check failed|failed main thread check)|Cannot getEntities asynchronously|Cannot getLoadedChunks asynchronously|not (the )?tick thread|not owned by (the )?current region|IllegalStateException:.*(region|thread)|[[:space:]]at .*TickThread|((Region|Entity) Scheduler.*(exception|failed|error))|((exception|failed|error).*(Region|Entity) Scheduler))"
 event_failure_pattern="Could not pass event|EventException|IllegalPluginAccessException|(Unable|Failed|Could not) to register event|duplicate(d)? listener|listener.*already registered|(deprecated|deprecation).*(exception|error|fail)|(exception|error|fail).*(deprecated|deprecation)"
 linkage_failure_pattern="(NoClassDefFoundError|ClassNotFoundException|LinkageError).*(FoliaPrometheusExporter|de\\.minecraftgilde\\.prometheus)|(FoliaPrometheusExporter|de\\.minecraftgilde\\.prometheus).*(NoClassDefFoundError|ClassNotFoundException|LinkageError)"
 folia_unsupported_warning="The Folia collector is enabled, but the public Server#getRegionTPS(World,int,int) capability is unavailable; the collector is unsupported and no Folia metrics will be registered."
 startup_timeout_seconds=240
 shutdown_timeout_seconds=120
 snapshot_timeout_seconds=90
+entity_timeout_seconds=90
 server_pid=""
 
 server_directory="$(cd "$server_directory" && pwd)"
@@ -153,6 +154,100 @@ if [[ "$ready_response" != "ready" ]]; then
   echo "Unexpected /ready response: $ready_response" >&2
   exit 1
 fi
+
+entity_group_value() {
+  local world="$1"
+  local group="$2"
+  awk -v expected_world="$world" -v expected_group="$group" '
+    /^minecraft_entity_group_count\{/ {
+      if (index($1, "world=\"" expected_world "\"") > 0 \
+          && index($1, "group=\"" expected_group "\"") > 0) {
+        print $2
+        exit
+      }
+    }
+  ' <<<"$metrics_response"
+}
+
+refresh_metrics() {
+  metrics_response="$(curl --fail --silent --show-error --max-time 10 \
+    "$exporter_base_url/metrics")"
+}
+
+smoke_world="world"
+smoke_group="other"
+printf '%s\n' 'forceload add 0 0' >&3
+
+stable_value=""
+stable_reads=0
+stability_deadline=$((SECONDS + 30))
+while ((SECONDS < stability_deadline)); do
+  refresh_metrics
+  current_value="$(entity_group_value "$smoke_world" "$smoke_group")"
+  if [[ -n "$current_value" ]] && [[ "$current_value" == "$stable_value" ]]; then
+    stable_reads=$((stable_reads + 1))
+  else
+    stable_value="$current_value"
+    stable_reads=1
+  fi
+  if [[ -n "$stable_value" ]] && [[ "$stable_reads" -ge 3 ]]; then
+    break
+  fi
+  sleep 1
+done
+
+if [[ -z "$stable_value" ]] || [[ "$stable_reads" -lt 3 ]]; then
+  echo "Could not establish a stable entity baseline for world '$smoke_world'." >&2
+  exit 1
+fi
+
+baseline_entity_group_value="$stable_value"
+printf '%s\n' 'execute in minecraft:overworld run summon minecraft:area_effect_cloud 0 100 0 {Duration:200,WaitTime:0,Radius:0.1f,Tags:["folia_prometheus_smoke"]}' >&3
+
+spawn_observed=false
+entity_deadline=$((SECONDS + entity_timeout_seconds))
+while ((SECONDS < entity_deadline)); do
+  refresh_metrics
+  current_value="$(entity_group_value "$smoke_world" "$smoke_group")"
+  if [[ -n "$current_value" ]] && awk \
+    -v current="$current_value" \
+    -v baseline="$baseline_entity_group_value" \
+    'BEGIN { exit ((current + 0) >= (baseline + 1)) ? 0 : 1 }'; then
+    spawned_entity_group_value="$current_value"
+    spawn_observed=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$spawn_observed" != true ]]; then
+  echo "The controlled area-effect cloud was not observed in the 'other' entity group." >&2
+  exit 1
+fi
+
+removal_observed=false
+entity_deadline=$((SECONDS + entity_timeout_seconds))
+while ((SECONDS < entity_deadline)); do
+  refresh_metrics
+  current_value="$(entity_group_value "$smoke_world" "$smoke_group")"
+  if [[ -n "$current_value" ]] && awk \
+    -v current="$current_value" \
+    -v spawned="$spawned_entity_group_value" \
+    'BEGIN { exit ((current + 0) < (spawned + 0)) ? 0 : 1 }'; then
+    removal_observed=true
+    break
+  fi
+  sleep 1
+done
+
+printf '%s\n' 'forceload remove 0 0' >&3
+
+if [[ "$removal_observed" != true ]]; then
+  echo "The controlled area-effect cloud expiration was not reflected in entity metrics." >&2
+  exit 1
+fi
+
+echo "Controlled non-player entity addition and removal confirmed."
 
 for required_metric in \
   minecraft_exporter_build_info \

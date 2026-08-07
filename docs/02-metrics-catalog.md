@@ -207,9 +207,13 @@ Phase 7 implementiert `minecraft_entity_group_count` standardmäßig und
 Lifecycle-Counter bleiben unimplementiert.
 
 Gezählt werden aktuell geladene Nichtspieler-Entities. Persistierte Entities in
-entladenen Chunks werden nicht für Metriken geladen. Für jede erfolgreich
-erfasste geladene Welt enthält `minecraft_entity_group_count` alle zehn Gruppen,
-auch mit Wert null. Die Gesamtzahl ist exakt die Summe dieser Gruppen.
+entladenen Chunks werden nicht für Metriken geladen. Für jede vollständig
+erfolgreich erfasste geladene Welt enthält `minecraft_entity_group_count` alle
+zehn Gruppen, auch mit Wert null. Die Gesamtzahl ist exakt die Summe dieser
+Gruppen. Eine teilweise oder gar nicht erfasste Welt behält ausschließlich einen
+vorherigen gültigen Wert; ohne einen solchen Wert fehlen sämtliche Entityreihen
+dieser Welt. Damit unterscheidet der Exporter erfolgreich leer von technisch
+nicht erfasst.
 
 Definitionen:
 
@@ -225,6 +229,11 @@ Die Klassifizierungspriorität ist `villager`, `item`, `projectile`, `vehicle`,
 werden dafür nur öffentliche Bukkit-Interfaces und `EntityType` verwendet.
 Spieler werden vor der Klassifizierung ausgeschlossen. Unbekannte Typen ergeben
 `other`.
+
+Bewusst in `other` liegen unter anderem Armor Stand, Interaction, Marker,
+Falling Block, Experience Orb, Area Effect Cloud, End Crystal, Leash Knot,
+Painting sowie normale und leuchtende Item Frames. Block-, Item- und Text-
+Displays liegen dagegen über das öffentliche `Display`-Interface in `display`.
 
 Der optionale Typwert ist der vollständige kleingeschriebene öffentliche
 Namespaced Key, beispielsweise `minecraft:zombie`. `UNKNOWN`, fehlende oder
@@ -571,6 +580,16 @@ Der Initialabgleich zählt keine Korrekturen. Eine zusätzliche Entity-Fehlerfam
 wird nicht registriert; Laufzeitfehler werden rate-limitiert gemeldet und der
 Lifecycle über `minecraft_exporter_collector_state{collector="entities",...}`
 abgebildet.
+
+Eine Korrektur zählt jede numerisch abweichende feste Gruppe, Gesamt-, Living-,
+Villager-, Item- oder aktivierte genaue Typreihe zwischen dem gültigen
+eventbasierten Stand direkt vor Commit und einer erfolgreich vollständig
+erfassten Welt. Der Initiallauf zählt keine Korrekturen. `PARTIAL`- und
+`UNAVAILABLE`-Welten werden beibehalten oder ausgelassen und erzeugen daher keine
+Nullkorrektur. Das Entfernen einer nachweislich nicht mehr geladenen Welt in
+einem erfolgreichen Lauf zählt die dadurch tatsächlich geänderten numerischen
+Reihen. Fehlgeschlagene Läufe verändern weder Dauer noch letzten
+Erfolgszeitpunkt.
 
 ## 2.13 Verbotene Metriken
 
