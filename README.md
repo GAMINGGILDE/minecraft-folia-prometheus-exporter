@@ -4,6 +4,7 @@
        width="360">
 </p>
 
+# FoliaPrometheusExporter
 
 FoliaPrometheusExporter ist ein Prometheus-Exporter für Paper und Folia. Das
 Plugin stellt aggregierte Minecraft-, JVM-, Prozess- und Exporter-Metriken über

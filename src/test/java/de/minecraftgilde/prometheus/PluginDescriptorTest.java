@@ -17,7 +17,7 @@ class PluginDescriptorTest {
         String descriptor = resourceText("plugin.yml");
 
         assertTrue(descriptor.contains("name: FoliaPrometheusExporter"));
-        assertTrue(descriptor.contains("version: '0.1.0-SNAPSHOT'"));
+        assertTrue(descriptor.contains("version: '1.0.0'"));
         assertTrue(descriptor.contains("main: de.minecraftgilde.prometheus.ExporterPlugin"));
         assertTrue(descriptor.contains("api-version: '26.1.2'"));
         assertTrue(descriptor.contains("folia-supported: true"));

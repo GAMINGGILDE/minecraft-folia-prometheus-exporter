@@ -15,7 +15,7 @@ Serverartefakt der API-Linie 26.1.2:
 Die Download-URL wird über den offiziellen PaperMC Downloads Service für die
 festgelegte Projekt-, Versions- und Build-Kombination ermittelt. Metadaten- und
 Artefaktanfrage senden den User-Agent
-`minecraft-folia-prometheus-exporter-ci/0.1.0`
+`minecraft-folia-prometheus-exporter-ci/1.0.0`
 mit der Repository-URL als Kontaktangabe. Die Prüfsumme wird vor dem Start
 verifiziert. Eine dynamische Latest-Auswahl ist ausgeschlossen.
 

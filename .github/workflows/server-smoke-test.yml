@@ -54,7 +54,7 @@ jobs:
           PAPERMC_VERSION: ${{ matrix.version }}
           PAPERMC_BUILD: ${{ matrix.build }}
           PAPERMC_SHA256: ${{ matrix.sha256 }}
-          PAPERMC_USER_AGENT: "minecraft-folia-prometheus-exporter-ci/0.1.0 (https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter)"
+          PAPERMC_USER_AGENT: "minecraft-folia-prometheus-exporter-ci/1.0.0 (https://github.com/GAMINGGILDE/minecraft-folia-prometheus-exporter)"
           SERVER_DIRECTORY: smoke/${{ matrix.project }}
         run: |
           set -euo pipefail

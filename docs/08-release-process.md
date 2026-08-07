@@ -18,10 +18,9 @@ Die Version stammt ausschließlich aus `projectVersion` in
 Beispiel `v1.2.3` für `projectVersion=1.2.3`. Der Workflow lehnt abweichende Tags
 und Versionen mit dem Suffix `-SNAPSHOT` ab.
 
-Die aktuelle Entwicklungsversion bleibt bewusst `0.1.0-SNAPSHOT`. Vor dem ersten
-Release ist daher eine ausdrückliche Projektentscheidung über die Releaseversion
-und eine separate Änderung von `projectVersion` erforderlich. Der
-Releaseworkflow erfindet oder überschreibt keine Versionsnummer.
+Eine Releaseversion wird vor dem Taggen bewusst in `projectVersion` gesetzt und
+als eigene Änderung geprüft. Der Releaseworkflow erfindet oder überschreibt
+keine Versionsnummer.
 
 ## 8.2 Ablauf
 
