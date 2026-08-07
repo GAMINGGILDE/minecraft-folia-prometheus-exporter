@@ -1,5 +1,3 @@
-<img width="145" height="150" alt="folia-prometheus-exporter-wordmark-close-transparent-theme" src="https://github.com/user-attachments/assets/977539c9-5c2d-4d3c-9f0c-2c3250b02d1e" />
-
 # FoliaPrometheusExporter
 
 Repository: `minecraft-folia-prometheus-exporter`
